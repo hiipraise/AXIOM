@@ -1,0 +1,12 @@
+{
+  "name": "axiom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AXIOM — AI CV/Resume Generator monorepo",
+  "scripts": {
+    "dev": "docker-compose up --build",
+    "stop": "docker-compose down",
+    "logs": "docker-compose logs -f",
+    "clean": "docker-compose down -v --remove-orphans"
+  }
+}

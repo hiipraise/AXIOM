@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: axiom_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-axiom}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-axiom_secret}
+      MONGO_INITDB_DATABASE: axiom
+    volumes:
+      - mongo_data:/data/db
+      - ./backend/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - axiom_net
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/axiom --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: axiom_backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-axiom}:${MONGO_PASSWORD:-axiom_secret}@mongodb:27017/axiom?authSource=admin
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey_change_in_prod_NOW}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-hiipraise}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-info.praisechined@gmail.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-password123}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - axiom_net
+    volumes:
+      - ./backend:/app
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: axiom_frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - axiom_net
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+
+volumes:
+  mongo_data:
+
+networks:
+  axiom_net:
+    driver: bridge
