@@ -13,7 +13,7 @@ interface Rating {
 export default function AdminRatings() {
   const { data: ratings = [], isLoading } = useQuery<Rating[]>({
     queryKey: ['admin-ratings'],
-    queryFn: adminApi.ratings,
+    queryFn: () => adminApi.ratings(),
   })
 
   const avg = ratings.length > 0 ? (ratings.reduce((s, r) => s + r.score, 0) / ratings.length).toFixed(2) : null
