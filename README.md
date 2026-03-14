@@ -6,7 +6,7 @@ Zero-cliché, ATS-safe, AI-powered CV generator.
 - **Frontend**: React + TypeScript + Tailwind CSS (Vite)
 - **Backend**: Python + FastAPI
 - **Database**: MongoDB
-- **AI**: Anthropic Claude (claude-sonnet-4-20250514)
+- **AI**: Groq (llama-3.1-8b-instant, free tier)
 - **PDF**: ReportLab + QR code verification
 
 ---
@@ -16,7 +16,7 @@ Zero-cliché, ATS-safe, AI-powered CV generator.
 ### 1. Clone and configure
 ```bash
 cp .env.example .env
-# Edit .env — set ANTHROPIC_API_KEY at minimum
+# Edit .env — set GROQ_API_KEY at minimum
 ```
 
 ### 2. Run with Docker Compose
@@ -61,7 +61,7 @@ npm run dev
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key (required) |
+| `GROQ_API_KEY` | Your Groq API key (required) |
 | `MONGO_URL` | MongoDB connection string |
 | `JWT_SECRET` | Change this in production |
 | `FRONTEND_URL` | Used for QR code URLs in PDFs |

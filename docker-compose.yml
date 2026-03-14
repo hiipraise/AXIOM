@@ -31,7 +31,7 @@ services:
     environment:
       - MONGO_URL=mongodb://${MONGO_USERNAME:-axiom}:${MONGO_PASSWORD:-axiom_secret}@mongodb:27017/axiom?authSource=admin
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey_change_in_prod_NOW}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-hiipraise}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-info.praisechined@gmail.com}
