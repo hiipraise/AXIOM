@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change_me_in_production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
-    anthropic_api_key: str = ""
+    groq_api_key: str = ""
     frontend_url: str = "http://localhost:5173"
     admin_username: str = "hiipraise"
     admin_email: str = "info.praisechined@gmail.com"

@@ -2,8 +2,10 @@
 import anthropic
 import json
 from typing import Optional
+
+from groq import Groq
+
 from app.config import settings
-from app.models.schemas import CVData
 
 BANNED_WORDS = [
     "versatile", "passionate", "dynamic", "modern", "scalable", "specialize",
@@ -14,8 +16,8 @@ BANNED_WORDS = [
     "go-getter", "self-starter", "proactive", "solution-oriented",
 ]
 
-SYSTEM_PROMPT = """You are AXIOM, an expert CV writer. Your job is to produce truthful, 
-evidence-based, ATS-safe resume content. 
+SYSTEM_PROMPT = """You are AXIOM, an expert CV writer. Your job is to produce truthful,
+evidence-based, ATS-safe resume content.
 
 STRICT RULES:
 1. NEVER use these words or phrases: """ + ", ".join(f'"{w}"' for w in BANNED_WORDS) + """
@@ -29,31 +31,39 @@ STRICT RULES:
 
 When generating JSON, return ONLY valid JSON with no markdown fences or explanations."""
 
+MODEL_NAME = "llama-3.1-8b-instant"
+
 
 def get_client():
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return Groq(api_key=settings.groq_api_key)
+
+
+def _create_completion(system_prompt: str, messages: list, max_tokens: int) -> str:
+    client = get_client()
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "system", "content": system_prompt}, *messages],
+        max_tokens=max_tokens,
+        temperature=0.2,
+    )
+    return (response.choices[0].message.content or "").strip()
 
 
 async def chat_with_ai(message: str, cv_data: Optional[dict] = None, context: str = "") -> str:
-    client = get_client()
-    
     user_content = message
     if cv_data:
         user_content = f"Current CV data:\n{json.dumps(cv_data, indent=2)}\n\nUser message: {message}"
     if context:
         user_content = f"Context: {context}\n\n{user_content}"
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    return _create_completion(
+        SYSTEM_PROMPT,
+        [{"role": "user", "content": user_content}],
         max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}],
     )
-    return response.content[0].text
 
 
 async def generate_summary(cv_data: dict) -> str:
-    client = get_client()
     prompt = f"""Based on this person's career data, write a professional summary of 3-4 sentences.
 Be specific and concrete. Use their actual job titles, years of experience, and real skills.
 Do not use any filler words.
@@ -63,17 +73,14 @@ CV Data:
 
 Return ONLY the summary text, nothing else."""
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    return _create_completion(
+        SYSTEM_PROMPT,
+        [{"role": "user", "content": prompt}],
         max_tokens=500,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text.strip()
 
 
 async def improve_cv_section(instruction: str, cv_data: dict, section: Optional[str] = None) -> dict:
-    client = get_client()
     section_hint = f" Focus on the '{section}' section." if section else ""
     prompt = f"""Apply this instruction to the CV and return the updated FULL cv_data JSON.{section_hint}
 
@@ -84,13 +91,11 @@ Current CV:
 
 Return ONLY the updated JSON object matching the exact same schema. No markdown, no explanation."""
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    text = _create_completion(
+        SYSTEM_PROMPT,
+        [{"role": "user", "content": prompt}],
         max_tokens=3000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
     )
-    text = response.content[0].text.strip()
     # Strip markdown fences if present
     if text.startswith("```"):
         lines = text.split("\n")
@@ -99,7 +104,6 @@ Return ONLY the updated JSON object matching the exact same schema. No markdown,
 
 
 async def match_job_description(cv_data: dict, job_description: str) -> dict:
-    client = get_client()
     prompt = f"""Align this CV's language and emphasis to match the job description below.
 Rules:
 - Do NOT fabricate experience or skills
@@ -116,13 +120,11 @@ Current CV:
 
 Return ONLY the updated JSON object. No markdown, no explanation."""
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    text = _create_completion(
+        SYSTEM_PROMPT,
+        [{"role": "user", "content": prompt}],
         max_tokens=3000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
     )
-    text = response.content[0].text.strip()
     if text.startswith("```"):
         lines = text.split("\n")
         text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
@@ -130,7 +132,6 @@ Return ONLY the updated JSON object. No markdown, no explanation."""
 
 
 async def extract_cv_from_text(raw_text: str) -> dict:
-    client = get_client()
     prompt = f"""Extract structured CV data from the following text and return it as JSON.
 Match this exact schema:
 {{
@@ -152,13 +153,11 @@ CV Text:
 
 Return ONLY valid JSON. No markdown, no explanation."""
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    text = _create_completion(
+        SYSTEM_PROMPT,
+        [{"role": "user", "content": prompt}],
         max_tokens=4000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
     )
-    text = response.content[0].text.strip()
     if text.startswith("```"):
         lines = text.split("\n")
         text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
@@ -167,8 +166,6 @@ Return ONLY valid JSON. No markdown, no explanation."""
 
 async def interview_user(message: str, conversation_history: list) -> str:
     """AI interview mode to gather CV details through natural conversation."""
-    client = get_client()
-    
     system = SYSTEM_PROMPT + """
 
 You are in INTERVIEW MODE. Your goal is to gather detailed, specific information for a CV.
@@ -182,11 +179,5 @@ After gathering enough information, offer to generate a CV section.
 Never ask more than one question per message."""
 
     messages = conversation_history + [{"role": "user", "content": message}]
-    
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=800,
-        system=system,
-        messages=messages,
-    )
-    return response.content[0].text
+
+    return _create_completion(system, messages, max_tokens=800)
