@@ -11,7 +11,7 @@ const slide = {
   initial:  { opacity: 0, x: 12 },
   animate:  { opacity: 1, x: 0,  transition: { duration: 0.22, ease: 'easeOut' } },
   exit:     { opacity: 0, x: -12, transition: { duration: 0.16, ease: 'easeIn' } },
-}
+} as const
 
 export default function ForgotPage() {
   const [mode, setMode]                 = useState<Mode>('username')
