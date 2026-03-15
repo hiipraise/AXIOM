@@ -6,16 +6,17 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import { authApi } from './api'
 import { useAuthStore } from './store/auth'
+import { usePageTracking } from './components/admin/useAnalytics'
+import AnnouncementBanner from './components/AnnouncementBanner'
 import './index.css'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
 
-/**
- * Bootstrap: call /auth/me once on startup.
- * If the httpOnly cookie is present and valid, the backend returns the user.
- * If not (logged out / cookie expired), it returns 401 which the interceptor
- * handles by dispatching axiom:logout → clearAuth().
- */
+function AppWithTracking() {
+  usePageTracking()
+  return <App />
+}
+
 async function bootstrap() {
   try {
     const user = await authApi.me()
@@ -30,7 +31,9 @@ bootstrap().then(() => {
     <React.StrictMode>
       <QueryClientProvider client={qc}>
         <BrowserRouter>
-          <App />
+          {/* Banner renders once here — z-[60], fixed top-0, above everything */}
+          <AnnouncementBanner />
+          <AppWithTracking />
           <Toaster
             position="top-right"
             toastOptions={{

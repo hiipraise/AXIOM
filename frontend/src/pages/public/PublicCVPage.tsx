@@ -1,52 +1,56 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { publicApi, exportApi } from '../../api'
+import { publicApi, exportApi, api } from '../../api'
 import { CVData } from '../../types'
 import { Download, ArrowLeft, Globe } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface PublicCV {
-  id: string
-  owner_username: string
-  title: string
-  data: CVData
-  theme: string
-  updated_at: string
+  id: string; owner_username: string; title: string
+  data: CVData; theme: string; updated_at: string
 }
 
 const THEME_ACCENT: Record<string, string> = {
   minimal: '#0F172A', classic: '#1E3A5F', sharp: '#DC2626',
 }
 
+const BANNER_H = 32
+
+function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-6">
+      <p className="text-xs font-bold tracking-widest uppercase mb-1.5" style={{ color: accent }}>{title}</p>
+      <div className="border-t mb-3" style={{ borderColor: '#E2E8F0' }} />
+      {children}
+    </div>
+  )
+}
+
 export default function PublicCVPage() {
   const { username, slug } = useParams<{ username: string; slug: string }>()
   const navigate = useNavigate()
 
+  const { data: ann } = useQuery({ queryKey: ['announcement-active'], queryFn: () => api.get('/announcements/active').then(r => r.data), staleTime: 60_000 })
+  const bannerH = ann?.active ? BANNER_H : 0
+
   const { data: cv, isLoading, error } = useQuery<PublicCV>({
     queryKey: ['public-cv', username, slug],
-    queryFn: () => publicApi.getCV(username!, slug!),
+    queryFn:  () => publicApi.getCV(username!, slug!),
   })
 
   const handleDownload = async () => {
     try {
       const blob = await exportApi.downloadPublicPDF(username!, slug!)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
       a.href = url
       a.download = `${cv?.data.personal_info.full_name || username}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Download failed')
-    }
+    } catch { toast.error('Download failed') }
   }
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-ash flex items-center justify-center">
-      <p className="text-sm text-ink-muted animate-pulse">Loading CV…</p>
-    </div>
-  )
-
+  if (isLoading) return <div className="min-h-screen bg-ash flex items-center justify-center"><p className="text-sm text-ink-muted animate-pulse">Loading CV…</p></div>
   if (error || !cv) return (
     <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">
       <p className="text-sm text-ink">CV not found or not public</p>
@@ -59,14 +63,13 @@ export default function PublicCVPage() {
 
   return (
     <div className="min-h-screen bg-ash">
-      {/* Top bar */}
-      <div className="bg-white border-b border-ash-border px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Back */}
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
-          >
+      {/* Top bar — sticky, sits below announcement banner */}
+      <div
+        className="bg-white border-b border-ash-border px-6 py-3 flex items-center justify-between sticky z-30"
+        style={{ top: bannerH }}
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">
             <ArrowLeft size={13} /> Back
           </button>
           <span className="text-ash-border text-xs">|</span>
@@ -74,15 +77,10 @@ export default function PublicCVPage() {
           <span className="text-ash-border text-xs">|</span>
           <div className="flex items-center gap-1.5 text-xs text-ink-muted">
             <Globe size={12} />
-            <Link to={`/profile/${username}`} className="hover:text-ink transition-colors">
-              @{username}
-            </Link>
+            <Link to={`/profile/${username}`} className="hover:text-ink transition-colors">@{username}</Link>
           </div>
         </div>
-        <button
-          onClick={handleDownload}
-          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light transition-colors"
-        >
+        <button onClick={handleDownload} className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light transition-colors">
           <Download size={13} /> Download PDF
         </button>
       </div>
@@ -90,20 +88,13 @@ export default function PublicCVPage() {
       {/* CV Document */}
       <div className="max-w-[700px] mx-auto my-8 bg-white shadow-sm rounded-xl overflow-hidden">
         <div className="p-12" style={{ fontFamily: 'Helvetica, Arial, sans-serif', color: '#111111' }}>
-          {/* Header */}
           <h1 className="text-3xl font-bold mb-1" style={{ color: acc }}>{pi.full_name || username}</h1>
           {pi.job_title && <p className="text-sm mb-3" style={{ color: '#555' }}>{pi.job_title}</p>}
           <div className="text-xs flex flex-wrap gap-x-4 gap-y-1 pb-3 mb-3" style={{ color: '#555', borderBottom: `2px solid ${acc}` }}>
-            {[pi.email, pi.phone, pi.location, pi.linkedin, pi.github, pi.portfolio].filter(Boolean).map((c, i) => (
-              <span key={i}>{c}</span>
-            ))}
+            {[pi.email, pi.phone, pi.location, pi.linkedin, pi.github, pi.portfolio].filter(Boolean).map((c, i) => <span key={i}>{c}</span>)}
           </div>
 
-          {cv.data.summary && (
-            <Section title="PROFILE" accent={acc}>
-              <p className="text-sm leading-relaxed">{cv.data.summary}</p>
-            </Section>
-          )}
+          {cv.data.summary && <Section title="PROFILE" accent={acc}><p className="text-sm leading-relaxed">{cv.data.summary}</p></Section>}
 
           {cv.data.experience.length > 0 && (
             <Section title="EXPERIENCE" accent={acc}>
@@ -134,11 +125,7 @@ export default function PublicCVPage() {
             </Section>
           )}
 
-          {cv.data.skills.length > 0 && (
-            <Section title="SKILLS" accent={acc}>
-              <p className="text-sm">{cv.data.skills.join(', ')}</p>
-            </Section>
-          )}
+          {cv.data.skills.length > 0 && <Section title="SKILLS" accent={acc}><p className="text-sm">{cv.data.skills.join(', ')}</p></Section>}
 
           {cv.data.certifications.length > 0 && (
             <Section title="CERTIFICATIONS" accent={acc}>
@@ -176,16 +163,6 @@ export default function PublicCVPage() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
-  return (
-    <div className="mt-6">
-      <p className="text-xs font-bold tracking-widest uppercase mb-1.5" style={{ color: accent }}>{title}</p>
-      <div className="border-t mb-3" style={{ borderColor: '#E2E8F0' }} />
-      {children}
     </div>
   )
 }

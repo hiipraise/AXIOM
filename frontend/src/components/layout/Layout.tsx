@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
 import { Plus, LogOut, Settings, LayoutDashboard, Shield, Compass, Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/auth'
-import { authApi } from '../../api'
+import { authApi, api } from '../../api'
 import clsx from 'clsx'
-import toast from 'react-hot-toast'
+
+const BANNER_H = 32
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -19,11 +21,7 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
   const isAdmin             = user && ['admin', 'superadmin', 'staff'].includes(user.role)
 
   const handleLogout = async () => {
-    try {
-      await authApi.logout()   // ← tells backend to delete the cookie
-    } catch {
-      // ignore — clear client state regardless
-    }
+    try { await authApi.logout() } catch {}
     clearAuth()
     navigate('/')
   }
@@ -41,17 +39,13 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={onNav}
+          <NavLink key={to} to={to} onClick={onNav}
             className={({ isActive }) =>
               clsx('flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all',
                 isActive ? 'bg-ink text-white' : 'text-ink-muted hover:bg-ash hover:text-ink')
             }
           >
-            <Icon size={15} />
-            {label}
+            <Icon size={15} /> {label}
           </NavLink>
         ))}
 
@@ -59,21 +53,17 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
           onClick={() => { navigate('/cv/new'); onNav?.() }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted hover:bg-ash hover:text-ink transition-all"
         >
-          <Plus size={15} />
-          New CV
+          <Plus size={15} /> New CV
         </button>
 
         {isAdmin && (
-          <NavLink
-            to="/admin"
-            onClick={onNav}
+          <NavLink to="/admin" onClick={onNav}
             className={({ isActive }) =>
               clsx('flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all',
                 isActive ? 'bg-ink text-white' : 'text-ink-muted hover:bg-ash hover:text-ink')
             }
           >
-            <Shield size={15} />
-            Admin
+            <Shield size={15} /> Admin
           </NavLink>
         )}
       </nav>
@@ -92,8 +82,7 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
           onClick={handleLogout}
           className="w-full flex items-center gap-2 text-xs text-ink-muted hover:text-red-600 transition-colors py-1"
         >
-          <LogOut size={12} />
-          Sign out
+          <LogOut size={12} /> Sign out
         </button>
       </div>
     </>
@@ -103,19 +92,37 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
 export default function Layout() {
   const [open, setOpen] = useState(false)
 
+  // Reads from React Query cache — no extra request (AnnouncementBanner already fetched it)
+  const { data: ann } = useQuery({
+    queryKey: ['announcement-active'],
+    queryFn:  () => api.get('/announcements/active').then(r => r.data),
+    staleTime: 60_000,
+  })
+  const bannerH = ann?.active ? BANNER_H : 0
+
   return (
     <div className="min-h-screen bg-ash flex">
-      <aside className="hidden md:flex w-56 bg-white border-r border-ash-border flex-col fixed h-full z-20">
+
+      {/* Desktop sidebar — top offset by banner */}
+      <aside
+        className="hidden md:flex w-56 bg-white border-r border-ash-border flex-col fixed z-20"
+        style={{ top: bannerH, bottom: 0 }}
+      >
         <SidebarContent />
       </aside>
 
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between">
+      {/* Mobile top bar — sits below the banner */}
+      <div
+        className="md:hidden fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between"
+        style={{ top: bannerH }}
+      >
         <Link to="/" className="font-display text-lg font-bold text-ink tracking-tight">AXIOM</Link>
         <button onClick={() => setOpen(true)} className="p-2 text-ink-muted hover:text-ink transition-colors">
           <Menu size={20} />
         </button>
       </div>
 
+      {/* Mobile drawer — full screen overlay, covers banner intentionally */}
       <AnimatePresence>
         {open && (
           <>
@@ -139,8 +146,15 @@ export default function Layout() {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 md:ml-56 min-h-screen pt-14 md:pt-0">
-        <Outlet />
+      {/* Main — paddingTop = banner + mobile navbar (56px) on mobile, banner only on desktop */}
+      <main
+        className="flex-1 md:ml-56 min-h-screen"
+        style={{ paddingTop: bannerH + 56 }}  // 56 = h-14 mobile bar; desktop has no top bar
+      >
+        {/* Remove the mobile top-bar padding on md+ */}
+        <div className="md:-mt-14">
+          <Outlet />
+        </div>
       </main>
     </div>
   )
