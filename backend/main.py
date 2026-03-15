@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database import connect_db, close_db, init_admin
-from app.routers import auth, cv, export, admin, public
+from app.routers import auth, cv, export, admin, public, analytics, feedback, announcements
 
 
 @asynccontextmanager
@@ -34,6 +34,9 @@ app.include_router(cv.router, prefix="/api/cv", tags=["CV"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(public.router, prefix="/api/public", tags=["Public"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
+app.include_router(announcements.router, prefix="/api/announcements", tags=["Announcements"])
 
 
 @app.get("/health")
