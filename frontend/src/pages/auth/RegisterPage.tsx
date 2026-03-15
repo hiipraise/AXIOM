@@ -40,7 +40,7 @@ export default function RegisterPage() {
       if (form.secret_question) payload.secret_question = form.secret_question
       if (form.secret_answer)   payload.secret_answer   = form.secret_answer
       const res = await authApi.register(payload)
-      setAuth(res.user, res.token)
+      setAuth(res.user)
       toast.success('Account created!')
       navigate('/dashboard')
     } catch (err: any) {

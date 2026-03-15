@@ -40,7 +40,7 @@ function StatCard({
 }: {
   label: string
   value: string | number | undefined
-  icon: React.ComponentType<{ size?: number; className?: string }>
+  icon: React.ComponentType<{ size?: string | number; className?: string }>
   sub?: string
 }) {
   return (
