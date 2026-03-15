@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cvApi, exportApi } from '../../api'
 import { CV, CVData, EMPTY_CV_DATA } from '../../types'
 import toast from 'react-hot-toast'
 import {
   Save, Download, Sparkles, ChevronLeft, Globe, Lock, Star,
-  Briefcase, GraduationCap, Award, FolderOpen,
-  Languages, Heart, User, AlignLeft, Wrench, History, Eye
+  Briefcase, GraduationCap, Award, FolderOpen, Menu, X,
+  Languages, Heart, User, AlignLeft, Wrench, History, Eye,
 } from 'lucide-react'
 
 import PersonalInfoSection   from '../../components/cv/PersonalInfoSection'
@@ -38,10 +39,59 @@ const SECTIONS = [
   { id: 'volunteer',      label: 'Volunteer',       icon: Heart },
 ]
 
+// ─── Mobile bottom-sheet section picker ──────────────────────────────────────
+function SectionDrawer({
+  activeSection,
+  onSelect,
+  onClose,
+}: {
+  activeSection: string
+  onSelect: (id: string) => void
+  onClose: () => void
+}) {
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 bg-black/40 z-40 md:hidden"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden"
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border">
+          <p className="font-semibold text-sm text-ink">Sections</p>
+          <button onClick={onClose}><X size={16} className="text-ink-muted" /></button>
+        </div>
+        <div className="overflow-y-auto max-h-[60vh] py-2">
+          {SECTIONS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => { onSelect(id); onClose() }}
+              className={`w-full flex items-center gap-3 px-5 py-3 text-sm text-left transition-colors ${
+                activeSection === id
+                  ? 'bg-ink text-white font-medium'
+                  : 'text-ink-muted hover:bg-ash hover:text-ink'
+              }`}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CVEditorPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const qc = useQueryClient()
+  const qc       = useQueryClient()
+
   const [activeSection, setActiveSection] = useState('personal')
   const [cvData, setCvData]               = useState<CVData>(EMPTY_CV_DATA)
   const [title, setTitle]                 = useState('')
@@ -52,14 +102,15 @@ export default function CVEditorPage() {
   const [showPreview, setShowPreview]     = useState(false)
   const [showHistory, setShowHistory]     = useState(false)
   const [showRating, setShowRating]       = useState(false)
+  const [showDrawer, setShowDrawer]       = useState(false)
   const [isDirty, setIsDirty]             = useState(false)
   const [saving, setSaving]               = useState(false)
   const [currentRating, setCurrentRating] = useState<number | undefined>(undefined)
 
   const { data: cv, isLoading } = useQuery<CV>({
     queryKey: ['cv', id],
-    queryFn: () => cvApi.get(id!),
-    enabled: !!id,
+    queryFn:  () => cvApi.get(id!),
+    enabled:  !!id,
   })
 
   useEffect(() => {
@@ -74,7 +125,7 @@ export default function CVEditorPage() {
   }, [cv])
 
   const updateData = (patch: Partial<CVData>) => {
-    setCvData((prev) => ({ ...prev, ...patch }))
+    setCvData(prev => ({ ...prev, ...patch }))
     setIsDirty(true)
   }
 
@@ -87,57 +138,42 @@ export default function CVEditorPage() {
       qc.invalidateQueries({ queryKey: ['cvs'] })
       setIsDirty(false)
       toast.success('CV saved')
-    } catch {
-      toast.error('Failed to save')
-    } finally {
-      setSaving(false)
-    }
+    } catch { toast.error('Failed to save') }
+    finally { setSaving(false) }
   }
 
   const handleDownloadPDF = async () => {
     if (!id) return
     try {
       const blob = await exportApi.downloadPDF(id)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
       a.download = `${cvData.personal_info.full_name || title}.pdf`
       a.click()
       URL.revokeObjectURL(url)
       toast.success('PDF downloaded')
-    } catch {
-      toast.error('PDF generation failed')
-    }
+    } catch { toast.error('PDF generation failed') }
   }
 
-  const handleAIApply = (newData: CVData) => {
-    setCvData(newData)
-    setIsDirty(true)
-    toast.success('AI edits applied')
-  }
+  const activeSectionLabel = SECTIONS.find(s => s.id === activeSection)?.label ?? ''
 
-  const handleHistoryRestore = (snapshot: CVData) => {
-    setCvData(snapshot)
-    setIsDirty(true)
-    setShowHistory(false)
-    toast.success('Version restored — save to keep it')
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-ash">
-        <div className="text-ink-muted text-sm animate-pulse">Loading CV…</div>
-      </div>
-    )
-  }
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-screen bg-ash">
+      <div className="text-ink-muted text-sm animate-pulse">Loading CV…</div>
+    </div>
+  )
 
   return (
     <div className="flex h-screen bg-ash overflow-hidden">
-      {/* Left: Section Nav */}
-      <div className="w-44 bg-white border-r border-ash-border flex flex-col">
+
+      {/* ── Desktop sidebar ── */}
+      <div className="hidden md:flex w-44 bg-white border-r border-ash-border flex-col">
         <div className="px-3 py-3 border-b border-ash-border">
-          <button onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
+          >
             <ChevronLeft size={13} /> Back
           </button>
         </div>
@@ -152,25 +188,25 @@ export default function CVEditorPage() {
                   : 'text-ink-muted hover:bg-ash hover:text-ink'
               }`}
             >
-              <Icon size={13} />
-              {label}
+              <Icon size={13} /> {label}
             </button>
           ))}
         </div>
         <div className="p-3 border-t border-ash-border space-y-1">
-          <button onClick={() => setShowAI(!showAI)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors">
+          <button
+            onClick={() => setShowAI(!showAI)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors"
+          >
             <Sparkles size={13} /> AI Assist
           </button>
-          <button onClick={() => setShowPreview(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
+          <button onClick={() => setShowPreview(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
             <Eye size={13} /> Preview
           </button>
-          <button onClick={() => setShowHistory(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
+          <button onClick={() => setShowHistory(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
             <History size={13} /> History
           </button>
-          <button onClick={() => setShowRating(true)}
+          <button
+            onClick={() => setShowRating(true)}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-colors ${
               currentRating
                 ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
@@ -183,32 +219,69 @@ export default function CVEditorPage() {
         </div>
       </div>
 
-      {/* Center: Editor */}
+      {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0">
+
         {/* Toolbar */}
-        <div className="bg-white border-b border-ash-border px-5 py-3 flex items-center gap-3 flex-wrap">
+        <div className="bg-white border-b border-ash-border px-3 sm:px-5 py-2.5 flex items-center gap-2 flex-shrink-0">
+
+          {/* Mobile back */}
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="md:hidden p-1.5 text-ink-muted hover:text-ink flex-shrink-0"
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          {/* Mobile: current section name taps to open drawer */}
+          <button
+            onClick={() => setShowDrawer(true)}
+            className="md:hidden flex items-center gap-1.5 text-xs font-medium text-ink truncate flex-1 min-w-0"
+          >
+            <Menu size={14} className="flex-shrink-0 text-ink-muted" />
+            <span className="truncate">{activeSectionLabel}</span>
+          </button>
+
+          {/* Desktop: title input */}
           <input
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
-            className="font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
+            onChange={e => { setTitle(e.target.value); setIsDirty(true) }}
+            className="hidden md:block font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
             placeholder="CV Title"
           />
-          <div className="flex items-center gap-2 ml-auto">
-            <select value={theme} onChange={(e) => { setTheme(e.target.value); setIsDirty(true) }}
-              className="text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none">
+
+          {/* Controls */}
+          <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+            <select
+              value={theme}
+              onChange={e => { setTheme(e.target.value); setIsDirty(true) }}
+              className="hidden sm:block text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none"
+            >
               <option value="minimal">Minimal</option>
               <option value="classic">Classic</option>
               <option value="sharp">Sharp</option>
             </select>
-            <select value={pageCount} onChange={(e) => { setPageCount(Number(e.target.value)); setIsDirty(true) }}
-              className="text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none">
+            <select
+              value={pageCount}
+              onChange={e => { setPageCount(Number(e.target.value)); setIsDirty(true) }}
+              className="hidden sm:block text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none"
+            >
               <option value={1}>1 Page</option>
               <option value={2}>2 Pages</option>
               <option value={3}>3 Pages</option>
             </select>
+
+            {/* Mobile icon buttons */}
+            <button onClick={() => setShowAI(!showAI)} className="md:hidden p-1.5 text-ink-muted hover:text-ink" title="AI Assist">
+              <Sparkles size={15} />
+            </button>
+            <button onClick={() => setShowPreview(true)} className="md:hidden p-1.5 text-ink-muted hover:text-ink" title="Preview">
+              <Eye size={15} />
+            </button>
+
             <button
               onClick={() => { setIsPublic(!isPublic); setIsDirty(true) }}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              className={`hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                 isPublic
                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                   : 'border-ash-border text-ink-muted hover:bg-ash'
@@ -217,66 +290,87 @@ export default function CVEditorPage() {
               {isPublic ? <Globe size={12} /> : <Lock size={12} />}
               {isPublic ? 'Public' : 'Private'}
             </button>
+
             <button
               onClick={handleDownloadPDF}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ash-border text-ink-muted hover:bg-ash transition-colors"
+              className="p-1.5 sm:flex sm:items-center sm:gap-1.5 sm:text-xs sm:px-3 sm:py-1.5 sm:rounded-lg sm:border sm:border-ash-border sm:text-ink-muted sm:hover:bg-ash sm:transition-colors text-ink-muted hover:text-ink"
             >
-              <Download size={12} /> PDF
+              <Download size={14} />
+              <span className="hidden sm:inline text-xs ml-1">PDF</span>
             </button>
+
             <button
               onClick={handleSave}
               disabled={saving || !isDirty}
-              className={`flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                 isDirty
                   ? 'bg-ink text-white hover:bg-ink-light'
                   : 'bg-ash text-ink-muted cursor-not-allowed'
               }`}
             >
-              <Save size={12} /> {saving ? 'Saving…' : 'Save'}
+              <Save size={12} />
+              <span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span>
             </button>
           </div>
         </div>
 
-        {/* Section Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Section content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-2xl mx-auto">
-            {activeSection === 'personal'       && <PersonalInfoSection   data={cvData.personal_info}    onChange={(v) => updateData({ personal_info: v })} />}
-            {activeSection === 'summary'        && <SummarySection        value={cvData.summary}          jobDesc={cvData.job_description} onChange={(v) => updateData({ summary: v })} onJobDescChange={(v) => updateData({ job_description: v })} cvData={cvData} />}
-            {activeSection === 'skills'         && <SkillsSection         skills={cvData.skills}          onChange={(v) => updateData({ skills: v })} />}
-            {activeSection === 'experience'     && <ExperienceSection     items={cvData.experience}       onChange={(v) => updateData({ experience: v })} />}
-            {activeSection === 'education'      && <EducationSection      items={cvData.education}        onChange={(v) => updateData({ education: v })} />}
-            {activeSection === 'certifications' && <CertificationsSection items={cvData.certifications}  onChange={(v) => updateData({ certifications: v })} />}
-            {activeSection === 'projects'       && <ProjectsSection       items={cvData.projects}         onChange={(v) => updateData({ projects: v })} />}
-            {activeSection === 'awards'         && <AwardsSection         items={cvData.awards}           onChange={(v) => updateData({ awards: v })} />}
-            {activeSection === 'languages'      && <LanguagesSection      items={cvData.languages}        onChange={(v) => updateData({ languages: v })} />}
-            {activeSection === 'volunteer'      && <VolunteerSection      items={cvData.volunteer}        onChange={(v) => updateData({ volunteer: v })} />}
+            {activeSection === 'personal'       && <PersonalInfoSection   data={cvData.personal_info}   onChange={v => updateData({ personal_info: v })} />}
+            {activeSection === 'summary'        && <SummarySection        value={cvData.summary}         jobDesc={cvData.job_description} onChange={v => updateData({ summary: v })} onJobDescChange={v => updateData({ job_description: v })} cvData={cvData} />}
+            {activeSection === 'skills'         && <SkillsSection         skills={cvData.skills}         onChange={v => updateData({ skills: v })} />}
+            {activeSection === 'experience'     && <ExperienceSection     items={cvData.experience}      onChange={v => updateData({ experience: v })} />}
+            {activeSection === 'education'      && <EducationSection      items={cvData.education}       onChange={v => updateData({ education: v })} />}
+            {activeSection === 'certifications' && <CertificationsSection items={cvData.certifications}  onChange={v => updateData({ certifications: v })} />}
+            {activeSection === 'projects'       && <ProjectsSection       items={cvData.projects}        onChange={v => updateData({ projects: v })} />}
+            {activeSection === 'awards'         && <AwardsSection         items={cvData.awards}          onChange={v => updateData({ awards: v })} />}
+            {activeSection === 'languages'      && <LanguagesSection      items={cvData.languages}       onChange={v => updateData({ languages: v })} />}
+            {activeSection === 'volunteer'      && <VolunteerSection      items={cvData.volunteer}       onChange={v => updateData({ volunteer: v })} />}
           </div>
         </div>
       </div>
 
-      {/* Right: AI Panel */}
+      {/* Desktop AI panel */}
       {showAI && (
-        <AIAssistPanel cvData={cvData} onApply={handleAIApply} onClose={() => setShowAI(false)} cvId={id!} />
+        <div className="hidden md:block">
+          <AIAssistPanel cvData={cvData} onApply={d => { setCvData(d); setIsDirty(true); toast.success('AI edits applied') }} onClose={() => setShowAI(false)} cvId={id!} />
+        </div>
       )}
 
-      {/* Preview Modal */}
-      {showPreview && (
-        <CVPreview cvData={cvData} theme={theme} onClose={() => setShowPreview(false)} />
+      {/* Mobile AI panel — full overlay */}
+      {showAI && (
+        <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-ash-border">
+            <span className="font-semibold text-sm text-ink">AI Assist</span>
+            <button onClick={() => setShowAI(false)}><X size={16} className="text-ink-muted" /></button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <AIAssistPanel cvData={cvData} onApply={d => { setCvData(d); setIsDirty(true); toast.success('AI edits applied'); setShowAI(false) }} onClose={() => setShowAI(false)} cvId={id!} />
+          </div>
+        </div>
       )}
 
-      {/* History Drawer */}
-      {showHistory && id && (
-        <HistoryDrawer cvId={id} onRestore={handleHistoryRestore} onClose={() => setShowHistory(false)} />
-      )}
+      {/* Mobile section drawer */}
+      <AnimatePresence>
+        {showDrawer && (
+          <SectionDrawer
+            activeSection={activeSection}
+            onSelect={setActiveSection}
+            onClose={() => setShowDrawer(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Rating Modal */}
-      {showRating && id && (
+      {showPreview  && <CVPreview cvData={cvData} theme={theme} onClose={() => setShowPreview(false)} />}
+      {showHistory && id && <HistoryDrawer cvId={id} onRestore={snap => { setCvData(snap); setIsDirty(true); setShowHistory(false); toast.success('Version restored — save to keep it') }} onClose={() => setShowHistory(false)} />}
+      {showRating  && id && (
         <RatingModal
           cvId={id}
           cvTitle={title}
           currentRating={currentRating}
           onClose={() => setShowRating(false)}
-          onSaved={(score) => {
+          onSaved={score => {
             setCurrentRating(score)
             qc.invalidateQueries({ queryKey: ['cv', id] })
             qc.invalidateQueries({ queryKey: ['cvs'] })

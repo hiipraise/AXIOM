@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { Zap } from 'lucide-react'
 import { FEATURES } from './data'
 
@@ -32,12 +32,58 @@ function FloatingIcon({
 const BANNED_WORDS =
   'versatile, passionate, dynamic, results-driven, team player, detail-oriented, synergy, cutting-edge, leveraged'
 
-function SweepingStrikethrough() {
+const BANNED_LIST = BANNED_WORDS.split(', ')
+
+// Mobile: one word at a time, each struck through individually
+function MobileStrikethrough() {
+  return (
+    <span className="relative inline-block min-w-[9ch] text-center">
+      <AnimatePresence mode="wait">
+        {BANNED_LIST.map((word, i) => (
+          <motion.span
+            key={word}
+            className="relative inline-block text-white/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 1, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 2,
+              delay: i * 2,
+              repeat: Infinity,
+              repeatDelay: BANNED_LIST.length * 2 - 2,
+              times: [0, 0.1, 0.7, 1],
+            }}
+            style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center' }}
+          >
+            {word}
+            <motion.span
+              aria-hidden
+              className="absolute left-0 right-0 rounded-full bg-white/75 pointer-events-none"
+              style={{ top: '50%', height: '1.5px', transformOrigin: 'left center' }}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: [0, 1, 1, 0] }}
+              transition={{
+                duration: 2,
+                delay: i * 2 + 0.2,
+                repeat: Infinity,
+                repeatDelay: BANNED_LIST.length * 2 - 2,
+                times: [0, 0.35, 0.7, 1],
+              }}
+            />
+          </motion.span>
+        ))}
+      </AnimatePresence>
+      {/* invisible longest word to hold width */}
+      <span className="invisible select-none">detail-oriented</span>
+    </span>
+  )
+}
+
+// Desktop: all words at once, single line sweeps across
+function DesktopStrikethrough() {
   return (
     <span className="relative inline">
       <span className="text-white/50">{BANNED_WORDS}</span>
-
-      {/* Line sweeps across the whole block, loops forever */}
       <motion.span
         aria-hidden
         className="absolute left-0 right-0 rounded-full bg-white/75 pointer-events-none"
@@ -52,6 +98,21 @@ function SweepingStrikethrough() {
         }}
       />
     </span>
+  )
+}
+
+function SweepingStrikethrough() {
+  return (
+    <>
+      {/* Mobile: show on small screens only */}
+      <span className="md:hidden">
+        <MobileStrikethrough />
+      </span>
+      {/* Desktop: show on md+ only */}
+      <span className="hidden md:inline">
+        <DesktopStrikethrough />
+      </span>
+    </>
   )
 }
 

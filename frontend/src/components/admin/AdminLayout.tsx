@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Users, FileText, Star, ChevronLeft, Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { authApi } from '../../api'
+import { useAuthStore } from '../../store/auth'
 import clsx from 'clsx'
 
 const NAV = [
@@ -12,13 +14,20 @@ const NAV = [
 ]
 
 function SidebarContent({ onNav }: { onNav?: () => void }) {
-  const navigate = useNavigate()
+  const navigate   = useNavigate()
+  const { clearAuth } = useAuthStore()
+
+  const handleBackToApp = () => {
+    navigate('/dashboard')
+    onNav?.()
+  }
+
   return (
     <>
       <div className="px-4 py-4 border-b border-ash-border">
         <span className="font-display text-sm font-bold text-ink">AXIOM Admin</span>
         <button
-          onClick={() => { navigate('/dashboard'); onNav?.() }}
+          onClick={handleBackToApp}
           className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink mt-1 transition-colors"
         >
           <ChevronLeft size={11} /> Back to app
@@ -50,46 +59,32 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-ash flex">
-
-      {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex w-52 bg-white border-r border-ash-border flex-col flex-shrink-0">
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile top bar ── */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-12 flex items-center justify-between">
         <span className="font-display text-sm font-bold text-ink">AXIOM Admin</span>
-        <button
-          onClick={() => setOpen(true)}
-          className="p-2 text-ink-muted hover:text-ink transition-colors"
-        >
+        <button onClick={() => setOpen(true)} className="p-2 text-ink-muted hover:text-ink">
           <Menu size={18} />
         </button>
       </div>
 
-      {/* ── Mobile drawer ── */}
       <AnimatePresence>
         {open && (
           <>
             <motion.div
               className="md:hidden fixed inset-0 bg-black/40 z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={() => setOpen(false)}
             />
             <motion.aside
               className="md:hidden fixed top-0 left-0 h-full w-64 bg-white z-50 flex flex-col shadow-xl"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
-              <button
-                onClick={() => setOpen(false)}
-                className="absolute top-3 right-3 p-1.5 text-ink-muted hover:text-ink"
-              >
+              <button onClick={() => setOpen(false)} className="absolute top-3 right-3 p-1.5 text-ink-muted hover:text-ink">
                 <X size={16} />
               </button>
               <SidebarContent onNav={() => setOpen(false)} />
@@ -98,7 +93,6 @@ export default function AdminLayout() {
         )}
       </AnimatePresence>
 
-      {/* ── Main ── */}
       <main className="flex-1 overflow-auto pt-12 md:pt-0">
         <Outlet />
       </main>
