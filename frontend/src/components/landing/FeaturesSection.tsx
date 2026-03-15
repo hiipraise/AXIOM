@@ -8,7 +8,7 @@ function FloatingIcon({
   icon: Icon,
   floatDelay,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>
+  icon: React.ComponentType<{ size?: string | number; className?: string }>
   floatDelay: number
 }) {
   return (

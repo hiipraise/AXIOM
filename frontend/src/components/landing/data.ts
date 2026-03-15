@@ -6,7 +6,7 @@ import {
 import type { ComponentType } from 'react'
 
 export interface FeatureItem {
-  icon: ComponentType<{ size?: number; className?: string }>
+  icon: ComponentType<{ size?: string | number; className?: string }>
   label: string
   desc: string
 }

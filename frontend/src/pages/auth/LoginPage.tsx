@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await authApi.login(form)
-      setAuth(res.user, res.token)
+      setAuth(res.user)
       if (res.user.must_change_password) {
         toast('Please set a new password.', { icon: '🔒' })
         navigate('/account')
