@@ -1,12 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.services.auth_service import hash_password, verify_password, create_access_token
 from app.models.schemas import UserCreate, UserLogin, PasswordChange, RecoverAccount
-from datetime import datetime, timezone
+from app.config import settings
+from datetime import datetime, timezone, timedelta
 import re
 
 router = APIRouter()
+
+COOKIE_NAME = "axiom_token"
+COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60  # seconds
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,                        # JS cannot read it
+        secure=False,                         # set True in production (HTTPS only)
+        samesite="lax",                       # CSRF protection
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(key=COOKIE_NAME, path="/")
 
 
 def serialize_user(u: dict) -> dict:
@@ -22,10 +42,10 @@ def serialize_user(u: dict) -> dict:
 
 
 @router.post("/register")
-async def register(body: UserCreate, db=Depends(get_db)):
+async def register(body: UserCreate, response: Response, db=Depends(get_db)):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", body.username):
         raise HTTPException(400, "Username may only contain letters, numbers, underscores, and hyphens")
-    
+
     existing = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if existing:
         raise HTTPException(400, "Username already taken")
@@ -49,18 +69,26 @@ async def register(body: UserCreate, db=Depends(get_db)):
     result = await db.users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
     token = create_access_token({"sub": str(result.inserted_id)})
-    return {"token": token, "user": serialize_user(user_doc)}
+    set_auth_cookie(response, token)
+    return {"user": serialize_user(user_doc)}
 
 
 @router.post("/login")
-async def login(body: UserLogin, db=Depends(get_db)):
+async def login(body: UserLogin, response: Response, db=Depends(get_db)):
     user = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Invalid credentials")
     if not user.get("is_active"):
         raise HTTPException(403, "Account deactivated")
     token = create_access_token({"sub": str(user["_id"])})
-    return {"token": token, "user": serialize_user(user)}
+    set_auth_cookie(response, token)
+    return {"user": serialize_user(user)}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    clear_auth_cookie(response)
+    return {"message": "Logged out"}
 
 
 @router.get("/me")
@@ -96,13 +124,11 @@ async def update_profile(body: dict, current_user=Depends(get_current_user), db=
 
 @router.post("/forgot-username")
 async def forgot_username(body: dict, db=Depends(get_db)):
-    """Returns username hint if email matches."""
     email = body.get("email")
     if not email:
         raise HTTPException(400, "Email required")
     user = await db.users.find_one({"email": email})
     if not user:
-        # Return same message to prevent enumeration
         return {"message": "If that email is registered, a username hint was returned.", "username": None}
     return {"message": "Username found", "username": user["username"]}
 
@@ -124,9 +150,8 @@ async def recover_account(body: RecoverAccount, db=Depends(get_db)):
 
 
 @router.delete("/delete-account")
-async def delete_account(current_user=Depends(get_current_user), db=Depends(get_db)):
+async def delete_account(response: Response, current_user=Depends(get_current_user), db=Depends(get_db)):
     user_id = current_user["_id"]
-    # Wipe all CVs and history
     cvs = await db.cvs.find({"owner_id": str(user_id)}).to_list(None)
     cv_ids = [str(c["_id"]) for c in cvs]
     if cv_ids:
@@ -134,4 +159,5 @@ async def delete_account(current_user=Depends(get_current_user), db=Depends(get_
     await db.cvs.delete_many({"owner_id": str(user_id)})
     await db.ratings.delete_many({"owner_id": str(user_id)})
     await db.users.delete_one({"_id": user_id})
+    clear_auth_cookie(response)
     return {"message": "Account and all data permanently deleted"}

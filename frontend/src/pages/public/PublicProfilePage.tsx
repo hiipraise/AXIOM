@@ -1,7 +1,7 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { publicApi } from '../../api'
-import { FileText, ExternalLink } from 'lucide-react'
+import { FileText, ExternalLink, ArrowLeft } from 'lucide-react'
 
 interface PublicProfile {
   username: string
@@ -10,6 +10,8 @@ interface PublicProfile {
 
 export default function PublicProfilePage() {
   const { username } = useParams<{ username: string }>()
+  const navigate     = useNavigate()
+
   const { data, isLoading, error } = useQuery<PublicProfile>({
     queryKey: ['public-profile', username],
     queryFn: () => publicApi.getProfile(username!),
@@ -30,16 +32,35 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-ash">
-      <div className="bg-white border-b border-ash-border px-6 py-4">
-        <span className="font-display font-bold text-ink text-sm">AXIOM</span>
+      {/* Top bar */}
+      <div className="bg-white border-b border-ash-border px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
+          >
+            <ArrowLeft size={13} /> Back
+          </button>
+          <span className="text-ash-border text-xs">|</span>
+          <span className="font-display font-bold text-ink text-sm">AXIOM</span>
+        </div>
+        <Link
+          to="/explore"
+          className="text-xs text-ink-muted hover:text-ink transition-colors"
+        >
+          Explore CVs
+        </Link>
       </div>
+
       <div className="max-w-xl mx-auto py-12 px-4">
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center text-xl font-bold mx-auto mb-3">
             {data.username.charAt(0).toUpperCase()}
           </div>
           <h1 className="font-display font-bold text-xl text-ink">@{data.username}</h1>
-          <p className="text-xs text-ink-muted mt-1">{data.cvs.length} public {data.cvs.length === 1 ? 'CV' : 'CVs'}</p>
+          <p className="text-xs text-ink-muted mt-1">
+            {data.cvs.length} public {data.cvs.length === 1 ? 'CV' : 'CVs'}
+          </p>
         </div>
 
         {data.cvs.length === 0 ? (
@@ -48,7 +69,7 @@ export default function PublicProfilePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {data.cvs.map((cv) => (
+            {data.cvs.map(cv => (
               <Link
                 key={cv.id}
                 to={`/cv/${data.username}/${cv.slug}`}

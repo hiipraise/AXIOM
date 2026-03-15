@@ -8,5 +8,8 @@
     "stop": "docker-compose down",
     "logs": "docker-compose logs -f",
     "clean": "docker-compose down -v --remove-orphans"
+  },
+  "dependencies": {
+    "framer-motion": "^12.36.0"
   }
 }

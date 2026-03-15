@@ -78,3 +78,47 @@ async def export_public_pdf(username: str, slug: str, db=Depends(get_db)):
             "Content-Disposition": f'attachment; filename="{fname}.pdf"',
         },
     )
+
+
+@router.post("/pdf-preview")
+async def export_pdf_preview(body: dict):
+    """
+    Generate a PDF from raw CV data — no authentication required.
+    Used by the session-only (guest) editor.
+    Rate-limiting / abuse prevention should be handled at the infrastructure level.
+    """
+    try:
+        cv_data = CVData(**body.get("data", {}))
+    except Exception as e:
+        raise HTTPException(400, f"Invalid CV data: {e}")
+
+    theme = body.get("theme", "minimal")
+    title = body.get("title", "CV") or "CV"
+    username = body.get("username", "guest") or "guest"
+    page_count = int(body.get("page_count", 1))
+    page_count = max(1, min(3, page_count))
+
+    fname = safe_filename(
+        f"{cv_data.personal_info.full_name or username}_{title}"
+    )
+
+    try:
+        pdf_bytes = generate_pdf(
+            cv_data=cv_data,
+            owner_username=username,
+            cv_title=title,
+            theme_name=theme,
+            page_count=page_count,
+            public_url="",
+        )
+    except Exception as e:
+        raise HTTPException(500, f"PDF generation failed: {e}")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}.pdf"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )

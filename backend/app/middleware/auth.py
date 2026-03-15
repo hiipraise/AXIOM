@@ -1,19 +1,35 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.auth_service import decode_token
 from app.database import get_db
 from bson import ObjectId
 
+COOKIE_NAME = "axiom_token"
+
 bearer = HTTPBearer(auto_error=False)
 
 
+def _get_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> str | None:
+    """
+    Token resolution order:
+      1. httpOnly cookie  (browser / normal usage)
+      2. Authorization: Bearer header  (API clients / Swagger docs)
+    """
+    if credentials:
+        return credentials.credentials
+    return request.cookies.get(COOKIE_NAME)
+
+
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    token: str | None = Depends(_get_token),
     db=Depends(get_db),
 ):
-    if not credentials:
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = decode_token(credentials.credentials)
+    payload = decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
@@ -23,16 +39,15 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    token: str | None = Depends(_get_token),
     db=Depends(get_db),
 ):
-    if not credentials:
+    if not token:
         return None
-    payload = decode_token(credentials.credentials)
+    payload = decode_token(token)
     if not payload:
         return None
-    user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
-    return user
+    return await db.users.find_one({"_id": ObjectId(payload["sub"])})
 
 
 def require_role(*roles):

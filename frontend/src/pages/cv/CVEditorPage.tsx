@@ -1,40 +1,41 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { cvApi, exportApi } from '../../api'
 import { CV, CVData, EMPTY_CV_DATA } from '../../types'
 import toast from 'react-hot-toast'
 import {
   Save, Download, Sparkles, ChevronLeft, Globe, Lock, Star,
-  Upload, Wand2, Briefcase, GraduationCap, Award, FolderOpen,
-  Languages, Heart, User, AlignLeft, Wrench, FileSearch, History, Eye
+  Briefcase, GraduationCap, Award, FolderOpen,
+  Languages, Heart, User, AlignLeft, Wrench, History, Eye
 } from 'lucide-react'
 
-import PersonalInfoSection from '../../components/cv/PersonalInfoSection'
-import SummarySection from '../../components/cv/SummarySection'
-import SkillsSection from '../../components/cv/SkillsSection'
-import ExperienceSection from '../../components/cv/ExperienceSection'
-import EducationSection from '../../components/cv/EducationSection'
+import PersonalInfoSection   from '../../components/cv/PersonalInfoSection'
+import SummarySection        from '../../components/cv/SummarySection'
+import SkillsSection         from '../../components/cv/SkillsSection'
+import ExperienceSection     from '../../components/cv/ExperienceSection'
+import EducationSection      from '../../components/cv/EducationSection'
 import CertificationsSection from '../../components/cv/CertificationsSection'
-import ProjectsSection from '../../components/cv/ProjectsSection'
-import AwardsSection from '../../components/cv/AwardsSection'
-import LanguagesSection from '../../components/cv/LanguagesSection'
-import VolunteerSection from '../../components/cv/VolunteerSection'
-import AIAssistPanel from '../../components/cv/AIAssistPanel'
-import CVPreview from '../../components/cv/CVPreview'
-import HistoryDrawer from '../../components/cv/HistoryDrawer'
+import ProjectsSection       from '../../components/cv/ProjectsSection'
+import AwardsSection         from '../../components/cv/AwardsSection'
+import LanguagesSection      from '../../components/cv/LanguagesSection'
+import VolunteerSection      from '../../components/cv/VolunteerSection'
+import AIAssistPanel         from '../../components/cv/AIAssistPanel'
+import CVPreview             from '../../components/cv/CVPreview'
+import HistoryDrawer         from '../../components/cv/HistoryDrawer'
+import RatingModal           from '../../components/cv/RatingModal'
 
 const SECTIONS = [
-  { id: 'personal', label: 'Personal Info', icon: User },
-  { id: 'summary', label: 'Summary', icon: AlignLeft },
-  { id: 'skills', label: 'Skills', icon: Wrench },
-  { id: 'experience', label: 'Experience', icon: Briefcase },
-  { id: 'education', label: 'Education', icon: GraduationCap },
-  { id: 'certifications', label: 'Certifications', icon: Award },
-  { id: 'projects', label: 'Projects', icon: FolderOpen },
-  { id: 'awards', label: 'Awards', icon: Star },
-  { id: 'languages', label: 'Languages', icon: Languages },
-  { id: 'volunteer', label: 'Volunteer', icon: Heart },
+  { id: 'personal',       label: 'Personal Info',  icon: User },
+  { id: 'summary',        label: 'Summary',         icon: AlignLeft },
+  { id: 'skills',         label: 'Skills',          icon: Wrench },
+  { id: 'experience',     label: 'Experience',      icon: Briefcase },
+  { id: 'education',      label: 'Education',       icon: GraduationCap },
+  { id: 'certifications', label: 'Certifications',  icon: Award },
+  { id: 'projects',       label: 'Projects',        icon: FolderOpen },
+  { id: 'awards',         label: 'Awards',          icon: Star },
+  { id: 'languages',      label: 'Languages',       icon: Languages },
+  { id: 'volunteer',      label: 'Volunteer',       icon: Heart },
 ]
 
 export default function CVEditorPage() {
@@ -42,16 +43,18 @@ export default function CVEditorPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [activeSection, setActiveSection] = useState('personal')
-  const [cvData, setCvData] = useState<CVData>(EMPTY_CV_DATA)
-  const [title, setTitle] = useState('')
-  const [isPublic, setIsPublic] = useState(false)
-  const [theme, setTheme] = useState('minimal')
-  const [pageCount, setPageCount] = useState(1)
-  const [showAI, setShowAI] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [isDirty, setIsDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [cvData, setCvData]               = useState<CVData>(EMPTY_CV_DATA)
+  const [title, setTitle]                 = useState('')
+  const [isPublic, setIsPublic]           = useState(false)
+  const [theme, setTheme]                 = useState('minimal')
+  const [pageCount, setPageCount]         = useState(1)
+  const [showAI, setShowAI]               = useState(false)
+  const [showPreview, setShowPreview]     = useState(false)
+  const [showHistory, setShowHistory]     = useState(false)
+  const [showRating, setShowRating]       = useState(false)
+  const [isDirty, setIsDirty]             = useState(false)
+  const [saving, setSaving]               = useState(false)
+  const [currentRating, setCurrentRating] = useState<number | undefined>(undefined)
 
   const { data: cv, isLoading } = useQuery<CV>({
     queryKey: ['cv', id],
@@ -66,6 +69,7 @@ export default function CVEditorPage() {
       setIsPublic(cv.is_public)
       setTheme(cv.theme)
       setPageCount(cv.page_count)
+      setCurrentRating(cv.rating ?? undefined)
     }
   }, [cv])
 
@@ -132,7 +136,8 @@ export default function CVEditorPage() {
       {/* Left: Section Nav */}
       <div className="w-44 bg-white border-r border-ash-border flex flex-col">
         <div className="px-3 py-3 border-b border-ash-border">
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">
+          <button onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">
             <ChevronLeft size={13} /> Back
           </button>
         </div>
@@ -153,14 +158,27 @@ export default function CVEditorPage() {
           ))}
         </div>
         <div className="p-3 border-t border-ash-border space-y-1">
-          <button onClick={() => setShowAI(!showAI)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors">
+          <button onClick={() => setShowAI(!showAI)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors">
             <Sparkles size={13} /> AI Assist
           </button>
-          <button onClick={() => setShowPreview(!showPreview)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
+          <button onClick={() => setShowPreview(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
             <Eye size={13} /> Preview
           </button>
-          <button onClick={() => setShowHistory(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
+          <button onClick={() => setShowHistory(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors">
             <History size={13} /> History
+          </button>
+          <button onClick={() => setShowRating(true)}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-colors ${
+              currentRating
+                ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                : 'border-ash-border text-ink-muted hover:bg-ash'
+            }`}
+          >
+            <Star size={13} className={currentRating ? 'fill-amber-400 text-amber-400' : ''} />
+            {currentRating ? `Rated ${currentRating}/5` : 'Rate CV'}
           </button>
         </div>
       </div>
@@ -188,17 +206,32 @@ export default function CVEditorPage() {
               <option value={2}>2 Pages</option>
               <option value={3}>3 Pages</option>
             </select>
-            <button onClick={() => { setIsPublic(!isPublic); setIsDirty(true) }}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isPublic ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-ash-border text-ink-muted hover:bg-ash'}`}>
+            <button
+              onClick={() => { setIsPublic(!isPublic); setIsDirty(true) }}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                isPublic
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-ash-border text-ink-muted hover:bg-ash'
+              }`}
+            >
               {isPublic ? <Globe size={12} /> : <Lock size={12} />}
               {isPublic ? 'Public' : 'Private'}
             </button>
-            <button onClick={handleDownloadPDF}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ash-border text-ink-muted hover:bg-ash transition-colors">
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ash-border text-ink-muted hover:bg-ash transition-colors"
+            >
               <Download size={12} /> PDF
             </button>
-            <button onClick={handleSave} disabled={saving || !isDirty}
-              className={`flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-medium transition-colors ${isDirty ? 'bg-ink text-white hover:bg-ink-light' : 'bg-ash text-ink-muted cursor-not-allowed'}`}>
+            <button
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              className={`flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-medium transition-colors ${
+                isDirty
+                  ? 'bg-ink text-white hover:bg-ink-light'
+                  : 'bg-ash text-ink-muted cursor-not-allowed'
+              }`}
+            >
               <Save size={12} /> {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -207,16 +240,16 @@ export default function CVEditorPage() {
         {/* Section Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-2xl mx-auto">
-            {activeSection === 'personal' && <PersonalInfoSection data={cvData.personal_info} onChange={(v) => updateData({ personal_info: v })} />}
-            {activeSection === 'summary' && <SummarySection value={cvData.summary} jobDesc={cvData.job_description} onChange={(v) => updateData({ summary: v })} onJobDescChange={(v) => updateData({ job_description: v })} cvData={cvData} />}
-            {activeSection === 'skills' && <SkillsSection skills={cvData.skills} onChange={(v) => updateData({ skills: v })} />}
-            {activeSection === 'experience' && <ExperienceSection items={cvData.experience} onChange={(v) => updateData({ experience: v })} />}
-            {activeSection === 'education' && <EducationSection items={cvData.education} onChange={(v) => updateData({ education: v })} />}
-            {activeSection === 'certifications' && <CertificationsSection items={cvData.certifications} onChange={(v) => updateData({ certifications: v })} />}
-            {activeSection === 'projects' && <ProjectsSection items={cvData.projects} onChange={(v) => updateData({ projects: v })} />}
-            {activeSection === 'awards' && <AwardsSection items={cvData.awards} onChange={(v) => updateData({ awards: v })} />}
-            {activeSection === 'languages' && <LanguagesSection items={cvData.languages} onChange={(v) => updateData({ languages: v })} />}
-            {activeSection === 'volunteer' && <VolunteerSection items={cvData.volunteer} onChange={(v) => updateData({ volunteer: v })} />}
+            {activeSection === 'personal'       && <PersonalInfoSection   data={cvData.personal_info}    onChange={(v) => updateData({ personal_info: v })} />}
+            {activeSection === 'summary'        && <SummarySection        value={cvData.summary}          jobDesc={cvData.job_description} onChange={(v) => updateData({ summary: v })} onJobDescChange={(v) => updateData({ job_description: v })} cvData={cvData} />}
+            {activeSection === 'skills'         && <SkillsSection         skills={cvData.skills}          onChange={(v) => updateData({ skills: v })} />}
+            {activeSection === 'experience'     && <ExperienceSection     items={cvData.experience}       onChange={(v) => updateData({ experience: v })} />}
+            {activeSection === 'education'      && <EducationSection      items={cvData.education}        onChange={(v) => updateData({ education: v })} />}
+            {activeSection === 'certifications' && <CertificationsSection items={cvData.certifications}  onChange={(v) => updateData({ certifications: v })} />}
+            {activeSection === 'projects'       && <ProjectsSection       items={cvData.projects}         onChange={(v) => updateData({ projects: v })} />}
+            {activeSection === 'awards'         && <AwardsSection         items={cvData.awards}           onChange={(v) => updateData({ awards: v })} />}
+            {activeSection === 'languages'      && <LanguagesSection      items={cvData.languages}        onChange={(v) => updateData({ languages: v })} />}
+            {activeSection === 'volunteer'      && <VolunteerSection      items={cvData.volunteer}        onChange={(v) => updateData({ volunteer: v })} />}
           </div>
         </div>
       </div>
@@ -234,6 +267,21 @@ export default function CVEditorPage() {
       {/* History Drawer */}
       {showHistory && id && (
         <HistoryDrawer cvId={id} onRestore={handleHistoryRestore} onClose={() => setShowHistory(false)} />
+      )}
+
+      {/* Rating Modal */}
+      {showRating && id && (
+        <RatingModal
+          cvId={id}
+          cvTitle={title}
+          currentRating={currentRating}
+          onClose={() => setShowRating(false)}
+          onSaved={(score) => {
+            setCurrentRating(score)
+            qc.invalidateQueries({ queryKey: ['cv', id] })
+            qc.invalidateQueries({ queryKey: ['cvs'] })
+          }}
+        />
       )}
     </div>
   )

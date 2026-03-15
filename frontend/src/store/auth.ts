@@ -1,32 +1,24 @@
 import { create } from 'zustand'
 import { User } from '../types'
-import { setToken } from '../api'
 
 interface AuthState {
-  user: User | null
-  token: string | null
+  user:      User | null
   isLoading: boolean
-  setAuth: (user: User, token: string) => void
+  setAuth:   (user: User) => void
   clearAuth: () => void
-  setUser: (user: User) => void
+  setUser:   (user: User) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isLoading: false,
-  setAuth: (user, token) => {
-    setToken(token)
-    set({ user, token })
-  },
-  clearAuth: () => {
-    setToken(null)
-    set({ user: null, token: null })
-  },
-  setUser: (user) => set({ user }),
+  user:      null,
+  isLoading: true,   // true until the /me bootstrap resolves
+
+  setAuth:   (user) => set({ user, isLoading: false }),
+  clearAuth: ()     => set({ user: null, isLoading: false }),
+  setUser:   (user) => set({ user }),
 }))
 
-// Listen for forced logout (401)
+// Forced logout from 401 interceptor
 window.addEventListener('axiom:logout', () => {
   useAuthStore.getState().clearAuth()
 })

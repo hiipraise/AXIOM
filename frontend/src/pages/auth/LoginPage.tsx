@@ -33,7 +33,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-ash flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-bold text-ink tracking-tight">AXIOM</h1>
+          <Link to="/" className="font-display text-3xl font-bold text-ink tracking-tight">AXIOM</Link>
           <p className="text-sm text-ink-muted mt-1">AI CV Generator</p>
         </div>
 
@@ -83,7 +83,7 @@ export default function LoginPage() {
 
         <p className="text-center text-xs text-ink-muted mt-4">
           Continue without account?{' '}
-          <Link to="/cv/new" className="text-ink hover:underline">
+          <Link to="/guest" className="text-ink hover:underline">
             Session-only mode
           </Link>
         </p>

@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { publicApi, exportApi } from '../../api'
 import { CVData } from '../../types'
@@ -20,6 +20,8 @@ const THEME_ACCENT: Record<string, string> = {
 
 export default function PublicCVPage() {
   const { username, slug } = useParams<{ username: string; slug: string }>()
+  const navigate = useNavigate()
+
   const { data: cv, isLoading, error } = useQuery<PublicCV>({
     queryKey: ['public-cv', username, slug],
     queryFn: () => publicApi.getCV(username!, slug!),
@@ -52,7 +54,7 @@ export default function PublicCVPage() {
     </div>
   )
 
-  const pi = cv.data.personal_info
+  const pi  = cv.data.personal_info
   const acc = THEME_ACCENT[cv.theme] || THEME_ACCENT.minimal
 
   return (
@@ -60,15 +62,27 @@ export default function PublicCVPage() {
       {/* Top bar */}
       <div className="bg-white border-b border-ash-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* Back */}
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
+          >
+            <ArrowLeft size={13} /> Back
+          </button>
+          <span className="text-ash-border text-xs">|</span>
           <span className="font-display font-bold text-ink text-sm">AXIOM</span>
-          <span className="text-ink-muted text-xs">|</span>
+          <span className="text-ash-border text-xs">|</span>
           <div className="flex items-center gap-1.5 text-xs text-ink-muted">
             <Globe size={12} />
-            <Link to={`/profile/${username}`} className="hover:text-ink transition-colors">@{username}</Link>
+            <Link to={`/profile/${username}`} className="hover:text-ink transition-colors">
+              @{username}
+            </Link>
           </div>
         </div>
-        <button onClick={handleDownload}
-          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light transition-colors">
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light transition-colors"
+        >
           <Download size={13} /> Download PDF
         </button>
       </div>
@@ -85,14 +99,12 @@ export default function PublicCVPage() {
             ))}
           </div>
 
-          {/* Summary */}
           {cv.data.summary && (
             <Section title="PROFILE" accent={acc}>
               <p className="text-sm leading-relaxed">{cv.data.summary}</p>
             </Section>
           )}
 
-          {/* Experience */}
           {cv.data.experience.length > 0 && (
             <Section title="EXPERIENCE" accent={acc}>
               {cv.data.experience.map((exp, i) => (
@@ -108,7 +120,6 @@ export default function PublicCVPage() {
             </Section>
           )}
 
-          {/* Education */}
           {cv.data.education.length > 0 && (
             <Section title="EDUCATION" accent={acc}>
               {cv.data.education.map((edu, i) => (
@@ -123,14 +134,12 @@ export default function PublicCVPage() {
             </Section>
           )}
 
-          {/* Skills */}
           {cv.data.skills.length > 0 && (
             <Section title="SKILLS" accent={acc}>
               <p className="text-sm">{cv.data.skills.join(', ')}</p>
             </Section>
           )}
 
-          {/* Certifications */}
           {cv.data.certifications.length > 0 && (
             <Section title="CERTIFICATIONS" accent={acc}>
               {cv.data.certifications.map((c, i) => (
@@ -143,7 +152,6 @@ export default function PublicCVPage() {
             </Section>
           )}
 
-          {/* Projects */}
           {cv.data.projects.length > 0 && (
             <Section title="PROJECTS" accent={acc}>
               {cv.data.projects.map((p, i) => (
@@ -157,14 +165,12 @@ export default function PublicCVPage() {
             </Section>
           )}
 
-          {/* Languages */}
           {cv.data.languages.length > 0 && (
             <Section title="LANGUAGES" accent={acc}>
               <p className="text-sm">{cv.data.languages.map(l => `${l.language}${l.proficiency ? ` (${l.proficiency})` : ''}`).join('  •  ')}</p>
             </Section>
           )}
 
-          {/* Footer */}
           <div className="mt-8 pt-4 border-t border-gray-100 text-xs text-gray-400 text-center">
             Verified via AXIOM · axiom.cv/profile/{username}
           </div>
