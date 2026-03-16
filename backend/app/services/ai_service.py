@@ -27,8 +27,18 @@ STRICT RULES:
 6. For skills: plain text list only, no ratings or bars
 7. Keep descriptions concise and factual
 8. If the user's input is vague, ask clarifying questions rather than inventing details
+"""
 
-When generating JSON, return ONLY valid JSON with no markdown fences or explanations."""
+JSON_RESPONSE_RULE = "When generating JSON, return ONLY valid JSON with no markdown fences or explanations."
+TEXT_RESPONSE_RULE = "Respond in natural language text. Do not return JSON unless the user explicitly asks for JSON."
+
+
+def _json_system_prompt() -> str:
+    return f"{SYSTEM_PROMPT}\n\n{JSON_RESPONSE_RULE}"
+
+
+def _text_system_prompt() -> str:
+    return f"{SYSTEM_PROMPT}\n\n{TEXT_RESPONSE_RULE}"
 
 MODEL_NAME = "llama-3.1-8b-instant"
 
@@ -56,7 +66,7 @@ async def chat_with_ai(message: str, cv_data: Optional[dict] = None, context: st
         user_content = f"Context: {context}\n\n{user_content}"
 
     return _create_completion(
-        SYSTEM_PROMPT,
+        _text_system_prompt(),
         [{"role": "user", "content": user_content}],
         max_tokens=2000,
     )
@@ -73,7 +83,7 @@ CV Data:
 Return ONLY the summary text, nothing else."""
 
     return _create_completion(
-        SYSTEM_PROMPT,
+        _text_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=500,
     )
@@ -91,7 +101,7 @@ Current CV:
 Return ONLY the updated JSON object matching the exact same schema. No markdown, no explanation."""
 
     text = _create_completion(
-        SYSTEM_PROMPT,
+        _json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
@@ -120,7 +130,7 @@ Current CV:
 Return ONLY the updated JSON object. No markdown, no explanation."""
 
     text = _create_completion(
-        SYSTEM_PROMPT,
+        _json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
@@ -153,7 +163,7 @@ CV Text:
 Return ONLY valid JSON. No markdown, no explanation."""
 
     text = _create_completion(
-        SYSTEM_PROMPT,
+        _json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=4000,
     )
@@ -165,7 +175,7 @@ Return ONLY valid JSON. No markdown, no explanation."""
 
 async def interview_user(message: str, conversation_history: list) -> str:
     """AI interview mode to gather CV details through natural conversation."""
-    system = SYSTEM_PROMPT + """
+    system = _text_system_prompt() + """
 
 You are in INTERVIEW MODE. Your goal is to gather detailed, specific information for a CV.
 Ask one clear, focused question at a time. When the user's answer is vague, probe for:
