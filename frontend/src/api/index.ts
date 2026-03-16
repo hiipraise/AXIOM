@@ -32,6 +32,7 @@ export const authApi = {
   register: (data: object) =>
     api.post("/auth/register", data).then((r) => r.data),
   login: (data: object) => api.post("/auth/login", data).then((r) => r.data),
+  logout: () => api.post("/auth/logout"),
   me: () => api.get("/auth/me").then((r) => r.data),
   changePassword: (data: object) =>
     api.put("/auth/change-password", data).then((r) => r.data),
