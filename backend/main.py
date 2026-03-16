@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import os
 
+from app.config import settings
 from app.database import connect_db, close_db, init_admin
 from app.routers import auth, cv, export, admin, public, analytics, feedback, announcements
 
@@ -23,24 +23,10 @@ app = FastAPI(
 )
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-# Set ALLOWED_ORIGINS in .env as a comma-separated list:
-#   ALLOWED_ORIGINS=http://localhost:5173,https://axiom.cv
-# Leave unset or set to * to allow all origins (dev only — breaks credentials).
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-if _raw_origins.strip() == "*" or _raw_origins.strip() == "":
-    # allow_credentials=True is incompatible with allow_origins=["*"] in browsers,
-    # so we must use allow_origins=["*"] only when credentials are NOT needed,
-    # or fall back to a safe dev default.
-    _origins     = ["*"]
-    _credentials = False   # credentials won't work with wildcard anyway
-else:
-    _origins     = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-    _credentials = True
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=_credentials,
+    allow_origins=settings.origins_list,
+    allow_credentials=settings.credentials_allowed,
     allow_methods=["*"],
     allow_headers=["*"],
 )

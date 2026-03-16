@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from pydantic import field_validator
+from typing import List
 
 
 class Settings(BaseSettings):
@@ -9,13 +10,28 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
     groq_api_key: str = ""
     frontend_url: str = "http://localhost:5173"
-    allowed_origins: List[str] = ["http://localhost:5173"]
-    admin_username: str = "hiipraise"
-    admin_email: str = "info.praisechined@gmail.com"
-    admin_password: str = "password123"
+
+    allowed_origins: str = "http://localhost:5173"
+
+    admin_username: str = ""
+    admin_email: str = ""
+    admin_password: str = ""
 
     class Config:
         env_file = ".env"
+
+    @property
+    def origins_list(self) -> List[str]:
+        """Return parsed list of allowed origins."""
+        raw = self.allowed_origins.strip()
+        if not raw or raw == "*":
+            return ["*"]
+        return [o.strip() for o in raw.split(",") if o.strip()]
+
+    @property
+    def credentials_allowed(self) -> bool:
+        """allow_credentials must be False when origins is wildcard."""
+        return self.origins_list != ["*"]
 
 
 settings = Settings()
