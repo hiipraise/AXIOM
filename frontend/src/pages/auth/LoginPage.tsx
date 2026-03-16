@@ -5,17 +5,17 @@ import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ username: '', password: '' })
+  const [form, setForm]     = useState({ username: '', password: '' })
   const [loading, setLoading] = useState(false)
-  const { setAuth } = useAuthStore()
-  const navigate = useNavigate()
+  const { setAuth }           = useAuthStore()
+  const navigate              = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
       const res = await authApi.login(form)
-      setAuth(res.user)
+      setAuth(res.user, res.token)   // ← token saved to sessionStorage
       if (res.user.must_change_password) {
         toast('Please set a new password.', { icon: '🔒' })
         navigate('/account')
@@ -42,26 +42,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">Username</label>
-              <input
-                className="input"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="your_username"
-                autoComplete="username"
-                required
-              />
+              <input className="input" value={form.username}
+                onChange={e => setForm({ ...form, username: e.target.value })}
+                placeholder="your_username" autoComplete="username" required />
             </div>
             <div>
               <label className="label">Password</label>
-              <input
-                type="password"
-                className="input"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-              />
+              <input type="password" className="input" value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                placeholder="••••••••" autoComplete="current-password" required />
             </div>
             <button className="btn-primary w-full justify-center" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
@@ -74,18 +63,14 @@ export default function LoginPage() {
             </Link>
             <p className="text-xs text-ink-muted">
               No account?{' '}
-              <Link to="/register" className="text-ink font-medium hover:underline">
-                Register
-              </Link>
+              <Link to="/register" className="text-ink font-medium hover:underline">Register</Link>
             </p>
           </div>
         </div>
 
         <p className="text-center text-xs text-ink-muted mt-4">
           Continue without account?{' '}
-          <Link to="/guest" className="text-ink hover:underline">
-            Session-only mode
-          </Link>
+          <Link to="/guest" className="text-ink hover:underline">Session-only mode</Link>
         </p>
       </div>
     </div>

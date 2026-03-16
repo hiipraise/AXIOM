@@ -19,6 +19,8 @@ function AppWithTracking() {
 }
 
 async function bootstrap() {
+  // token may already be in memory from sessionStorage rehydration (store/auth.ts)
+  // so /auth/me will send it as Bearer — works even if the httpOnly cookie is blocked
   try {
     const user = await authApi.me()
     useAuthStore.getState().setAuth(user)
@@ -32,7 +34,6 @@ bootstrap().then(() => {
     <React.StrictMode>
       <QueryClientProvider client={qc}>
         <BrowserRouter>
-          {/* Provider must be inside QueryClientProvider and BrowserRouter */}
           <AnnouncementProvider>
             <AnnouncementBanner />
             <AppWithTracking />

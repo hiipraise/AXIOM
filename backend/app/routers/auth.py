@@ -5,33 +5,18 @@ from app.services.auth_service import hash_password, verify_password, create_acc
 from app.models.schemas import UserCreate, UserLogin, PasswordChange, RecoverAccount
 from app.config import settings
 from datetime import datetime, timezone
-import os
-import re
+import os, re
 
 router = APIRouter()
 
 COOKIE_NAME    = "axiom_token"
-COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60  # seconds
-
-# ── Detect production from env ─────────────────────────────────────────────────
-# Set  ENV=production  in your prod .env / hosting dashboard.
-IS_PROD = os.getenv("ENV", "development").lower() == "production"
+COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60
+IS_PROD        = os.getenv("ENV", "development").lower() == "production"
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
-    """
-    Production (IS_PROD=True / ENV=production):
-      secure=True   — HTTPS only, required for samesite=none
-      samesite=none — allows cross-origin requests (Vercel → Railway etc.)
-
-    Development:
-      secure=False  — works over http://localhost
-      samesite=lax  — reasonable default for same-origin dev
-    """
     response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        max_age=COOKIE_MAX_AGE,
+        key=COOKIE_NAME, value=token, max_age=COOKIE_MAX_AGE,
         httponly=True,
         secure=IS_PROD,
         samesite="none" if IS_PROD else "lax",
@@ -41,8 +26,7 @@ def set_auth_cookie(response: Response, token: str) -> None:
 
 def clear_auth_cookie(response: Response) -> None:
     response.delete_cookie(
-        key=COOKIE_NAME,
-        path="/",
+        key=COOKIE_NAME, path="/",
         secure=IS_PROD,
         samesite="none" if IS_PROD else "lax",
     )
@@ -50,13 +34,13 @@ def clear_auth_cookie(response: Response) -> None:
 
 def serialize_user(u: dict) -> dict:
     return {
-        "id":                  str(u["_id"]),
-        "username":            u["username"],
-        "email":               u.get("email"),
-        "role":                u.get("role", "user"),
+        "id":                   str(u["_id"]),
+        "username":             u["username"],
+        "email":                u.get("email"),
+        "role":                 u.get("role", "user"),
         "must_change_password": u.get("must_change_password", False),
-        "created_at":          u.get("created_at", datetime.now(timezone.utc)),
-        "is_active":           u.get("is_active", True),
+        "created_at":           u.get("created_at", datetime.now(timezone.utc)),
+        "is_active":            u.get("is_active", True),
     }
 
 
@@ -64,28 +48,26 @@ def serialize_user(u: dict) -> dict:
 async def register(body: UserCreate, response: Response, db=Depends(get_db)):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", body.username):
         raise HTTPException(400, "Username may only contain letters, numbers, underscores, and hyphens")
-    existing = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
-    if existing:
+    if await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}}):
         raise HTTPException(400, "Username already taken")
-    if body.email:
-        if await db.users.find_one({"email": body.email}):
-            raise HTTPException(400, "Email already registered")
+    if body.email and await db.users.find_one({"email": body.email}):
+        raise HTTPException(400, "Email already registered")
+
     user_doc = {
-        "username":           body.username,
-        "email":              body.email,
-        "password_hash":      hash_password(body.password),
-        "role":               "user",
-        "must_change_password": False,
-        "created_at":         datetime.now(timezone.utc),
-        "secret_question":    body.secret_question,
+        "username": body.username, "email": body.email,
+        "password_hash": hash_password(body.password),
+        "role": "user", "must_change_password": False,
+        "created_at": datetime.now(timezone.utc),
+        "secret_question": body.secret_question,
         "secret_answer_hash": hash_password(body.secret_answer) if body.secret_answer else None,
-        "is_active":          True,
+        "is_active": True,
     }
     result = await db.users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
     token = create_access_token({"sub": str(result.inserted_id)})
     set_auth_cookie(response, token)
-    return {"user": serialize_user(user_doc)}
+    # Return token in body — mobile Bearer fallback
+    return {"user": serialize_user(user_doc), "token": token}
 
 
 @router.post("/login")
@@ -97,7 +79,8 @@ async def login(body: UserLogin, response: Response, db=Depends(get_db)):
         raise HTTPException(403, "Account deactivated")
     token = create_access_token({"sub": str(user["_id"])})
     set_auth_cookie(response, token)
-    return {"user": serialize_user(user)}
+    # Return token in body — mobile Bearer fallback
+    return {"user": serialize_user(user), "token": token}
 
 
 @router.post("/logout")
@@ -155,10 +138,7 @@ async def recover_account(body: RecoverAccount, db=Depends(get_db)):
         raise HTTPException(400, "No secret question set for this account")
     if not verify_password(body.secret_answer, user["secret_answer_hash"]):
         raise HTTPException(400, "Incorrect answer")
-    await db.users.update_one(
-        {"_id": user["_id"]},
-        {"$set": {"password_hash": hash_password(body.new_password)}},
-    )
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
     return {"message": "Password reset successfully"}
 
 

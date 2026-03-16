@@ -40,7 +40,7 @@ export default function RegisterPage() {
       if (form.secret_question) payload.secret_question = form.secret_question
       if (form.secret_answer)   payload.secret_answer   = form.secret_answer
       const res = await authApi.register(payload)
-      setAuth(res.user)
+      setAuth(res.user, res.token)   // ← token saved to sessionStorage
       toast.success('Account created!')
       navigate('/dashboard')
     } catch (err: any) {
@@ -60,56 +60,37 @@ export default function RegisterPage() {
 
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-4">
-
             <div>
               <label className="label">Username <span className="text-red-500">*</span></label>
-              <input
-                className="input" value={form.username} onChange={f('username')}
+              <input className="input" value={form.username} onChange={f('username')}
                 placeholder="unique_username" autoComplete="username"
-                required minLength={3} maxLength={32}
-              />
+                required minLength={3} maxLength={32} />
               <p className="text-[11px] text-ink-muted mt-1">Letters, numbers, _ and - only</p>
             </div>
 
             <div>
               <label className="label">Password <span className="text-red-500">*</span></label>
-              <input
-                type="password" className="input" value={form.password} onChange={f('password')}
-                placeholder="••••••••" autoComplete="new-password"
-                required minLength={6}
-              />
+              <input type="password" className="input" value={form.password} onChange={f('password')}
+                placeholder="••••••••" autoComplete="new-password" required minLength={6} />
             </div>
 
-            {/* Toggle — no layout jump because AnimatePresence handles height */}
-            <button
-              type="button"
-              onClick={() => setShowOptional(v => !v)}
-              className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors"
-            >
-              <ChevronDown
-                size={12}
-                className={`transition-transform duration-200 ${showOptional ? 'rotate-180' : ''}`}
-              />
+            <button type="button" onClick={() => setShowOptional(v => !v)}
+              className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors">
+              <ChevronDown size={12} className={`transition-transform duration-200 ${showOptional ? 'rotate-180' : ''}`} />
               Recovery options (optional)
             </button>
 
             <AnimatePresence initial={false}>
               {showOptional && (
-                <motion.div
-                  key="optional"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                  className="overflow-hidden"
-                >
+                <motion.div key="optional"
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                  className="overflow-hidden">
                   <div className="space-y-4 pt-1">
                     <div>
                       <label className="label">Email (for username recovery)</label>
-                      <input
-                        type="email" className="input" value={form.email} onChange={f('email')}
-                        placeholder="you@example.com" autoComplete="email"
-                      />
+                      <input type="email" className="input" value={form.email} onChange={f('email')}
+                        placeholder="you@example.com" autoComplete="email" />
                     </div>
                     <div>
                       <label className="label">Secret question</label>
@@ -118,22 +99,15 @@ export default function RegisterPage() {
                         {QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
                       </select>
                     </div>
-
                     <AnimatePresence initial={false}>
                       {form.secret_question && (
-                        <motion.div
-                          key="answer"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                          className="overflow-hidden"
-                        >
+                        <motion.div key="answer"
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                          className="overflow-hidden">
                           <label className="label">Answer</label>
-                          <input
-                            className="input" value={form.secret_answer} onChange={f('secret_answer')}
-                            placeholder="Your answer"
-                          />
+                          <input className="input" value={form.secret_answer} onChange={f('secret_answer')}
+                            placeholder="Your answer" />
                         </motion.div>
                       )}
                     </AnimatePresence>
