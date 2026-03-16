@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { publicApi, api } from '../../api'
+import { useAnnouncement } from '../../context/announcement'
+import { publicApi } from '../../api'
 import { ArrowLeft, Search, Globe, ExternalLink, Share2, ChevronRight, Briefcase, X } from 'lucide-react'
 
 interface FeedCV {
@@ -16,7 +17,6 @@ const THEME_COLORS: Record<string, string> = {
   minimal: '#0F172A', classic: '#1E3A5F', sharp: '#DC2626',
 }
 
-const BANNER_H = 32
 
 function CVCard({ cv, onShare }: { cv: FeedCV; onShare: (cv: FeedCV) => void }) {
   const accent   = THEME_COLORS[cv.theme] || THEME_COLORS.minimal
@@ -91,8 +91,7 @@ export default function PublicFeedPage() {
   const limit    = 12
   const navigate = useNavigate()
 
-  const { data: ann } = useQuery({ queryKey: ['announcement-active'], queryFn: () => api.get('/announcements/active').then(r => r.data), staleTime: 60_000 })
-  const bannerH = ann?.active ? BANNER_H : 0
+  const { bannerH } = useAnnouncement()
 
   const { data, isLoading } = useQuery<FeedResponse>({
     queryKey: ['public-feed', page],
@@ -111,7 +110,7 @@ export default function PublicFeedPage() {
       {/* Sticky topbar — sits below the announcement banner */}
       <header
         className="bg-white border-b border-ash-border sticky z-30"
-        style={{ top: bannerH }}
+        style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import App from './App'
 import { authApi } from './api'
 import { useAuthStore } from './store/auth'
 import { usePageTracking } from './components/admin/useAnalytics'
+import { AnnouncementProvider } from './context/announcement'
 import AnnouncementBanner from './components/AnnouncementBanner'
 import './index.css'
 
@@ -31,9 +32,11 @@ bootstrap().then(() => {
     <React.StrictMode>
       <QueryClientProvider client={qc}>
         <BrowserRouter>
-          {/* Banner renders once here — z-[60], fixed top-0, above everything */}
-          <AnnouncementBanner />
-          <AppWithTracking />
+          {/* Provider must be inside QueryClientProvider and BrowserRouter */}
+          <AnnouncementProvider>
+            <AnnouncementBanner />
+            <AppWithTracking />
+          </AnnouncementProvider>
           <Toaster
             position="top-right"
             toastOptions={{

@@ -2,12 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ArrowRight, X, Menu } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../api'
+import { useAnnouncement } from '../../context/announcement'
 import Logo from './Logo'
 import { FEATURES } from './data'
 
-const BANNER_H = 32
 const ALL_ITEMS = FEATURES.flatMap(g => g.items)
 
 export default function Navbar() {
@@ -15,13 +13,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen]     = useState(false)
   const [scrolled, setScrolled]         = useState(false)
   const dropdownRef                     = useRef<HTMLDivElement>(null)
-
-  const { data: ann } = useQuery({
-    queryKey: ['announcement-active'],
-    queryFn:  () => api.get('/announcements/active').then(r => r.data),
-    staleTime: 60_000,
-  })
-  const bannerH = ann?.active ? BANNER_H : 0
+  const { bannerH }                     = useAnnouncement()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -43,7 +35,7 @@ export default function Navbar() {
       className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-white/95 backdrop-blur-sm border-b border-ash-border shadow-sm' : 'bg-transparent'
       }`}
-      style={{ top: bannerH }}
+      style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}
     >
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5"><Logo /></Link>
@@ -112,9 +104,7 @@ export default function Navbar() {
           <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-2 px-3">Features</p>
           {FEATURES.flatMap(g => g.items).map(({ icon: Icon, label }, i) => (
             <div key={label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted">
-              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.28 }}>
-                <Icon size={13} />
-              </motion.div>
+              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.28 }}><Icon size={13} /></motion.div>
               {label}
             </div>
           ))}

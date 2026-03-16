@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { publicApi, exportApi, api } from '../../api'
+import { useAnnouncement } from '../../context/announcement'
+import { publicApi, exportApi } from '../../api'
 import { CVData } from '../../types'
 import { Download, ArrowLeft, Globe } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -14,7 +15,6 @@ const THEME_ACCENT: Record<string, string> = {
   minimal: '#0F172A', classic: '#1E3A5F', sharp: '#DC2626',
 }
 
-const BANNER_H = 32
 
 function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
   return (
@@ -30,8 +30,7 @@ export default function PublicCVPage() {
   const { username, slug } = useParams<{ username: string; slug: string }>()
   const navigate = useNavigate()
 
-  const { data: ann } = useQuery({ queryKey: ['announcement-active'], queryFn: () => api.get('/announcements/active').then(r => r.data), staleTime: 60_000 })
-  const bannerH = ann?.active ? BANNER_H : 0
+  const { bannerH } = useAnnouncement()
 
   const { data: cv, isLoading, error } = useQuery<PublicCV>({
     queryKey: ['public-cv', username, slug],
@@ -66,7 +65,7 @@ export default function PublicCVPage() {
       {/* Top bar — sticky, sits below announcement banner */}
       <div
         className="bg-white border-b border-ash-border px-6 py-3 flex items-center justify-between sticky z-30"
-        style={{ top: bannerH }}
+        style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">

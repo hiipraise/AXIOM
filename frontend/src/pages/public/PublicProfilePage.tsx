@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { publicApi, api } from '../../api'
+import { useAnnouncement } from '../../context/announcement'
+import { publicApi } from '../../api'
 import { FileText, ExternalLink, ArrowLeft } from 'lucide-react'
 
 interface PublicProfile {
@@ -8,14 +9,12 @@ interface PublicProfile {
   cvs: { id: string; title: string; slug: string; updated_at: string }[]
 }
 
-const BANNER_H = 32
 
 export default function PublicProfilePage() {
   const { username } = useParams<{ username: string }>()
   const navigate     = useNavigate()
 
-  const { data: ann } = useQuery({ queryKey: ['announcement-active'], queryFn: () => api.get('/announcements/active').then(r => r.data), staleTime: 60_000 })
-  const bannerH = ann?.active ? BANNER_H : 0
+  const { bannerH } = useAnnouncement()
 
   const { data, isLoading, error } = useQuery<PublicProfile>({
     queryKey: ['public-profile', username],
@@ -35,7 +34,7 @@ export default function PublicProfilePage() {
       {/* Top bar offset below banner */}
       <div
         className="bg-white border-b border-ash-border px-6 py-4 flex items-center justify-between sticky z-30"
-        style={{ top: bannerH }}
+        style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors">
