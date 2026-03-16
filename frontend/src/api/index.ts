@@ -93,6 +93,10 @@ export const cvApi = {
 };
 
 export const exportApi = {
+  previewPDF: (data: object) =>
+    api
+      .post("/export/preview", data, { responseType: "blob" })
+      .then((r) => r.data as Blob),
   downloadPDF: (cvId: string): Promise<Blob> =>
     api
       .get(`/export/pdf/${cvId}`, { responseType: "blob" })

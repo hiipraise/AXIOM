@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface User {
+export interface User {
   id: string
   username: string
   email: string | null
@@ -9,16 +9,15 @@ interface User {
   is_active: boolean
 }
 
-interface AuthState {
+export interface AuthState {
   user:      User | null
-  token:     string | null   // in memory + sessionStorage
+  token:     string | null
   isLoading: boolean
   setAuth:   (user: User, token?: string) => void
+  setUser:   (user: User) => void           // ← AccountPage uses this for profile updates
   clearAuth: () => void
 }
 
-// sessionStorage: survives page reload but NOT tab close — acceptable security trade-off
-// This is NOT localStorage — it is session-scoped
 const SESSION_KEY = 'axiom_st'
 
 function readSession(): string | null {
@@ -33,12 +32,17 @@ function writeSession(t: string | null) {
 
 export const useAuthStore = create<AuthState>(() => ({
   user:      null,
-  token:     readSession(),   // rehydrate on module load
+  token:     readSession(),
   isLoading: true,
 
   setAuth: (user, token) => {
     if (token) writeSession(token)
     useAuthStore.setState({ user, token: token ?? readSession(), isLoading: false })
+  },
+
+  // Update user object in-place without touching the token
+  setUser: (user) => {
+    useAuthStore.setState({ user })
   },
 
   clearAuth: () => {
