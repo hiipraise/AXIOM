@@ -37,8 +37,7 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
 
   return (
     <>
-      {/* HEADER */}
-      <div className="px-5 py-5 border-b border-ash-border flex-shrink-0">
+      <div className="px-5 py-5 border-b border-ash-border">
         <Link
           to="/"
           onClick={onNav}
@@ -50,61 +49,53 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
           CV GENERATOR
         </span>
       </div>
-
-      {/* SCROLLABLE NAV ONLY */}
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        <nav className="space-y-0.5">
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onNav}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
-                  isActive
-                    ? "bg-ink text-white"
-                    : "text-ink-muted hover:bg-ash hover:text-ink",
-                )
-              }
-            >
-              <Icon size={15} /> {label}
-            </NavLink>
-          ))}
-
-          <button
-            onClick={() => {
-              navigate("/cv/new");
-              onNav?.();
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted hover:bg-ash hover:text-ink transition-all"
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            onClick={onNav}
+            className={({ isActive }) =>
+              clsx(
+                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+                isActive
+                  ? "bg-ink text-white"
+                  : "text-ink-muted hover:bg-ash hover:text-ink",
+              )
+            }
           >
-            <Plus size={15} /> New CV
-          </button>
-
-          {isAdmin && (
-            <NavLink
-              to="/admin"
-              onClick={onNav}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
-                  isActive
-                    ? "bg-ink text-white"
-                    : "text-ink-muted hover:bg-ash hover:text-ink",
-                )
-              }
-            >
-              <Shield size={15} /> Admin
-            </NavLink>
-          )}
-        </nav>
-      </div>
-
-      {/* FIXED FOOTER */}
-      <div className="px-4 py-4 border-t border-ash-border bg-white flex-shrink-0">
+            <Icon size={15} /> {label}
+          </NavLink>
+        ))}
+        <button
+          onClick={() => {
+            navigate("/cv/new");
+            onNav?.();
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted hover:bg-ash hover:text-ink transition-all"
+        >
+          <Plus size={15} /> New CV
+        </button>
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            onClick={onNav}
+            className={({ isActive }) =>
+              clsx(
+                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+                isActive
+                  ? "bg-ink text-white"
+                  : "text-ink-muted hover:bg-ash hover:text-ink",
+              )
+            }
+          >
+            <Shield size={15} /> Admin
+          </NavLink>
+        )}
+      </nav>
+      <div className="px-4 py-4 border-t border-ash-border">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold">
+          <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
             {user?.username.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
@@ -116,7 +107,6 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
             </p>
           </div>
         </div>
-
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-2 text-xs text-ink-muted hover:text-red-600 transition-colors py-1"
@@ -130,23 +120,23 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
-  const { bannerH } = useAnnouncement();
+  const { bannerH } = useAnnouncement(); // single source of truth — animates
 
   return (
     <div className="min-h-screen bg-ash flex">
-      {/* DESKTOP SIDEBAR */}
+      {/* Desktop sidebar */}
       <aside
         className="hidden md:flex w-56 bg-white border-r border-ash-border flex-col fixed z-20"
         style={{
           top: bannerH,
-          height: `calc(100vh - ${bannerH}px)`, // ⭐ CRITICAL FIX
+          bottom: 0,
           transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         <SidebarContent />
       </aside>
 
-      {/* MOBILE TOP BAR */}
+      {/* Mobile top bar */}
       <div
         className="md:hidden fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between"
         style={{
@@ -160,7 +150,6 @@ export default function Layout() {
         >
           AXIOM
         </Link>
-
         <button
           onClick={() => setOpen(true)}
           className="p-2 text-ink-muted hover:text-ink transition-colors"
@@ -169,7 +158,7 @@ export default function Layout() {
         </button>
       </div>
 
-      {/* MOBILE DRAWER */}
+      {/* Mobile drawer */}
       <AnimatePresence>
         {open && (
           <>
@@ -178,17 +167,17 @@ export default function Layout() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               onClick={() => setOpen(false)}
             />
-
             <motion.aside
-              className="md:hidden fixed left-0 w-72 bg-white z-50 flex flex-col shadow-xl"
+              className="md:hidden fixed top-0 left-0 h-full w-72 bg-white z-50 flex flex-col shadow-xl"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               style={{
                 top: bannerH,
-                height: `calc(100vh - ${bannerH}px)`, // ⭐ CRITICAL FIX
+                transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
               }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
@@ -198,21 +187,23 @@ export default function Layout() {
               >
                 <X size={18} />
               </button>
-
               <SidebarContent onNav={() => setOpen(false)} />
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* MAIN */}
+      {/* Main — top padding follows bannerH + mobile bar */}
       <main
         className="flex-1 md:ml-56 min-h-screen"
         style={{
           paddingTop: bannerH + 56,
+          transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        <Outlet />
+        <div className="md:-mt-14">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
