@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star, X, ChevronLeft, Send, Check } from 'lucide-react'
@@ -18,7 +18,16 @@ const TYPES = [
 
 type Step = 'type' | 'form' | 'done'
 
-// ─── Typewriter callout: types "Rate " then fades in favicon ─────────────────
+// ─── Preload favicon once at module level ─────────────────────────────────────
+// Creates one Image() when the JS module is first imported.
+// All subsequent renders just reference the now-cached URL — zero extra requests.
+const FAVICON_SRC = '/favicon.ico'
+if (typeof window !== 'undefined') {
+  const _preload   = new window.Image()
+  _preload.src     = FAVICON_SRC
+}
+
+// ─── Typewriter callout ───────────────────────────────────────────────────────
 const TYPED_TEXT = 'Rate '
 
 function TypewriterCallout({ onDismiss }: { onDismiss: () => void }) {
@@ -66,20 +75,16 @@ function TypewriterCallout({ onDismiss }: { onDismiss: () => void }) {
         <span className="relative z-10 flex items-center gap-2 min-w-[10px]">
           <span className="text-xs text-white/80 tracking-wide whitespace-pre">{displayed}</span>
 
-          {/* Favicon logo */}
-          <AnimatePresence>
-            {logoVisible && (
-              <motion.img
-                src="/favicon.ico"
-                alt="AXIOM"
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{   opacity: 0, scale: 0.6 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="w-4 h-4 object-contain"
-              />
-            )}
-          </AnimatePresence>
+          {/* Favicon — always rendered, just hidden via opacity to avoid unmount/remount requests */}
+          <img
+            src={FAVICON_SRC}
+            alt="AXIOM"
+            className="w-4 h-4 object-contain transition-all duration-200"
+            style={{
+              opacity:   logoVisible ? 1 : 0,
+              transform: logoVisible ? 'scale(1)' : 'scale(0.6)',
+            }}
+          />
 
           {/* Cursor */}
           {phase !== 'hold' && (
@@ -102,7 +107,7 @@ function TypewriterCallout({ onDismiss }: { onDismiss: () => void }) {
         </button>
       </div>
 
-      {/* Arrow tip toward the star button */}
+      {/* Arrow tip */}
       <div className="absolute -bottom-1.5 right-4 w-3 h-3 bg-ink rotate-45 rounded-sm" />
     </motion.div>
   )
@@ -127,10 +132,9 @@ export default function FeedbackWidget() {
   const reset      = () => { setStep('type'); setType(''); setRating(0); setMessage('') }
   const closePanel = () => { setPanel(false); reset() }
 
-  // Single click on star → open panel directly
   const handleStarClick = () => {
     if (panel) { closePanel() }
-    else        { setCallout(false); setPanel(true) }
+    else       { setCallout(false); setPanel(true) }
   }
 
   const handleSubmit = async () => {
@@ -156,14 +160,12 @@ export default function FeedbackWidget() {
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
 
-      {/* Callout — decorative, not clickable to open panel */}
       <AnimatePresence>
         {callout && !panel && (
           <TypewriterCallout onDismiss={() => setCallout(false)} />
         )}
       </AnimatePresence>
 
-      {/* Panel */}
       <AnimatePresence>
         {panel && (
           <motion.div
@@ -259,7 +261,6 @@ export default function FeedbackWidget() {
         )}
       </AnimatePresence>
 
-      {/* Star button */}
       <motion.button
         onClick={handleStarClick}
         whileTap={{ scale: 0.90 }}
@@ -268,7 +269,6 @@ export default function FeedbackWidget() {
       >
         <Star size={16} className={panel ? 'fill-white' : ''} />
       </motion.button>
-
     </div>
   )
 }
