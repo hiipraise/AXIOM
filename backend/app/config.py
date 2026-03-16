@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 
 class Settings(BaseSettings):
@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
     groq_api_key: str = ""
     frontend_url: str = "http://localhost:5173"
+    allowed_origins: List[str] = ["http://localhost:5173"]
     admin_username: str = "hiipraise"
     admin_email: str = "info.praisechined@gmail.com"
     admin_password: str = "password123"
