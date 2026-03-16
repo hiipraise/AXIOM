@@ -4,6 +4,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
+    env: str = "development"
     mongo_url: str = "mongodb://localhost:27017/axiom"
     jwt_secret: str = "change_me_in_production"
     jwt_algorithm: str = "HS256"
