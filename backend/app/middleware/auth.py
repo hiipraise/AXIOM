@@ -5,28 +5,25 @@ from app.database import get_db
 from bson import ObjectId
 
 COOKIE_NAME = "axiom_token"
+bearer      = HTTPBearer(auto_error=False)
 
-bearer = HTTPBearer(auto_error=False)
 
-
-def _get_token(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-) -> str | None:
-    """
-    Token resolution order:
-      1. httpOnly cookie  (browser / normal usage)
-      2. Authorization: Bearer header  (API clients / Swagger docs)
-    """
+def _extract_token(request: Request, credentials) -> str | None:
+    """Cookie first, Bearer header fallback."""
+    cookie = request.cookies.get(COOKIE_NAME)
+    if cookie:
+        return cookie
     if credentials:
         return credentials.credentials
-    return request.cookies.get(COOKIE_NAME)
+    return None
 
 
 async def get_current_user(
-    token: str | None = Depends(_get_token),
+    request:     Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db=Depends(get_db),
 ):
+    token = _extract_token(request, credentials)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     payload = decode_token(token)
@@ -39,9 +36,11 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    token: str | None = Depends(_get_token),
+    request:     Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db=Depends(get_db),
 ):
+    token = _extract_token(request, credentials)
     if not token:
         return None
     payload = decode_token(token)
