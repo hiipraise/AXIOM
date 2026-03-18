@@ -4,6 +4,8 @@ import { cvApi } from '../../api'
 import { EMPTY_CV_DATA, CVData } from '../../types'
 import toast from 'react-hot-toast'
 import { Upload, MessageSquare, FileText, ChevronRight, ArrowLeft, Send } from 'lucide-react'
+import { useAnnouncement } from '../../context/announcement'
+
 
 type Mode = 'choose' | 'blank' | 'upload' | 'interview'
 
@@ -18,6 +20,8 @@ export default function CVNewPage() {
   const [interviewMessages, setInterviewMessages] = useState<{ role: string; content: string }[]>([])
   const [interviewInput, setInterviewInput]   = useState('')
   const [interviewLoading, setInterviewLoading] = useState(false)
+  const { bannerH } = useAnnouncement()
+
 
   const handleCreateBlank = async () => {
     if (!title.trim()) { toast.error('Give your CV a title'); return }

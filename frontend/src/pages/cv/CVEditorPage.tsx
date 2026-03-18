@@ -10,6 +10,8 @@ import {
   Briefcase, GraduationCap, Award, FolderOpen, Menu, X,
   Languages, Heart, User, AlignLeft, Wrench, History, Eye,
 } from 'lucide-react'
+import { useAnnouncement } from '../../context/announcement'
+
 
 import PersonalInfoSection   from '../../components/cv/PersonalInfoSection'
 import SummarySection        from '../../components/cv/SummarySection'
@@ -106,6 +108,8 @@ export default function CVEditorPage() {
   const [isDirty, setIsDirty]             = useState(false)
   const [saving, setSaving]               = useState(false)
   const [currentRating, setCurrentRating] = useState<number | undefined>(undefined)
+  const { bannerH } = useAnnouncement()
+
 
   const { data: cv, isLoading } = useQuery<CV>({
     queryKey: ['cv', id],
