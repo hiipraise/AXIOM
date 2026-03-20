@@ -7,6 +7,11 @@ export type CVThemeKey =
   | 'terracotta'
   | 'forest'
   | 'royal'
+  | 'midnight'
+  | 'sunrise'
+  | 'sage'
+  | 'charcoal'
+  | 'amber'
 
 export interface CVThemeDefinition {
   label: string
@@ -90,6 +95,51 @@ export const CV_THEMES: Record<CVThemeKey, CVThemeDefinition> = {
     line: '#D9D6FE',
     text: '#1E1B4B',
     fontFamily: "'Palatino Linotype', 'Book Antiqua', Palatino, serif",
+  },
+  midnight: {
+    label: 'Midnight',
+    accent: '#0F172A',
+    secondary: '#94A3B8',
+    background: '#F8FAFC',
+    line: '#CBD5E1',
+    text: '#1E293B',
+    fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+  },
+  sunrise: {
+    label: 'Sunrise',
+    accent: '#EA580C',
+    secondary: '#9A3412',
+    background: '#FFF7ED',
+    line: '#FDBA74',
+    text: '#7C2D12',
+    fontFamily: "'Trebuchet MS', 'Segoe UI', Arial, sans-serif",
+  },
+  sage: {
+    label: 'Sage',
+    accent: '#3F6212',
+    secondary: '#4D7C0F',
+    background: '#F7FEE7',
+    line: '#D9F99D',
+    text: '#365314',
+    fontFamily: "'Avenir Next', 'Segoe UI', Arial, sans-serif",
+  },
+  charcoal: {
+    label: 'Charcoal',
+    accent: '#27272A',
+    secondary: '#52525B',
+    background: '#FAFAFA',
+    line: '#D4D4D8',
+    text: '#18181B',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+  },
+  amber: {
+    label: 'Amber',
+    accent: '#B45309',
+    secondary: '#92400E',
+    background: '#FFFBEB',
+    line: '#FCD34D',
+    text: '#78350F',
+    fontFamily: "Georgia, 'Times New Roman', serif",
   },
 }
 
