@@ -152,4 +152,4 @@ export const EMPTY_VOLUNTEER: VolunteerItem = {
   organization: '', role: '', start_date: '', end_date: '', description: ''
 }
 
-export type CVTheme = 'minimal' | 'classic' | 'sharp'
+export type CVTheme = 'minimal' | 'classic' | 'sharp' | 'executive' | 'nordic' | 'terracotta' | 'forest' | 'royal'

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAnnouncement } from '../../context/announcement'
 import { publicApi } from '../../api'
 import { ArrowLeft, Search, Globe, ExternalLink, Share2, ChevronRight, Briefcase, X } from 'lucide-react'
+import { getCVTheme } from '../../lib/cvThemes'
 
 interface FeedCV {
   id: string; owner_username: string; title: string; slug: string; theme: string
@@ -13,13 +14,8 @@ interface FeedCV {
 }
 interface FeedResponse { cvs: FeedCV[]; total: number }
 
-const THEME_COLORS: Record<string, string> = {
-  minimal: '#0F172A', classic: '#1E3A5F', sharp: '#DC2626',
-}
-
-
 function CVCard({ cv, onShare }: { cv: FeedCV; onShare: (cv: FeedCV) => void }) {
-  const accent   = THEME_COLORS[cv.theme] || THEME_COLORS.minimal
+  const accent   = getCVTheme(cv.theme).accent
   const name     = cv.personal_info.full_name || cv.owner_username
   const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
   return (

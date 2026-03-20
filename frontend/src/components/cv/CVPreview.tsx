@@ -1,18 +1,13 @@
 import { CVData } from "../../types";
 import { X } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
+import { getCVTheme } from "../../lib/cvThemes";
 
 interface Props {
   cvData: CVData;
   theme: string;
   onClose: () => void;
 }
-
-const THEME_STYLES: Record<string, { accent: string; secondary: string }> = {
-  minimal: { accent: "#0F172A", secondary: "#64748B" },
-  classic: { accent: "#1E3A5F", secondary: "#4A5568" },
-  sharp:   { accent: "#DC2626", secondary: "#4B5563" },
-};
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,7 +16,7 @@ const has = (s?: string | null) => Boolean(s && s.trim().length > 0);
 
 export default function CVPreview({ cvData, theme, onClose }: Props) {
   const pi = cvData.personal_info;
-  const t  = THEME_STYLES[theme] || THEME_STYLES.minimal;
+  const t  = getCVTheme(theme);
   const { bannerH } = useAnnouncement();
 
   // ── filtered collections — only items with at least a primary field ─────────
@@ -51,7 +46,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
       }}>
         {label}
       </p>
-      <div style={{ borderTop: `1.5px solid ${t.accent}`, opacity: 0.15 }} />
+      <div style={{ borderTop: `1.5px solid ${t.line}` }} />
     </div>
   );
 
@@ -76,8 +71,9 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
               maxWidth: "640px",
               margin: "0 auto",
               padding: "48px 48px 56px",
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              color: "#1A1A1A",
+              fontFamily: t.fontFamily,
+              color: t.text,
+              background: t.background,
               fontSize: "12px",
               lineHeight: "1.6",
             }}
@@ -108,7 +104,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
             {has(cvData.summary) && (
               <>
                 <Sec label="Profile" />
-                <p style={{ color: "#2D2D2D", lineHeight: "1.75" }}>{cvData.summary}</p>
+                <p style={{ color: t.text, lineHeight: "1.75" }}>{cvData.summary}</p>
               </>
             )}
 
@@ -129,10 +125,10 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
                       )}
                     </div>
                     {has(exp.description) && (
-                      <p style={{ marginTop: "4px", color: "#3D3D3D", lineHeight: "1.65" }}>{exp.description}</p>
+                      <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }}>{exp.description}</p>
                     )}
                     {(exp.achievements || []).filter(has).map((a, ai) => (
-                      <p key={ai} style={{ paddingLeft: "14px", marginTop: "3px", color: "#3D3D3D", lineHeight: "1.6" }}>
+                      <p key={ai} style={{ paddingLeft: "14px", marginTop: "3px", color: t.text, lineHeight: "1.6" }}>
                         • {a}
                       </p>
                     ))}
@@ -169,7 +165,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
             {skills.length > 0 && (
               <>
                 <Sec label="Skills" />
-                <p style={{ color: "#2D2D2D", lineHeight: "1.75" }}>{skills.join("  •  ")}</p>
+                <p style={{ color: t.text, lineHeight: "1.75" }}>{skills.join("  •  ")}</p>
               </>
             )}
 
@@ -194,7 +190,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
                 {projects.map((p, i) => (
                   <div key={i} style={{ marginBottom: "14px" }}>
                     <strong>{p.name}</strong>
-                    {has(p.description) && <p style={{ marginTop: "3px", color: "#3D3D3D", lineHeight: "1.65" }}>{p.description}</p>}
+                    {has(p.description) && <p style={{ marginTop: "3px", color: t.text, lineHeight: "1.65" }}>{p.description}</p>}
                     {(p.technologies || []).filter(has).length > 0 && (
                       <p style={{ fontSize: "10.5px", color: t.secondary, marginTop: "3px" }}>
                         Tech: {p.technologies.filter(has).join(", ")}
@@ -222,7 +218,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
             {languages.length > 0 && (
               <>
                 <Sec label="Languages" />
-                <p style={{ color: "#2D2D2D", lineHeight: "1.75" }}>
+                <p style={{ color: t.text, lineHeight: "1.75" }}>
                   {languages.map(l => `${l.language}${has(l.proficiency) ? ` (${l.proficiency})` : ""}`).join("  •  ")}
                 </p>
               </>
@@ -245,7 +241,7 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
                       )}
                     </div>
                     {has(v.description) && (
-                      <p style={{ marginTop: "4px", color: "#3D3D3D", lineHeight: "1.65" }}>{v.description}</p>
+                      <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }}>{v.description}</p>
                     )}
                   </div>
                 ))}
