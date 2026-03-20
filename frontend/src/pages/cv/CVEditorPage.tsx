@@ -1,5 +1,5 @@
 // src/pages/cv/CVEditorPage.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -156,6 +156,36 @@ export default function CVEditorPage() {
     }
   }, [cv]);
 
+  const confirmDiscardUnsavedChanges = useCallback((action: string) => {
+    if (!isDirty) return true;
+
+    return window.confirm(
+      `Your CV has unsaved changes. If you ${action} without saving, those changes will be cleared.`,
+    );
+  }, [isDirty]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  const handleLeaveEditor = () => {
+    if (!confirmDiscardUnsavedChanges("leave this page")) return;
+    navigate("/dashboard");
+  };
+
+  const handleOpenRating = () => {
+    if (!confirmDiscardUnsavedChanges("rate this CV")) return;
+    setShowRating(true);
+  };
+
   const updateData = (patch: Partial<CVData>) => {
     setCvData((prev) => ({ ...prev, ...patch }));
     setIsDirty(true);
@@ -224,7 +254,7 @@ export default function CVEditorPage() {
         {/* Back button — always visible, never scrolls */}
         <div className="px-3 py-3 border-b border-ash-border flex-shrink-0">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={handleLeaveEditor}
             className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
           >
             <ChevronLeft size={13} /> Back
@@ -269,7 +299,7 @@ export default function CVEditorPage() {
             <History size={13} /> History
           </button>
           <button
-            onClick={() => setShowRating(true)}
+            onClick={handleOpenRating}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-colors ${
               currentRating
                 ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -291,7 +321,7 @@ export default function CVEditorPage() {
         <div className="bg-white border-b border-ash-border px-3 sm:px-5 py-2.5 flex items-center gap-2 flex-shrink-0">
           {/* Mobile back */}
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={handleLeaveEditor}
             className="md:hidden p-1.5 text-ink-muted hover:text-ink flex-shrink-0"
           >
             <ChevronLeft size={16} />
