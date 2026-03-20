@@ -1,5 +1,6 @@
 import { CVData } from "../../types";
 import { X } from "lucide-react";
+import { useAnnouncement } from "../../context/announcement";
 
 interface Props {
   cvData: CVData;
@@ -29,8 +30,11 @@ export default function CVPreview({ cvData, theme, onClose }: Props) {
     </div>
   );
 
+      const { bannerH } = useAnnouncement()
+  
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b border-ash-border">
           <span className="text-sm font-medium text-ink">CV Preview</span>
