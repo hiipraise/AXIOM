@@ -70,7 +70,7 @@ export default function AIAssistPanel({ cvData, onApply, onClose, cvId }: Props)
   }
 
   return (
-    <div className="w-80 bg-white border-l border-ash-border flex flex-col h-full">
+    <div className="w-full md:w-80 bg-white border-l border-ash-border flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-ash-border flex items-center justify-between">
         <div className="flex items-center gap-2">
