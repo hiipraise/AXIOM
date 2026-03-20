@@ -42,6 +42,7 @@ import LanguagesSection from "../../components/cv/LanguagesSection";
 import VolunteerSection from "../../components/cv/VolunteerSection";
 import AIAssistPanel from "../../components/cv/AIAssistPanel";
 import CVPreview from "../../components/cv/CVPreview";
+import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 import HistoryDrawer from "../../components/cv/HistoryDrawer";
 import RatingModal from "../../components/cv/RatingModal";
 
@@ -326,9 +327,9 @@ export default function CVEditorPage() {
               }}
               className="hidden sm:block text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none"
             >
-              <option value="minimal">Minimal</option>
-              <option value="classic">Classic</option>
-              <option value="sharp">Sharp</option>
+              {CV_THEME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
             <select
               value={pageCount}
