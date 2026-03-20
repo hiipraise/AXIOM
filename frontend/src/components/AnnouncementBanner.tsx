@@ -59,10 +59,36 @@ export default function AnnouncementBanner() {
               }}
             >
               <span className="text-[11px] font-medium tracking-wide opacity-90">
-                {repeated}&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+                {ann.text.split(/(https?:\/\/\S+|\/\S+)/g).map((part, i) =>
+                  part.match(/^(https?:\/\/|\/)/) ? (
+                    <a
+                      key={i}
+                      href={part}
+                      className="underline underline-offset-2 hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {part}
+                    </a>
+                  ) : (
+                    part
+                  ),
+                )}
               </span>
               <span className="text-[11px] font-medium tracking-wide opacity-90">
-                {repeated}&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+                {ann.text.split(/(https?:\/\/\S+|\/\S+)/g).map((part, i) =>
+                  part.match(/^(https?:\/\/|\/)/) ? (
+                    <a
+                      key={i}
+                      href={part}
+                      className="underline underline-offset-2 hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {part}
+                    </a>
+                  ) : (
+                    part
+                  ),
+                )}
               </span>
             </motion.div>
           </div>

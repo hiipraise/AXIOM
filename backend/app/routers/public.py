@@ -22,6 +22,7 @@ async def get_public_feed(skip: int = 0, limit: int = 20, db=Depends(get_db)):
                 "title": c["title"],
                 "slug": c.get("slug"),
                 "theme": c.get("theme", "minimal"),
+                "template": c.get("template", "standard"),
                 "updated_at": c["updated_at"],
                 "personal_info": {
                     "full_name":  c["data"].get("personal_info", {}).get("full_name", ""),
@@ -48,6 +49,7 @@ async def get_public_cv(username: str, slug: str, db=Depends(get_db)):
         "title": cv["title"],
         "data": cv["data"],
         "theme": cv.get("theme", "minimal"),
+        "template": cv.get("template", "standard"),
         "page_count": cv.get("page_count", 1),
         "updated_at": cv["updated_at"],
     }
