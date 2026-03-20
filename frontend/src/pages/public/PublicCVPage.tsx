@@ -21,7 +21,7 @@ export default function PublicCVPage() {
   const { username, slug } = useParams<{ username: string; slug: string }>()
   const navigate = useNavigate()
   const { bannerH } = useAnnouncement()
-  const { printPublicCV, printJob, isPrinting } = usePrintCV()
+  const { printPublicCV, printJob, clearJob, isPrinting } = usePrintCV()
 
   const { data: cv, isLoading, error } = useQuery<PublicCV>({
     queryKey: ['public-cv', username, slug],
@@ -43,7 +43,7 @@ export default function PublicCVPage() {
   return (
     <>
       {/* Print frame — only visible during window.print() */}
-      <PrintFrame printJob={printJob} />
+      <PrintFrame printJob={printJob} onDone={clearJob} />
 
       <div className="min-h-screen bg-ash">
         <div className="bg-white border-b border-ash-border px-6 py-3 flex items-center justify-between sticky z-30"

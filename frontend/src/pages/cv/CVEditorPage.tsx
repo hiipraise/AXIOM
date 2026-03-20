@@ -77,7 +77,7 @@ export default function CVEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { printCV, printJob, isPrinting } = usePrintCV();
+  const { printCV, printJob, clearJob, isPrinting } = usePrintCV();
 
   const [activeSection, setActiveSection] = useState("personal");
   const [cvData,    setCvData]    = useState<CVData>(EMPTY_CV_DATA);
@@ -164,7 +164,7 @@ export default function CVEditorPage() {
   return (
     <>
       {/* ── Print frame — hidden normally, visible only during window.print() ── */}
-      <PrintFrame printJob={printJob} />
+      <PrintFrame printJob={printJob} onDone={clearJob} />
 
       <div className="flex bg-ash overflow-hidden"
         style={{ height: `calc(100vh - ${bannerH}px)`, transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)" }}>

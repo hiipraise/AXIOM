@@ -61,35 +61,46 @@
   }
 }
 
+/* ── REPLACE entire @media print block in index.css with this ─────────────── */
+
+/* Normal view: frame is in the DOM but invisible and out of flow */
+#cv-print-frame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  visibility: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Print: hide app, show frame */
 @media print {
-  /* Hide everything in the app */
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
 
-  /* Show only the print frame and all its children */
-  #cv-print-frame,
-  #cv-print-frame * {
-    visibility: visible;
-  }
-
-  /* Position it to fill the page */
   #cv-print-frame {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: auto;
-    background: white;
-    z-index: 99999;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    z-index: auto !important;
+  }
+
+  #cv-print-frame * {
+    visibility: visible !important;
   }
 
   @page {
-    margin: 0;
+    margin: 10mm 12mm;
     size: A4;
   }
 
   body {
+    margin: 0;
+    padding: 0;
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;

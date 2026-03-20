@@ -1,14 +1,4 @@
-/**
- * PrintFrame
- *
- * Sits at the root of the app (inside App.tsx).
- * Invisible normally. During window.print() the @media print CSS in
- * index.css hides everything EXCEPT #cv-print-frame, so the PDF
- * contains only the CV content.
- *
- * Must be rendered by the component that calls usePrintCV so they
- * share the same state. Pass the printJob from usePrintCV as a prop.
- */
+import { useEffect } from 'react'
 import { CVData } from '../types'
 import CVRenderer from './cv/CVRenderer'
 
@@ -20,9 +10,21 @@ interface PrintJob {
 
 interface Props {
   printJob: PrintJob | null
+  onDone: () => void
 }
 
-export default function PrintFrame({ printJob }: Props) {
+export default function PrintFrame({ printJob, onDone }: Props) {
+  // This useEffect fires AFTER the CVRenderer has been committed to the DOM,
+  // so window.print() always has content to print.
+  useEffect(() => {
+    if (!printJob) return
+    const t = setTimeout(() => {
+      window.print()
+      setTimeout(onDone, 500)
+    }, 300) // 300ms lets fonts and layout settle
+    return () => clearTimeout(t)
+  }, [printJob]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!printJob) return null
 
   return (

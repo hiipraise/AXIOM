@@ -23,7 +23,7 @@ export default function AtlasTemplate({ cvData, t }: TemplateProps) {
   )
 
   return (
-    <div style={{ display: 'flex', fontFamily: t.fontFamily, color: t.text, minHeight: 700 }}>
+    <div style={{ display: 'flex', fontFamily: t.fontFamily, color: t.text, minHeight: "auto" }}>
 
       {/* ── Sidebar ── */}
       <div style={{
