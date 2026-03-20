@@ -209,16 +209,19 @@ export default function CVEditorPage() {
     );
 
   return (
-    <div className="flex h-screen bg-ash overflow-hidden">
-      {/* ── Desktop sidebar ── */}
-      <div
-        className="hidden md:flex w-44 bg-white border-r border-ash-border flex-col"
-        style={{
-          top: bannerH,
-          transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
-        }}
-      >
-        <div className="px-3 py-3 border-b border-ash-border">
+    // ↓ Height is exactly the viewport minus the announcement banner —
+    //   so the whole editor is self-contained and nothing bleeds outside.
+    <div
+      className="flex bg-ash overflow-hidden"
+      style={{
+        height: `calc(100vh - ${bannerH}px)`,
+        transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)",
+      }}
+    >
+      {/* ── Desktop sidebar — fills its own height, scrolls its own nav ── */}
+      <div className="hidden md:flex w-44 bg-white border-r border-ash-border flex-col flex-shrink-0">
+        {/* Back button — always visible, never scrolls */}
+        <div className="px-3 py-3 border-b border-ash-border flex-shrink-0">
           <button
             onClick={() => navigate("/dashboard")}
             className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
@@ -226,6 +229,8 @@ export default function CVEditorPage() {
             <ChevronLeft size={13} /> Back
           </button>
         </div>
+
+        {/* Section list — only this part scrolls if sections overflow */}
         <div className="flex-1 overflow-y-auto py-2">
           {SECTIONS.map(({ id: sid, label, icon: Icon }) => (
             <button
@@ -241,7 +246,9 @@ export default function CVEditorPage() {
             </button>
           ))}
         </div>
-        <div className="p-3 border-t border-ash-border space-y-1">
+
+        {/* Action buttons — always visible at the bottom */}
+        <div className="p-3 border-t border-ash-border space-y-1 flex-shrink-0">
           <button
             onClick={() => setShowAI(!showAI)}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors"
@@ -277,16 +284,10 @@ export default function CVEditorPage() {
         </div>
       </div>
 
-      {/* ── Main area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Toolbar */}
-        <div
-          className="bg-white border-b border-ash-border px-3 sm:px-5 py-2.5 flex items-center gap-2 flex-shrink-0"
-          style={{
-            top: bannerH,
-            transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
-          }}
-        >
+      {/* ── Main area — toolbar sticks to top, only content scrolls ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Toolbar — sticky, never scrolls */}
+        <div className="bg-white border-b border-ash-border px-3 sm:px-5 py-2.5 flex items-center gap-2 flex-shrink-0">
           {/* Mobile back */}
           <button
             onClick={() => navigate("/dashboard")}
@@ -398,7 +399,7 @@ export default function CVEditorPage() {
           </div>
         </div>
 
-        {/* Section content */}
+        {/* Section content — only this scrolls */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-2xl mx-auto">
             {activeSection === "personal" && (
