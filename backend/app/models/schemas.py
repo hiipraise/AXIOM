@@ -143,6 +143,7 @@ class CVCreate(BaseModel):
     is_public: bool = False
     theme: str = "minimal"
     page_count: int = Field(default=1, ge=1, le=3)
+    template: str = "standard"
 
 
 class CVUpdate(BaseModel):
