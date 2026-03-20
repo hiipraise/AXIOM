@@ -60,3 +60,38 @@
     @apply inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full;
   }
 }
+
+@media print {
+  /* Hide everything in the app */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the print frame and all its children */
+  #cv-print-frame,
+  #cv-print-frame * {
+    visibility: visible;
+  }
+
+  /* Position it to fill the page */
+  #cv-print-frame {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    background: white;
+    z-index: 99999;
+  }
+
+  @page {
+    margin: 0;
+    size: A4;
+  }
+
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
