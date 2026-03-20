@@ -151,6 +151,7 @@ class CVUpdate(BaseModel):
     is_public: Optional[bool] = None
     theme: Optional[str] = None
     page_count: Optional[int] = None
+    template: Optional[str] = None
 
 
 class CVOut(BaseModel):
@@ -162,6 +163,7 @@ class CVOut(BaseModel):
     is_public: bool
     theme: str
     page_count: int
+    template: str
     slug: Optional[str]
     created_at: datetime
     updated_at: datetime

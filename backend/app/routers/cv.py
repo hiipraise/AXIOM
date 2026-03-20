@@ -28,6 +28,7 @@ def serialize_cv(cv: dict) -> dict:
         "is_public": cv.get("is_public", False),
         "theme": cv.get("theme", "minimal"),
         "page_count": cv.get("page_count", 1),
+        "template": cv.get("template", "standard"),
         "slug": cv.get("slug"),
         "created_at": cv["created_at"],
         "updated_at": cv["updated_at"],
@@ -51,6 +52,7 @@ async def create_cv(body: CVCreate, current_user=Depends(get_current_user), db=D
         "is_public": body.is_public,
         "theme": body.theme,
         "page_count": body.page_count,
+        "template": body.template,
         "slug": slug,
         "created_at": now,
         "updated_at": now,
@@ -112,6 +114,8 @@ async def update_cv(cv_id: str, body: CVUpdate, current_user=Depends(get_current
         updates["theme"] = body.theme
     if body.page_count is not None:
         updates["page_count"] = body.page_count
+    if body.template is not None:
+        updates["template"] = body.template    
 
     await db.cvs.update_one({"_id": ObjectId(cv_id)}, {"$set": updates})
     updated = await db.cvs.find_one({"_id": ObjectId(cv_id)})
@@ -146,6 +150,7 @@ async def duplicate_cv(cv_id: str, current_user=Depends(get_current_user), db=De
         "is_public": False,
         "theme": cv.get("theme", "minimal"),
         "page_count": cv.get("page_count", 1),
+        "template": cv.get("template", "standard"), 
         "slug": None,
         "created_at": now,
         "updated_at": now,

@@ -100,6 +100,7 @@ export interface CV {
   data: CVData
   is_public: boolean
   theme: string
+  template: string        // ← new: layout template
   page_count: number
   slug?: string
   created_at: string
