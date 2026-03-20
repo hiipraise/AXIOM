@@ -5,40 +5,7 @@ from typing import Optional
 from groq import Groq
 
 from app.config import settings
-
-BANNED_WORDS = [
-    "versatile", "passionate", "dynamic", "modern", "scalable", "specialize",
-    "streamline", "leveraged", "results-driven", "team player", "detail-oriented",
-    "innovative", "synergy", "utilize", "leverage", "cutting-edge", "thought leader",
-    "game-changer", "disruptive", "holistic", "robust", "seamless", "best-in-class",
-    "translating complex", "intuitive solutions", "fast-paced environment",
-    "go-getter", "self-starter", "proactive", "solution-oriented",
-]
-
-SYSTEM_PROMPT = """You are AXIOM, an expert CV writer. Your job is to produce truthful,
-evidence-based, ATS-safe resume content.
-
-STRICT RULES:
-1. NEVER use these words or phrases: """ + ", ".join(f'"{w}"' for w in BANNED_WORDS) + """
-2. Every claim must be specific and concrete — use numbers, outcomes, and named tools/technologies
-3. Do NOT fabricate any information not provided by the user
-4. Write in plain, direct English — no corporate fluff, no buzzwords
-5. Prefer active voice and specific verbs (built, reduced, led, shipped, fixed, cut, grew)
-6. For skills: plain text list only, no ratings or bars
-7. Keep descriptions concise and factual
-8. If the user's input is vague, ask clarifying questions rather than inventing details
-"""
-
-JSON_RESPONSE_RULE = "When generating JSON, return ONLY valid JSON with no markdown fences or explanations."
-TEXT_RESPONSE_RULE = "Respond in natural language text. Do not return JSON unless the user explicitly asks for JSON."
-
-
-def _json_system_prompt() -> str:
-    return f"{SYSTEM_PROMPT}\n\n{JSON_RESPONSE_RULE}"
-
-
-def _text_system_prompt() -> str:
-    return f"{SYSTEM_PROMPT}\n\n{TEXT_RESPONSE_RULE}"
+from app.services.ai_prompts import json_system_prompt, text_system_prompt, interview_system_prompt
 
 MODEL_NAME = "llama-3.1-8b-instant"
 
@@ -58,6 +25,14 @@ def _create_completion(system_prompt: str, messages: list, max_tokens: int) -> s
     return (response.choices[0].message.content or "").strip()
 
 
+def _strip_fences(text: str) -> str:
+    """Remove markdown code fences if the model wraps JSON in them."""
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+    return text.strip()
+
+
 async def chat_with_ai(message: str, cv_data: Optional[dict] = None, context: str = "") -> str:
     user_content = message
     if cv_data:
@@ -66,7 +41,7 @@ async def chat_with_ai(message: str, cv_data: Optional[dict] = None, context: st
         user_content = f"Context: {context}\n\n{user_content}"
 
     return _create_completion(
-        _text_system_prompt(),
+        text_system_prompt(),
         [{"role": "user", "content": user_content}],
         max_tokens=2000,
     )
@@ -83,7 +58,7 @@ CV Data:
 Return ONLY the summary text, nothing else."""
 
     return _create_completion(
-        _text_system_prompt(),
+        text_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=500,
     )
@@ -101,15 +76,11 @@ Current CV:
 Return ONLY the updated JSON object matching the exact same schema. No markdown, no explanation."""
 
     text = _create_completion(
-        _json_system_prompt(),
+        json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
-    # Strip markdown fences if present
-    if text.startswith("```"):
-        lines = text.split("\n")
-        text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
-    return json.loads(text)
+    return json.loads(_strip_fences(text))
 
 
 async def match_job_description(cv_data: dict, job_description: str) -> dict:
@@ -130,14 +101,11 @@ Current CV:
 Return ONLY the updated JSON object. No markdown, no explanation."""
 
     text = _create_completion(
-        _json_system_prompt(),
+        json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
-    if text.startswith("```"):
-        lines = text.split("\n")
-        text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
-    return json.loads(text)
+    return json.loads(_strip_fences(text))
 
 
 async def extract_cv_from_text(raw_text: str) -> dict:
@@ -163,30 +131,18 @@ CV Text:
 Return ONLY valid JSON. No markdown, no explanation."""
 
     text = _create_completion(
-        _json_system_prompt(),
+        json_system_prompt(),
         [{"role": "user", "content": prompt}],
         max_tokens=4000,
     )
-    if text.startswith("```"):
-        lines = text.split("\n")
-        text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
-    return json.loads(text)
+    return json.loads(_strip_fences(text))
 
 
 async def interview_user(message: str, conversation_history: list) -> str:
-    """AI interview mode to gather CV details through natural conversation."""
-    system = _text_system_prompt() + """
-
-You are in INTERVIEW MODE. Your goal is to gather detailed, specific information for a CV.
-Ask one clear, focused question at a time. When the user's answer is vague, probe for:
-- Specific numbers (how many? what percentage? what timeframe?)
-- Named technologies or tools
-- Concrete outcomes ("what changed because of your work?")
-- Team size and scope
-
-After gathering enough information, offer to generate a CV section.
-Never ask more than one question per message."""
-
+    """AI interview mode — gathers CV details through focused, single-question conversation."""
     messages = conversation_history + [{"role": "user", "content": message}]
-
-    return _create_completion(system, messages, max_tokens=800)
+    return _create_completion(
+        interview_system_prompt(),
+        messages,
+        max_tokens=800,
+    )
