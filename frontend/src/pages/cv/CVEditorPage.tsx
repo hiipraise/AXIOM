@@ -45,6 +45,7 @@ import CVPreview from "../../components/cv/CVPreview";
 import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 import HistoryDrawer from "../../components/cv/HistoryDrawer";
 import RatingModal from "../../components/cv/RatingModal";
+import ConfirmDialog from "../../components/UI/ConfirmDialog";
 
 const SECTIONS = [
   { id: "personal", label: "Personal Info", icon: User },
@@ -137,6 +138,10 @@ export default function CVEditorPage() {
   const [currentRating, setCurrentRating] = useState<number | undefined>(
     undefined,
   );
+  const [pendingAction, setPendingAction] = useState<null | {
+    action: "leave" | "rate";
+    run: () => void;
+  }>(null);
   const { bannerH } = useAnnouncement();
 
   const { data: cv, isLoading } = useQuery<CV>({
@@ -156,34 +161,24 @@ export default function CVEditorPage() {
     }
   }, [cv]);
 
-  const confirmDiscardUnsavedChanges = useCallback((action: string) => {
-    if (!isDirty) return true;
+  const confirmDiscardUnsavedChanges = useCallback((
+    action: "leave" | "rate",
+    run: () => void,
+  ) => {
+    if (!isDirty) {
+      run();
+      return;
+    }
 
-    return window.confirm(
-      `Your CV has unsaved changes. If you ${action} without saving, those changes will be cleared.`,
-    );
-  }, [isDirty]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    setPendingAction({ action, run });
   }, [isDirty]);
 
   const handleLeaveEditor = () => {
-    if (!confirmDiscardUnsavedChanges("leave this page")) return;
-    navigate("/dashboard");
+    confirmDiscardUnsavedChanges("leave", () => navigate("/dashboard"));
   };
 
   const handleOpenRating = () => {
-    if (!confirmDiscardUnsavedChanges("rate this CV")) return;
-    setShowRating(true);
+    confirmDiscardUnsavedChanges("rate", () => setShowRating(true));
   };
 
   const updateData = (patch: Partial<CVData>) => {
@@ -584,6 +579,22 @@ export default function CVEditorPage() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!pendingAction}
+        title="Discard unsaved changes?"
+        description={
+          pendingAction?.action === "rate"
+            ? "You have unsaved edits. Open the rating dialog now and your current changes will be cleared unless you save first."
+            : "You have unsaved edits. Leave the editor now and your current changes will be cleared unless you save first."
+        }
+        confirmLabel={pendingAction?.action === "rate" ? "Discard and rate" : "Discard and leave"}
+        variant="danger"
+        onClose={() => setPendingAction(null)}
+        onConfirm={() => {
+          pendingAction?.run();
+          setPendingAction(null);
+        }}
+      />
     </div>
   );
 }

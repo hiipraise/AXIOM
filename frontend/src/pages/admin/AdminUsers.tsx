@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api'
-import { Shield, UserX, UserCheck, Trash2 } from 'lucide-react'
+import { UserX, UserCheck, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useState } from 'react'
+import ConfirmDialog from '../../components/UI/ConfirmDialog'
 
 interface AdminUser {
   _id: string
@@ -14,6 +16,7 @@ interface AdminUser {
 
 export default function AdminUsers() {
   const qc = useQueryClient()
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
   const { data, isLoading } = useQuery<{ users: AdminUser[]; total: number }>({
     queryKey: ['admin-users'],
     queryFn: () => adminApi.users(),
@@ -92,7 +95,7 @@ export default function AdminUsers() {
                         {u.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
                       </button>
                       <button
-                        onClick={() => window.confirm('Delete this user and all their data?') && del.mutate(u._id)}
+                        onClick={() => setDeleteTarget(u)}
                         className="p-1.5 text-ink-muted hover:text-red-500 transition-colors"
                       >
                         <Trash2 size={14} />
@@ -105,6 +108,23 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete user?"
+        description={
+          <>
+            Delete <span className="font-medium text-ink">{deleteTarget?.username}</span> and all associated data? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete user"
+        variant="danger"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return
+          del.mutate(deleteTarget._id)
+          setDeleteTarget(null)
+        }}
+      />
     </div>
   )
 }

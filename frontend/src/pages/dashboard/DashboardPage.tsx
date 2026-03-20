@@ -7,12 +7,14 @@ import { Plus, FileText, Globe, Lock, Copy, Trash2, Edit, Clock, Star } from 'lu
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/auth'
 import RatingModal from '../../components/cv/RatingModal'
+import ConfirmDialog from '../../components/UI/ConfirmDialog'
 
 export default function DashboardPage() {
   const { user }  = useAuthStore()
   const navigate  = useNavigate()
   const qc        = useQueryClient()
   const [ratingCV, setRatingCV] = useState<CV | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CV | null>(null)
 
   const { data: cvs = [], isLoading } = useQuery<CV[]>({
     queryKey: ['cvs'],
@@ -28,12 +30,12 @@ export default function DashboardPage() {
     } catch { toast.error('Failed to duplicate') }
   }
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
+  const handleDelete = async (id: string) => {
     try {
       await cvApi.delete(id)
       qc.invalidateQueries({ queryKey: ['cvs'] })
       toast.success('CV deleted')
+      setDeleteTarget(null)
     } catch { toast.error('Failed to delete') }
   }
 
@@ -114,7 +116,7 @@ export default function DashboardPage() {
                 <button className="btn-ghost p-1.5 hidden sm:inline-flex" title="Duplicate" onClick={() => handleDuplicate(cv.id)}>
                   <Copy size={13} />
                 </button>
-                <button className="btn-ghost p-1.5 hover:text-red-600" title="Delete" onClick={() => handleDelete(cv.id, cv.title)}>
+                <button className="btn-ghost p-1.5 hover:text-red-600" title="Delete" onClick={() => setDeleteTarget(cv)}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -152,6 +154,19 @@ export default function DashboardPage() {
           onSaved={() => qc.invalidateQueries({ queryKey: ['cvs'] })}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete CV?"
+        description={
+          <>
+            Delete <span className="font-medium text-ink">"{deleteTarget?.title}"</span>? This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete CV"
+        variant="danger"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget.id)}
+      />
     </div>
   )
 }
