@@ -23,24 +23,11 @@ import AdminCVs from "./pages/admin/AdminCVs";
 import AdminRatings from "./pages/admin/AdminRatings";
 import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
-import SpellingWord from "./components/branding/SpellingWord";
-
-function AppLoadingScreen() {
-  return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-6">
-      <div className="flex items-center gap-3 text-ink">
-        <span className="font-display text-3xl font-bold tracking-tight">
-          <SpellingWord widthClassName="w-[5.5ch] sm:w-[5.8ch]" />
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return <AppLoadingScreen />;
+  if (isLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -48,7 +35,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return <AppLoadingScreen />;
+  if (isLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (!["admin", "superadmin", "staff"].includes(user.role))
     return <Navigate to="/dashboard" replace />;
@@ -58,7 +45,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function RootRedirect() {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return <AppLoadingScreen />;
+  if (isLoading) return null;
   return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
 }
 
