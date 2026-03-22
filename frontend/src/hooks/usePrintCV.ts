@@ -1,117 +1,76 @@
 import { useState, useCallback } from 'react'
-import { createElement } from 'react'
-import { createRoot } from 'react-dom/client'
-import { cvApi, publicApi } from '../api'
-import { CVData } from '../types'
-import CVRenderer from '../components/cv/CVRenderer'
+import { cvApi, publicApi, api } from '../api'
+import { renderCVtoHTML } from '../utils/renderCVtoHTML'
 import toast from 'react-hot-toast'
 
 /**
- * Generates a PDF by:
- * 1. Rendering the CVRenderer component into a hidden off-screen div
- * 2. Capturing it with html2canvas
- * 3. Packing the canvas image into a jsPDF document
- * 4. Triggering a file download
+ * Generates PDFs by:
+ * 1. Rendering CVRenderer into a hidden off-screen div (real browser layout)
+ * 2. Capturing the innerHTML as a self-contained HTML document
+ * 3. Sending it to the backend /api/export/html-pdf endpoint
+ * 4. Backend runs Playwright (headless Chromium) → returns a real PDF
  *
- * This is the only reliable approach that:
- * - Works on mobile (iOS Safari, Android Chrome)
- * - Preserves all template designs (atlas, horizon, pulse, grid, minimal-pro)
- * - Requires no backend template reimplementation
+ * Result: pixel-perfect match with the on-screen template, correct fonts,
+ * correct spacing, works on all devices including iOS/Android.
  */
 
-const A4_WIDTH_MM  = 210
-const A4_HEIGHT_MM = 297
-const MM_TO_PX     = 3.7795275591  // 96 dpi
-
-async function renderCVToPDF(
-  cvData: CVData,
-  theme: string,
-  template: string,
-  filename: string,
-): Promise<void> {
-  // Lazy-load heavy libs so they don't affect initial bundle
-  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-    import('html2canvas'),
-    import('jspdf'),
-  ])
-
-  // Create a hidden container at exactly A4 width so templates lay out correctly
-  const container = document.createElement('div')
-  container.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: -9999px;
-    width: ${Math.round(A4_WIDTH_MM * MM_TO_PX)}px;
-    background: white;
-    z-index: -1;
-  `
-  document.body.appendChild(container)
-
-  // Render the React component into the container
-  await new Promise<void>((resolve) => {
-    const root = createRoot(container)
-    root.render(
-      createElement(CVRenderer, { cvData, theme, template }),
-    )
-    // Give React + fonts a tick to settle
-    setTimeout(resolve, 400)
-  })
-
-  try {
-    const canvas = await html2canvas(container, {
-      scale: 2,           // retina quality
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      width: container.offsetWidth,
-      height: container.scrollHeight,
-      windowWidth: container.offsetWidth,
-    })
-
-    const imgData     = canvas.toDataURL('image/jpeg', 0.95)
-    const imgWidthMM  = A4_WIDTH_MM
-    const imgHeightMM = (canvas.height / canvas.width) * A4_WIDTH_MM
-
-    // Build a multi-page PDF if content is taller than one A4 page
-    const pageCount   = Math.ceil(imgHeightMM / A4_HEIGHT_MM)
-    const pdf         = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-
-    for (let i = 0; i < pageCount; i++) {
-      if (i > 0) pdf.addPage()
-      // Offset the image up by one page height per page so each page shows the next slice
-      pdf.addImage(imgData, 'JPEG', 0, -(i * A4_HEIGHT_MM), imgWidthMM, imgHeightMM)
-    }
-
-    pdf.save(filename)
-  } finally {
-    document.body.removeChild(container)
-  }
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a   = document.createElement('a')
+  a.href     = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
-// ─── Hook ────────────────────────────────────────────────────────────────────
+async function generateAndDownload(
+  cvDataObj:  object,
+  theme:      string,
+  template:   string,
+  filename:   string,
+) {
+  // Render the React component to HTML in the current browser
+  const { cvData } = cvDataObj as any
+  const html = await renderCVtoHTML(cvData, theme, template)
+
+  // Send to backend for Playwright PDF generation
+  const blob = await api.post(
+    '/export/html-pdf',
+    { html },
+    { responseType: 'blob' },
+  ).then(r => r.data as Blob)
+
+  download(blob, filename)
+}
 
 export function usePrintCV() {
   const [isPrinting, setIsPrinting] = useState(false)
-
-  // Kept for API compatibility with CVEditorPage / PublicCVPage
   const printJob = null
   const clearJob = useCallback(() => {}, [])
 
   const printCV = useCallback(async (cvId: string) => {
     setIsPrinting(true)
-    const toastId = toast.loading('Generating PDF...')
+    const tid = toast.loading('Rendering PDF…')
     try {
-      const cv = await cvApi.get(cvId)
+      const cv   = await cvApi.get(cvId)
       const name = cv.data.personal_info.full_name || cv.owner_username
-      await renderCVToPDF(
+      const html = await renderCVtoHTML(
         cv.data,
         cv.theme    || 'minimal',
         cv.template || 'standard',
-        `${name}-${cv.title}.pdf`,
       )
-      toast.success('PDF downloaded', { id: toastId })
+      const blob = await api.post(
+        '/export/html-pdf',
+        { html },
+        { responseType: 'blob' },
+      ).then(r => r.data as Blob)
+      download(blob, `${name}-${cv.title}.pdf`)
+      toast.success('PDF downloaded', { id: tid })
     } catch (e) {
       console.error(e)
-      toast.error('Could not generate PDF', { id: toastId })
+      toast.error('Could not generate PDF', { id: tid })
     } finally {
       setIsPrinting(false)
     }
@@ -119,20 +78,25 @@ export function usePrintCV() {
 
   const printPublicCV = useCallback(async (username: string, slug: string) => {
     setIsPrinting(true)
-    const toastId = toast.loading('Generating PDF...')
+    const tid = toast.loading('Rendering PDF…')
     try {
-      const cv = await publicApi.getCV(username, slug)
+      const cv   = await publicApi.getCV(username, slug)
       const name = cv.data.personal_info.full_name || username
-      await renderCVToPDF(
+      const html = await renderCVtoHTML(
         cv.data,
         cv.theme    || 'minimal',
         cv.template || 'standard',
-        `${name}-${slug}.pdf`,
       )
-      toast.success('PDF downloaded', { id: toastId })
+      const blob = await api.post(
+        '/export/html-pdf',
+        { html },
+        { responseType: 'blob' },
+      ).then(r => r.data as Blob)
+      download(blob, `${name}-${slug}.pdf`)
+      toast.success('PDF downloaded', { id: tid })
     } catch (e) {
       console.error(e)
-      toast.error('Could not generate PDF', { id: toastId })
+      toast.error('Could not generate PDF', { id: tid })
     } finally {
       setIsPrinting(false)
     }

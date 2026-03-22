@@ -1,3 +1,16 @@
+import sys
+
+# ── Windows: switch to ProactorEventLoop before any asyncio usage ─────────────
+# SelectorEventLoop (Windows default) does not support create_subprocess_exec,
+# which Playwright needs to launch Chromium.
+# WindowsProactorEventLoopPolicy only exists on Windows; use getattr so this
+# file type-checks cleanly on Linux/macOS too.
+if sys.platform == "win32":
+    import asyncio as _asyncio
+    _policy = getattr(_asyncio, "WindowsProactorEventLoopPolicy", None)
+    if _policy is not None:
+        _asyncio.set_event_loop_policy(_policy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -22,7 +35,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list,
@@ -31,7 +43,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(auth.router,          prefix="/api/auth",          tags=["Auth"])
 app.include_router(cv.router,            prefix="/api/cv",            tags=["CV"])
 app.include_router(export.router,        prefix="/api/export",        tags=["Export"])
@@ -42,15 +53,10 @@ app.include_router(feedback.router,      prefix="/api/feedback",      tags=["Fee
 app.include_router(announcements.router, prefix="/api/announcements", tags=["Announcements"])
 
 
-# ─── Root ─────────────────────────────────────────────────────────────────────
 @app.get("/", tags=["Root"])
 async def root():
-    return {
-        "service": "AXIOM CV Generator API",
-        "version": "1.0.0",
-        "status":  "ok",
-        "docs":    "/docs",
-    }
+    return {"service": "AXIOM CV Generator API", "version": "1.0.0",
+            "status": "ok", "docs": "/docs"}
 
 
 @app.get("/health", tags=["Root"])
