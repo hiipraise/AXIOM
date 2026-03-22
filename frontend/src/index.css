@@ -61,48 +61,45 @@
   }
 }
 
-/* ── REPLACE entire @media print block in index.css with this ─────────────── */
-
-/* Normal view: frame is in the DOM but invisible and out of flow */
+/*
+ * Screen: frame is portalled to <body> outside #root, hidden by default.
+ * display:none means it takes no space and is invisible until print.
+ */
 #cv-print-frame {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: auto;
-  visibility: hidden;
-  z-index: -1;
-  pointer-events: none;
+  display: none;
 }
 
-/* Print: hide app, show frame */
 @media print {
-  body * {
-    visibility: hidden !important;
-  }
-
-  #cv-print-frame {
-    visibility: visible !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    z-index: auto !important;
-  }
-
-  #cv-print-frame * {
-    visibility: visible !important;
-  }
-
-  @page {
-    margin: 10mm 12mm;
-    size: A4;
-  }
-
+  html,
   body {
-    margin: 0;
-    padding: 0;
+    /* Force A4 width — prevents mobile viewports collapsing CV templates */
+    min-width: 210mm !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /*
+   * Hide the React app root entirely.
+   * Safe because #cv-print-frame is portalled outside #root directly into
+   * <body>, so display:none on #root does not affect the print frame.
+   */
+  #root {
+    display: none !important;
+  }
+
+  /* Show only the CV — no extra pages, no visibility tricks needed */
+  #cv-print-frame {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm 12mm;
   }
 }

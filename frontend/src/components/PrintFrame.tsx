@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { CVData } from '../types'
 import CVRenderer from './cv/CVRenderer'
 
@@ -13,27 +14,36 @@ interface Props {
   onDone: () => void
 }
 
+/**
+ * Renders the CV directly into document.body (outside #root) via a portal.
+ * This lets the @media print CSS do a clean:
+ *   #root          { display: none }   ← hides the whole app shell
+ *   #cv-print-frame { display: block }  ← shows only the CV
+ *
+ * Without the portal, #cv-print-frame is inside #root, so any attempt to
+ * hide #root also hides the frame, and any visibility trick that works around
+ * that leaves the app shell contributing height → blank extra pages.
+ */
 export default function PrintFrame({ printJob, onDone }: Props) {
-  // This useEffect fires AFTER the CVRenderer has been committed to the DOM,
-  // so window.print() always has content to print.
   useEffect(() => {
     if (!printJob) return
     const t = setTimeout(() => {
       window.print()
       setTimeout(onDone, 500)
-    }, 300) // 300ms lets fonts and layout settle
+    }, 300)
     return () => clearTimeout(t)
   }, [printJob]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!printJob) return null
 
-  return (
+  return createPortal(
     <div id="cv-print-frame">
       <CVRenderer
         cvData={printJob.cvData}
         theme={printJob.theme}
         template={printJob.template}
       />
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -1,10 +1,25 @@
 import { useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { cvApi } from '../../api'
-import { publicApi } from '../../api'
+import { cvApi, publicApi } from '../../api'
 import { CV, CVData } from '../../types'
 import CVRenderer from '../../components/cv/CVRenderer'
+
+/**
+ * Dedicated print page — opened in a new tab / navigated to directly.
+ * Renders ONLY the CV (no chrome) then triggers window.print().
+ *
+ * The <html> min-width: 210mm in index.css @media print handles the mobile
+ * viewport fix globally. The wrapper div here enforces the same width at
+ * screen render time so that the layout is already correct before printing.
+ */
+
+const PRINT_WRAPPER_STYLE: React.CSSProperties = {
+  width: '210mm',       // A4 width — keeps template columns intact on narrow screens
+  minWidth: '210mm',
+  margin: '0 auto',
+  background: 'white',
+}
 
 interface PublicCV {
   id: string
@@ -25,7 +40,6 @@ function AuthPrintPage({ id }: { id: string }) {
   useEffect(() => {
     if (!cv) return
     document.title = cv.title || 'CV'
-    // Small delay so the DOM has fully painted before print dialog opens
     const t = setTimeout(() => window.print(), 800)
     return () => clearTimeout(t)
   }, [cv])
@@ -34,11 +48,13 @@ function AuthPrintPage({ id }: { id: string }) {
   if (!cv) return <div className="p-8 text-sm text-gray-400">CV not found.</div>
 
   return (
-    <CVRenderer
-      cvData={cv.data}
-      theme={cv.theme || 'minimal'}
-      template={cv.template || 'standard'}
-    />
+    <div style={PRINT_WRAPPER_STYLE}>
+      <CVRenderer
+        cvData={cv.data}
+        theme={cv.theme || 'minimal'}
+        template={cv.template || 'standard'}
+      />
+    </div>
   )
 }
 
@@ -60,11 +76,13 @@ function PublicPrintPage({ username, slug }: { username: string; slug: string })
   if (!cv) return <div className="p-8 text-sm text-gray-400">CV not found.</div>
 
   return (
-    <CVRenderer
-      cvData={cv.data}
-      theme={cv.theme || 'minimal'}
-      template={cv.template || 'standard'}
-    />
+    <div style={PRINT_WRAPPER_STYLE}>
+      <CVRenderer
+        cvData={cv.data}
+        theme={cv.theme || 'minimal'}
+        template={cv.template || 'standard'}
+      />
+    </div>
   )
 }
 
@@ -72,7 +90,7 @@ function PublicPrintPage({ username, slug }: { username: string; slug: string })
 export default function CVPrintPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
-  const publicParam = searchParams.get('public') // e.g. "username/my-cv-slug"
+  const publicParam = searchParams.get('public')
 
   if (publicParam) {
     const [username, ...slugParts] = publicParam.split('/')
