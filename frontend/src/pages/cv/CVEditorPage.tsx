@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cvApi } from "../../api";
 import { CV, CVData, EMPTY_CV_DATA } from "../../types";
 import { usePrintCV } from "../../hooks/usePrintCV";
-import PrintFrame from "../../components/PrintFrame";
 import toast from "react-hot-toast";
 import {
   Save, Download, Sparkles, ChevronLeft, Globe, Lock, Star,
@@ -164,7 +163,6 @@ export default function CVEditorPage() {
   return (
     <>
       {/* ── Print frame — hidden normally, visible only during window.print() ── */}
-      <PrintFrame printJob={printJob} onDone={clearJob} />
 
       <div className="flex bg-ash overflow-hidden"
         style={{ height: `calc(100vh - ${bannerH}px)`, transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)" }}>
