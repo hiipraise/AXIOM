@@ -23,11 +23,12 @@ import AdminCVs from "./pages/admin/AdminCVs";
 import AdminRatings from "./pages/admin/AdminRatings";
 import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
+import AppLoading from "./components/AppLoading";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return null;
+  if (isLoading) return <AppLoading fullScreen />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -35,7 +36,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return null;
+  if (isLoading) return <AppLoading fullScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (!["admin", "superadmin", "staff"].includes(user.role))
     return <Navigate to="/dashboard" replace />;
@@ -45,7 +46,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function RootRedirect() {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return null;
+  if (isLoading) return <AppLoading fullScreen />;
   return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
 }
 
