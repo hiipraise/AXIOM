@@ -55,9 +55,60 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      .boot-loader {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        color: #0f172a;
+        font-family: "DM Sans", system-ui, sans-serif;
+      }
+      .boot-loader__card {
+        width: min(360px, calc(100% - 48px));
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+      }
+      .boot-loader__spinner {
+        width: 30px;
+        height: 30px;
+        margin: 0 auto 12px;
+        border-radius: 9999px;
+        border: 2px solid #e2e8f0;
+        border-top-color: #0f172a;
+        animation: boot-spin 0.85s linear infinite;
+      }
+      .boot-loader__title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .boot-loader__desc {
+        margin: 6px 0 0;
+        font-size: 14px;
+        color: #475569;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-loader" role="status" aria-live="polite" aria-busy="true">
+        <div class="boot-loader__card">
+          <div class="boot-loader__spinner"></div>
+          <p class="boot-loader__title">Loading…</p>
+          <p class="boot-loader__desc">Starting AXIOM CV. Thanks for hanging tight.</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
