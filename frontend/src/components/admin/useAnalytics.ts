@@ -22,14 +22,18 @@ export function usePageTracking() {
   const prevPath  = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!import.meta.env.PROD) return
+
     const path = location.pathname
     if (path === prevPath.current) return
+
+    const referrer = prevPath.current ?? document.referrer ?? ''
     prevPath.current = path
 
     // fire and forget — errors are silently swallowed
     api.post('/analytics/event', {
       path,
-      referrer:   prevPath.current ?? document.referrer ?? '',
+      referrer,
       session_id: getSessionId(),
     }).catch(() => {})
   }, [location.pathname])

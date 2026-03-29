@@ -6,10 +6,12 @@ beyond the user_id (which is optional).
 from fastapi import APIRouter, Depends, Request
 from app.database import get_db
 from app.middleware.auth import get_optional_user, require_staff
+from app.config import settings
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
 router = APIRouter()
+IS_PROD = settings.env.lower() == "production"
 
 # ─── Ingest ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +21,9 @@ async def track_event(body: dict, request: Request, db=Depends(get_db), user=Dep
     Called by the frontend on every page navigation.
     Body: { path: string, referrer?: string, session_id: string }
     """
+    if not IS_PROD:
+        return {"ok": True, "skipped": "non-production"}
+
     event = {
         "path":       body.get("path", "/"),
         "referrer":   body.get("referrer", ""),
