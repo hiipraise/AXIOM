@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Keep private/authenticated app areas out of search indexes
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /account
+Disallow: /cv/new
+Disallow: /cv/print
+Disallow: /cv/
+Disallow: /api/
+
+# Auth/utility pages are crawlable but generally not useful in search results
+Disallow: /login
+Disallow: /register
+Disallow: /forgot
+Disallow: /guest
+
+Sitemap: https://axiomcv.site/sitemap.xml
