@@ -42,8 +42,8 @@ with sync_playwright() as pw:
         pdf = page.pdf(
             format="A4",
             print_background=True,
-            margin={"top": "10mm", "bottom": "10mm",
-                    "left": "12mm", "right": "12mm"},
+            margin={"top": "14mm", "bottom": "16mm",
+                    "left": "16mm", "right": "16mm"},
         )
         sys.stdout.buffer.write(base64.b64encode(pdf))
     finally:

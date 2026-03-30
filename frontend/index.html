@@ -1,43 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications</title>
-    <meta
-      name="description"
-      content="Create ATS-friendly resumes and CVs with AXIOM CV. Turn your experience into clear, truthful, recruiter-ready applications at axiomcv.site."
-    />
-    <meta
-      name="keywords"
-      content="AXIOM CV, axiomcv.site, AI CV generator, AI resume builder, ATS friendly resume, CV maker, resume generator, job application tools"
-    />
-    <meta name="author" content="AXIOM CV" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <link rel="canonical" href="https://axiomcv.site/" />
 
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="AXIOM CV" />
-    <meta property="og:url" content="https://axiomcv.site/" />
-    <meta property="og:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
-    <meta
-      property="og:description"
-      content="Build truthful, ATS-friendly resumes and CVs with AXIOM CV. Fast, clear, recruiter-ready resume generation at axiomcv.site."
-    />
-    <meta property="og:image" content="https://axiomcv.site/favicon.ico" />
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications</title>
+  <meta name="description"
+    content="Create ATS-friendly resumes and CVs with AXIOM CV. Turn your experience into clear, truthful, recruiter-ready applications at axiomcv.site." />
+  <meta name="keywords"
+    content="AXIOM CV, axiomcv.site, AI CV generator, AI resume builder, ATS friendly resume, CV maker, resume generator, job application tools" />
+  <meta name="author" content="AXIOM CV" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <link rel="canonical" href="https://axiomcv.site/" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
-    <meta
-      name="twitter:description"
-      content="Create recruiter-ready resumes and CVs with AI assistance from AXIOM CV at axiomcv.site."
-    />
-    <meta name="twitter:image" content="https://axiomcv.site/favicon.ico" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="AXIOM CV" />
+  <meta property="og:url" content="https://axiomcv.site/" />
+  <meta property="og:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+  <meta property="og:description"
+    content="Build truthful, ATS-friendly resumes and CVs with AXIOM CV. Fast, clear, recruiter-ready resume generation at axiomcv.site." />
+  <meta property="og:image" content="https://axiomcv.site/favicon.ico" />
 
-    <meta name="theme-color" content="#0b1020" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+  <meta name="twitter:description"
+    content="Create recruiter-ready resumes and CVs with AI assistance from AXIOM CV at axiomcv.site." />
+  <meta name="twitter:image" content="https://axiomcv.site/favicon.ico" />
 
-    <script type="application/ld+json">
+  <meta name="theme-color" content="#0b1020" />
+
+  <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
@@ -52,63 +45,158 @@
       }
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <style>
-      .boot-loader {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #ffffff;
-        color: #0f172a;
-        font-family: "DM Sans", system-ui, sans-serif;
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    .boot-loader {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      color: #0f172a;
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+
+    .boot-loader__card {
+      width: min(360px, calc(100% - 48px));
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+    }
+
+    .boot-loader__title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45ch;
+    }
+
+    .boot-loader__desc {
+      margin: 6px 0 0;
+      font-size: 14px;
+      color: #475569;
+    }
+
+    /* Spelling word slot */
+    .boot-spelling {
+      display: inline-flex;
+      justify-content: center;
+      width: 5ch;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .boot-spelling__letter {
+      display: inline-block;
+      animation: boot-letter-in 0.18s ease-in-out forwards;
+    }
+
+    @keyframes boot-letter-in {
+      from {
+        opacity: 0;
+        transform: translateY(3px);
       }
-      .boot-loader__card {
-        width: min(360px, calc(100% - 48px));
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 24px;
-        text-align: center;
-        box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
-      .boot-loader__spinner {
-        width: 30px;
-        height: 30px;
-        margin: 0 auto 12px;
-        border-radius: 9999px;
-        border: 2px solid #e2e8f0;
-        border-top-color: #0f172a;
-        animation: boot-spin 0.85s linear infinite;
+    }
+
+    .boot-spelling__letter--out {
+      animation: boot-letter-out 0.18s ease-in-out forwards;
+    }
+
+    @keyframes boot-letter-out {
+      from {
+        opacity: 1;
+        transform: translateY(0);
       }
-      .boot-loader__title {
-        margin: 0;
-        font-size: 20px;
-        font-weight: 700;
+
+      to {
+        opacity: 0;
+        transform: translateY(-3px);
       }
-      .boot-loader__desc {
-        margin: 6px 0 0;
-        font-size: 14px;
-        color: #475569;
-      }
-      @keyframes boot-spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root">
-      <div class="boot-loader" role="status" aria-live="polite" aria-busy="true">
-        <div class="boot-loader__card">
-          <div class="boot-loader__spinner"></div>
-          <p class="boot-loader__title">Loading…</p>
-          <p class="boot-loader__desc">Starting AXIOM CV. Thanks for hanging tight.</p>
-        </div>
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root">
+    <div class="boot-loader" role="status" aria-live="polite" aria-busy="true">
+      <!-- The Bouncing Favicon -->
+      <img id="dvd-bouncer" src="/favicon.ico" style="position: absolute; width: 48px; height: 48px; z-index: 10;" />
+
+      <div class="boot-loader__card" style="position: relative; z-index: 1;">
+        <p class="boot-loader__title">
+          <span class="boot-spelling"><span class="boot-spelling__letter">A</span></span>
+          <span>is loading…</span>
+        </p>
+        <p class="boot-loader__desc">Starting AXIOM CV. Thanks for hanging tight.</p>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  </div>
+
+  <script>
+    (function () {
+      const img = document.getElementById('dvd-bouncer');
+      let x = Math.random() * (window.innerWidth - 48);
+      let y = Math.random() * (window.innerHeight - 48);
+      let xSpeed = 2; // Adjust for speed
+      let ySpeed = 2;
+
+      function animate() {
+        if (!img) return;
+        const screenWidth = window.innerWidth - img.clientWidth;
+        const screenHeight = window.innerHeight - img.clientHeight;
+
+        x += xSpeed;
+        y += ySpeed;
+
+        if (x >= screenWidth || x <= 0) xSpeed *= -1;
+        if (y >= screenHeight || y <= 0) ySpeed *= -1;
+
+        img.style.left = x + 'px';
+        img.style.top = y + 'px';
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    (function () {
+      var SEQUENCE = ['A', 'X', 'I', 'O', 'M', 'AXIOM'];
+      var LETTER_MS = 500;
+      var FULL_MS = 1600;
+      var index = 0;
+      var slot = document.querySelector('.boot-spelling');
+      if (!slot) return;
+      function render() {
+        var span = document.createElement('span');
+        span.className = 'boot-spelling__letter';
+        span.textContent = SEQUENCE[index];
+        slot.innerHTML = '';
+        slot.appendChild(span);
+        setTimeout(function () {
+          index = (index + 1) % SEQUENCE.length;
+          render();
+        }, index === SEQUENCE.length - 1 ? FULL_MS : LETTER_MS);
+      }
+      render();
+    })();
+  </script>
+
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+
 </html>

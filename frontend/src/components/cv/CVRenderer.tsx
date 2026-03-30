@@ -31,7 +31,7 @@ function StandardTemplate({ cvData, t }: { cvData: CVData; t: CVThemeDefinition 
   );
 
   return (
-    <div style={{ maxWidth: "640px", margin: "0 auto", padding: "48px 48px 56px", fontFamily: t.fontFamily, color: t.text, background: t.background, fontSize: "12px", lineHeight: "1.6" }}>
+    <div style={{ maxWidth: "100%", margin: "0 auto", padding: "20px 24px 24px", fontFamily: t.fontFamily, color: t.text, background: t.background, fontSize: "12px", lineHeight: "1.6" }}>
       {has(pi.full_name) && <h1 style={{ fontSize: "24px", fontWeight: "700", color: t.accent, marginBottom: "4px", lineHeight: "1.2" }}>{pi.full_name}</h1>}
       {has(pi.job_title) && <p style={{ fontSize: "13px", color: t.secondary, marginBottom: "10px", fontWeight: "400" }}>{pi.job_title}</p>}
       {contacts.length > 0 && (

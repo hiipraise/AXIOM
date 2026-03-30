@@ -6,7 +6,7 @@ import { useRef, useEffect, useState, ReactNode } from 'react'
  * Does NOT affect the print path — only used for on-screen display.
  */
 
-const CV_NATURAL_WIDTH = 700
+const CV_NATURAL_WIDTH = 794
 
 interface Props {
   children: ReactNode
