@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
@@ -23,6 +24,230 @@ import { useAuthStore } from "../../store/auth";
 import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface MenuPosition {
+  top?: number;
+  bottom?: number;
+  right: number;
+  maxHeight: number;
+  openUpward: boolean;
+}
+
+interface KebabMenuProps {
+  cv: CV;
+  onRename: () => void;
+  onRate: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MENU_WIDTH = 176;       // w-44 = 11rem = 176px
+const MENU_ITEM_HEIGHT = 44;  // approx px per item (2.75rem)
+const MENU_ITEMS = 5;         // Rename, Rate, Edit, Duplicate, Delete
+const MENU_ESTIMATED_HEIGHT = MENU_ITEM_HEIGHT * MENU_ITEMS + 8 + 1; // items + padding + divider
+const VIEWPORT_MARGIN = 8;    // minimum gap from viewport edge
+
+// ─── KebabMenu ────────────────────────────────────────────────────────────────
+
+function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: KebabMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<MenuPosition | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Compute where to render the dropdown relative to the viewport
+  const computePosition = useCallback((): MenuPosition => {
+    const btn = triggerRef.current!.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Horizontal: align right edge of menu to right edge of button, clamped to viewport
+    const idealRight = vw - btn.right;
+    const right = Math.max(VIEWPORT_MARGIN, idealRight);
+
+    // Vertical: decide direction
+    const spaceBelow = vh - btn.bottom - VIEWPORT_MARGIN;
+    const spaceAbove = btn.top - VIEWPORT_MARGIN;
+    const fitsBelow = spaceBelow >= MENU_ESTIMATED_HEIGHT;
+    const fitsAbove = spaceAbove >= MENU_ESTIMATED_HEIGHT;
+
+    if (fitsBelow) {
+      // Open downward — plenty of room
+      return {
+        top: btn.bottom + window.scrollY + 4,
+        right,
+        maxHeight: spaceBelow,
+        openUpward: false,
+      };
+    } else if (fitsAbove) {
+      // Open upward — not enough room below
+      return {
+        bottom: vh - btn.top + (document.documentElement.scrollHeight - vh - window.scrollY) + 4,
+        right,
+        maxHeight: spaceAbove,
+        openUpward: true,
+      };
+    } else {
+      // Neither fits perfectly — pick the larger side and scroll inside
+      const useBelow = spaceBelow >= spaceAbove;
+      if (useBelow) {
+        return {
+          top: btn.bottom + window.scrollY + 4,
+          right,
+          maxHeight: spaceBelow,
+          openUpward: false,
+        };
+      } else {
+        return {
+          bottom: vh - btn.top + (document.documentElement.scrollHeight - vh - window.scrollY) + 4,
+          right,
+          maxHeight: spaceAbove,
+          openUpward: true,
+        };
+      }
+    }
+  }, []);
+
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const pos = computePosition();
+    setPosition(pos);
+    setOpen(true);
+  };
+
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setPosition(null);
+  }, []);
+
+  // Close on outside click / scroll / resize
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        closeMenu();
+      }
+    };
+    const handleScrollResize = () => closeMenu();
+
+    document.addEventListener("mousedown", handleOutside);
+    window.addEventListener("scroll", handleScrollResize, { passive: true });
+    window.addEventListener("resize", handleScrollResize, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("scroll", handleScrollResize);
+      window.removeEventListener("resize", handleScrollResize);
+    };
+  }, [open, closeMenu]);
+
+  // Recompute on scroll inside any ancestor (e.g. the page itself scrolls)
+  useEffect(() => {
+    if (!open) return;
+    const handleScroll = () => {
+      if (triggerRef.current) {
+        setPosition(computePosition());
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [open, computePosition]);
+
+  const menuStyle: React.CSSProperties = position
+    ? {
+        position: "fixed",
+        right: position.right,
+        width: MENU_WIDTH,
+        maxHeight: position.maxHeight,
+        overflowY: "auto",
+        zIndex: 9999,
+        ...(position.openUpward
+          ? { bottom: position.bottom }
+          : { top: position.top }),
+      }
+    : {};
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        className="btn-ghost p-1.5"
+        title="More options"
+        onClick={openMenu}
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <MoreVertical size={15} />
+      </button>
+
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={menuStyle}
+            className="rounded-xl border border-ash-border bg-white shadow-lg py-1"
+            role="menu"
+          >
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
+              onClick={() => { onRename(); closeMenu(); }}
+            >
+              <PencilLine size={14} /> Rename
+            </button>
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
+              onClick={() => { onRate(); closeMenu(); }}
+            >
+              <Star
+                size={14}
+                className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
+              />
+              Rate
+            </button>
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
+              onClick={() => { onEdit(); closeMenu(); }}
+            >
+              <Edit size={14} /> Edit
+            </button>
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
+              onClick={() => { onDuplicate(); closeMenu(); }}
+            >
+              <Copy size={14} /> Duplicate
+            </button>
+            <div className="my-1 border-t border-ash-border" />
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50"
+              onClick={() => { onDelete(); closeMenu(); }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+// ─── DashboardPage ────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -32,25 +257,12 @@ export default function DashboardPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const { data: cvs = [], isLoading } = useQuery<CV[]>({
     queryKey: ["cvs"],
     queryFn: cvApi.list,
     enabled: !!user,
   });
-
-  useEffect(() => {
-    function handleOutside(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (e.target instanceof Node && !menuRef.current.contains(e.target)) {
-        setMenuOpenId(null);
-      }
-    }
-    if (menuOpenId) document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [menuOpenId]);
 
   const handleDuplicate = async (id: string) => {
     try {
@@ -147,7 +359,6 @@ export default function DashboardPage() {
 
             {/* ── MOBILE LAYOUT (hidden on sm+) ── */}
             <div className="sm:hidden">
-              {/* ✅ No overflow-hidden here — it would clip the dropdown */}
               <div className="flex items-center gap-2 w-full">
                 {editingTitleId === cv.id ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -180,81 +391,21 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 ) : (
-                  /* w-0 flex-1 forces truncation without overflow-hidden */
                   <h3 className="font-medium text-ink text-sm truncate w-0 flex-1">
                     {cv.title}
                   </h3>
                 )}
 
-                {/* Kebab trigger */}
-                <div
-                  className="relative flex-shrink-0"
-                  ref={menuOpenId === cv.id ? menuRef : null}
-                >
-                  <button
-                    className="btn-ghost p-1.5"
-                    title="More options"
-                    onClick={() =>
-                      setMenuOpenId(menuOpenId === cv.id ? null : cv.id)
-                    }
-                  >
-                    <MoreVertical size={15} />
-                  </button>
-
-                  {menuOpenId === cv.id && (
-                    <div className="absolute right-0 top-8 z-50 w-44 rounded-xl border border-ash-border bg-white shadow-lg py-1">
-                      <button
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-                        onClick={() => {
-                          startTitleEdit(cv);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <PencilLine size={14} /> Rename
-                      </button>
-                      <button
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-                        onClick={() => {
-                          setRatingCV(cv);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <Star
-                          size={14}
-                          className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
-                        />
-                        Rate
-                      </button>
-                      <button
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-                        onClick={() => {
-                          navigate(`/cv/${cv.id}`);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <Edit size={14} /> Edit
-                      </button>
-                      <button
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-                        onClick={() => {
-                          handleDuplicate(cv.id);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <Copy size={14} /> Duplicate
-                      </button>
-                      <div className="my-1 border-t border-ash-border" />
-                      <button
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                        onClick={() => {
-                          setDeleteTarget(cv);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  )}
+                {/* ✅ Portal-based kebab menu — no clipping, viewport-aware */}
+                <div className="flex-shrink-0">
+                  <KebabMenu
+                    cv={cv}
+                    onRename={() => startTitleEdit(cv)}
+                    onRate={() => setRatingCV(cv)}
+                    onEdit={() => navigate(`/cv/${cv.id}`)}
+                    onDuplicate={() => handleDuplicate(cv.id)}
+                    onDelete={() => setDeleteTarget(cv)}
+                  />
                 </div>
               </div>
 

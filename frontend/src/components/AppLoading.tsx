@@ -1,140 +1,117 @@
-// src/components/AppLoading.tsx
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
-const SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
-const LETTER_MS = 500;
-const FULL_MS = 1600;
+type AppLoadingProps = {
+  message?: string;
+  ready?: boolean;
+  className?: string;
+};
 
-function SpellingWord() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const isLast = index === SEQUENCE.length - 1;
-
-    const t = setTimeout(
-      () => setIndex((i) => (i + 1) % SEQUENCE.length),
-      isLast ? FULL_MS : LETTER_MS,
-    );
-
-    return () => clearTimeout(t);
-  }, [index]);
-
-  return (
-    <span className="inline-flex justify-center" style={{ width: "8ch" }}>
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={SEQUENCE[index]}
-          initial={{ opacity: 0, y: 3 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -3 }}
-          transition={{ duration: 0.18, ease: "easeInOut" }}
-          className="inline-block"
-        >
-          {SEQUENCE[index]}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
-
-interface AppLoadingProps {
-  fullScreen?: boolean;
-}
-
-export default function AppLoading({
-  fullScreen = false,
+export function AppLoading({
+  message = "Starting Axiom",
+  ready = false,
+  className = "",
 }: AppLoadingProps) {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(8);
+  const [isReady, setIsReady] = useState(ready);
 
   useEffect(() => {
-    let current = 0;
+    setIsReady(ready);
+  }, [ready]);
 
-    const interval = window.setInterval(() => {
-      current += Math.floor(Math.random() * 8) + 2;
+  useEffect(() => {
+    const onReady = () => setIsReady(true);
 
-      if (current >= 100) {
-        current = 100;
-        clearInterval(interval);
-      }
-
-      setProgress(current);
-    }, 120);
-
-    return () => clearInterval(interval);
+    window.addEventListener("axiom:app-ready", onReady);
+    return () => window.removeEventListener("axiom:app-ready", onReady);
   }, []);
 
-  const radius = 74;
-  const circumference = 2 * Math.PI * radius;
+  useEffect(() => {
+    if (isReady) {
+      setProgress(100);
+      return;
+    }
 
-  const strokeDashoffset =
-    circumference - (progress / 100) * circumference;
+    const startedAt = Date.now();
+    const interval = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const cap = elapsed > 12_000 ? 92 : elapsed > 6_000 ? 88 : 82;
+
+      setProgress((current) => {
+        const next = current + Math.max(0.25, (cap - current) * 0.035);
+        return Math.min(next, cap);
+      });
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [isReady]);
+
+  const percent = Math.round(progress);
 
   return (
     <div
-      className={`flex items-center justify-center bg-[#F8FAFC] px-6 ${
-        fullScreen ? "min-h-screen" : "min-h-[60vh]"
-      }`}
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
+      className={`app-loading ${className}`.trim()}
+      aria-busy={!isReady}
+      style={{
+        display: "grid",
+        minHeight: "100vh",
+        placeItems: "center",
+        padding: "24px",
+        background: "#0f172a",
+        color: "#f8fafc",
+      }}
     >
-      <div className="relative flex flex-col items-center justify-center">
-        <div className="relative flex items-center justify-center">
-          <svg
-            width="190"
-            height="190"
-            viewBox="0 0 190 190"
-            className="-rotate-90"
-          >
-            {/* background ring */}
-            <circle
-              cx="95"
-              cy="95"
-              r={radius}
-              stroke="#E2E8F0"
-              strokeWidth="4"
-              fill="transparent"
-            />
-
-            {/* animated progress ring */}
-            <motion.circle
-              cx="95"
-              cy="95"
-              r={radius}
-              stroke="#0F172A"
-              strokeWidth="8"
-              strokeLinecap="round"
-              fill="transparent"
-              strokeDasharray={circumference}
-              animate={{
-                strokeDashoffset,
-              }}
-              transition={{
-                duration: 0.25,
-                ease: "easeOut",
-              }}
-            />
-          </svg>
-
-          {/* center content */}
-          <div className="absolute flex flex-col items-center justify-center">
-            <motion.span
-              key={progress}
-              initial={{ opacity: 0.4, y: 2 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="font-display text-4xl font-700 tracking-tight text-[#0F172A]"
-            >
-              {progress}%
-            </motion.span>
-
-            <div className="mt-1 text-sm font-600 uppercase tracking-[0.22em] text-[#0F172A]">
-              <SpellingWord />
-            </div>
-          </div>
+      <div
+        className="app-loading__mark"
+        aria-hidden="true"
+        style={{
+          display: "grid",
+          width: "56px",
+          height: "56px",
+          marginBottom: "20px",
+          placeItems: "center",
+          borderRadius: "8px",
+          background: "#f8fafc",
+          color: "#0f172a",
+          fontWeight: 800,
+          letterSpacing: 0,
+        }}
+      >
+        AX
+      </div>
+      <div className="app-loading__content" style={{ width: "min(360px, 100%)" }}>
+        <p className="app-loading__message" style={{ margin: "0 0 12px", textAlign: "center", fontSize: "14px" }}>
+          {message}
+        </p>
+        <div
+          className="app-loading__track"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+          style={{
+            height: "6px",
+            overflow: "hidden",
+            borderRadius: "999px",
+            background: "rgba(248, 250, 252, 0.2)",
+          }}
+        >
+          <div
+            className="app-loading__bar"
+            style={{
+              width: `${percent}%`,
+              height: "100%",
+              borderRadius: "inherit",
+              background: "#38bdf8",
+              transition: "width 250ms ease",
+            }}
+          />
         </div>
+        <p className="app-loading__percent" style={{ margin: "10px 0 0", textAlign: "center", fontSize: "12px" }}>
+          {percent}%
+        </p>
       </div>
     </div>
   );
 }
+
+export default AppLoading;

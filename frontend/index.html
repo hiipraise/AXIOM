@@ -301,6 +301,117 @@
   </script>
 
   <script type="module" src="/src/main.tsx"></script>
-</body>
+    <script>
+      (function () {
+        var ready = false;
+        var progress = 8;
+        var startedAt = Date.now();
+        var root = document.getElementById("root");
+
+        function findLoader() {
+          return (
+            document.getElementById("app-loader") ||
+            document.getElementById("initial-loader") ||
+            document.getElementById("splash-screen") ||
+            document.getElementById("loading-screen") ||
+            document.querySelector("[data-app-loader]") ||
+            document.querySelector("[data-loading-screen]") ||
+            document.querySelector(".app-loading") ||
+            document.querySelector(".initial-loader") ||
+            document.querySelector(".splash-screen") ||
+            document.querySelector(".loading-screen") ||
+            document.querySelector(".loader")
+          );
+        }
+
+        function findProgress(loader) {
+          if (!loader) return null;
+          return (
+            loader.querySelector("[data-progress-bar]") ||
+            loader.querySelector("[data-loader-progress]") ||
+            loader.querySelector(".loader-progress") ||
+            loader.querySelector(".progress-bar") ||
+            loader.querySelector(".loading-progress") ||
+            loader.querySelector('[role="progressbar"]')
+          );
+        }
+
+        function findProgressText(loader) {
+          if (!loader) return null;
+          return (
+            loader.querySelector("[data-progress-text]") ||
+            loader.querySelector("[data-loader-percent]") ||
+            loader.querySelector(".loader-percent") ||
+            loader.querySelector(".progress-text") ||
+            loader.querySelector(".loading-percent")
+          );
+        }
+
+        function setProgress(value) {
+          var loader = findLoader();
+          var bar = findProgress(loader);
+          var text = findProgressText(loader);
+          var percent = Math.max(0, Math.min(100, Math.round(value)));
+
+          if (loader && !ready) {
+            loader.style.display = loader.dataset.axiomDisplay || "flex";
+            loader.style.opacity = "1";
+            loader.style.pointerEvents = "auto";
+            loader.classList.remove("hidden", "loaded", "complete", "is-hidden");
+            loader.removeAttribute("hidden");
+            loader.setAttribute("aria-busy", "true");
+          }
+
+          if (bar) {
+            bar.style.width = percent + "%";
+            bar.setAttribute("aria-valuenow", String(percent));
+          }
+
+          if (text) {
+            text.textContent = percent + "%";
+          }
+        }
+
+        function finishLoader() {
+          if (ready) return;
+          ready = true;
+          window.__AXIOM_APP_READY__ = true;
+          setProgress(100);
+
+          window.setTimeout(function () {
+            var loader = findLoader();
+            if (!loader) return;
+            loader.style.opacity = "0";
+            loader.style.pointerEvents = "none";
+            loader.setAttribute("aria-busy", "false");
+            window.setTimeout(function () {
+              loader.style.display = "none";
+              loader.setAttribute("hidden", "");
+            }, 350);
+          }, 250);
+        }
+
+        window.__AXIOM_APP_READY__ = false;
+        window.addEventListener("axiom:app-ready", finishLoader);
+
+        if (root) {
+          if (root.children.length > 0) finishLoader();
+
+          new MutationObserver(function () {
+            if (root.children.length > 0) finishLoader();
+          }).observe(root, { childList: true });
+        }
+
+        window.setInterval(function () {
+          if (ready) return;
+          var elapsed = Date.now() - startedAt;
+          var cap = elapsed > 12000 ? 92 : elapsed > 6000 ? 88 : 82;
+          progress += Math.max(0.25, (cap - progress) * 0.035);
+          progress = Math.min(progress, cap);
+          setProgress(progress);
+        }, 250);
+      })();
+    </script>
+  </body>
 
 </html>
