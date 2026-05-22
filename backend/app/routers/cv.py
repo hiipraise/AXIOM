@@ -252,7 +252,7 @@ async def ai_keyword_gap(body: KeywordGapRequest, current_user=Depends(get_curre
         body.cv_data.model_dump(),
         body.job_description,
     )
-    return {"analysis": analysis}
+    return analysis
 
 
 @router.post("/upload-cv")

@@ -31,7 +31,7 @@ import {
 import { useAnnouncement } from "../../context/announcement";
 
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
-import TargetingSection from "../../components/cv/TargetingSection";
+import CVContextSelector from "../../components/cv/CVContextSelector";
 import SummarySection from "../../components/cv/SummarySection";
 import SkillsSection from "../../components/cv/SkillsSection";
 import ExperienceSection from "../../components/cv/ExperienceSection";
@@ -381,13 +381,12 @@ export default function GuestCVEditorPage() {
                 />
               )}
               {activeSection === "targeting" && (
-                <TargetingSection
-                  data={{
-                    career_level: cvData.career_level,
-                    industry: cvData.industry,
-                    target_role: cvData.target_role,
-                  }}
+                <CVContextSelector
+                  careerLevel={cvData.career_level}
+                  industry={cvData.industry}
+                  targetRole={cvData.target_role}
                   onChange={(v) => updateData(v)}
+                  mode="edit"
                 />
               )}
               {activeSection === "summary" && (
@@ -409,6 +408,8 @@ export default function GuestCVEditorPage() {
                 <ExperienceSection
                   items={cvData.experience}
                   onChange={(v) => updateData({ experience: v })}
+                  cvData={cvData}
+                  onApplyCvData={(next) => updateData(next)}
                 />
               )}
               {activeSection === "education" && (

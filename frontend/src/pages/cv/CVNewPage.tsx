@@ -12,7 +12,7 @@ import {
   Send,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
-import TargetingSection from "../../components/cv/TargetingSection";
+import CVContextSelector from "../../components/cv/CVContextSelector";
 
 type Mode = "choose" | "blank" | "upload" | "interview";
 
@@ -42,6 +42,12 @@ export default function CVNewPage() {
     ...data,
     ...targeting,
   });
+
+  const updateTargeting = (
+    patch: Partial<Pick<CVData, "career_level" | "industry" | "target_role">>,
+  ) => {
+    setTargeting((prev) => ({ ...prev, ...patch }));
+  };
 
   const handleCreateBlank = async () => {
     if (!title.trim()) {
@@ -170,7 +176,13 @@ export default function CVNewPage() {
         </p>
 
         <div className="mb-6">
-          <TargetingSection data={targeting} onChange={setTargeting} />
+          <CVContextSelector
+            careerLevel={targeting.career_level}
+            industry={targeting.industry}
+            targetRole={targeting.target_role}
+            onChange={updateTargeting}
+            mode="create"
+          />
         </div>
 
         {/* ── Choose mode ── */}

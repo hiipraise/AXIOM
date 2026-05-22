@@ -1,4 +1,5 @@
 import { CVData } from "../../types";
+import { CAREER_LEVELS, INDUSTRIES } from "../../lib/cvContext";
 import { Field, Input, SectionHeader, Card } from "../UI/FormElements";
 
 interface Props {
@@ -7,28 +8,6 @@ interface Props {
     v: Pick<CVData, "career_level" | "industry" | "target_role">,
   ) => void;
 }
-
-const CAREER_LEVEL_OPTIONS = [
-  { value: "", label: "General / not specified" },
-  { value: "student", label: "Student / Undergraduate" },
-  { value: "graduate", label: "Graduate / 0–2 Years" },
-  { value: "mid", label: "Mid-Level / 2–7 Years" },
-  { value: "senior", label: "Senior / 7+ Years" },
-  { value: "career_switch", label: "Career Switcher" },
-  { value: "executive", label: "Executive / C-Suite" },
-];
-
-const INDUSTRY_OPTIONS = [
-  { value: "", label: "General / not specified" },
-  { value: "tech", label: "Tech & Software" },
-  { value: "business", label: "Business, Finance & Strategy" },
-  { value: "marketing", label: "Marketing & Growth" },
-  { value: "health", label: "Health Sciences & Medicine" },
-  { value: "creative", label: "Creative, Design & Media" },
-  { value: "engineering", label: "Engineering & Manufacturing" },
-  { value: "education", label: "Education & Training" },
-  { value: "legal", label: "Legal & Compliance" },
-];
 
 export default function TargetingSection({ data, onChange }: Props) {
   const set =
@@ -53,7 +32,7 @@ export default function TargetingSection({ data, onChange }: Props) {
               onChange={set("career_level")}
               className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink bg-white"
             >
-              {CAREER_LEVEL_OPTIONS.map((option) => (
+              {CAREER_LEVELS.map((option) => (
                 <option key={option.value || "general"} value={option.value}>
                   {option.label}
                 </option>
@@ -69,7 +48,7 @@ export default function TargetingSection({ data, onChange }: Props) {
               onChange={set("industry")}
               className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink bg-white"
             >
-              {INDUSTRY_OPTIONS.map((option) => (
+              {INDUSTRIES.map((option) => (
                 <option key={option.value || "general"} value={option.value}>
                   {option.label}
                 </option>
