@@ -28,7 +28,10 @@ import {
   History,
   Eye,
   Target,
+  Info,
+  PencilLine,
 } from "lucide-react";
+import { useRef } from "react";
 import { useAnnouncement } from "../../context/announcement";
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
 import CVContextSelector from "../../components/cv/CVContextSelector";
@@ -141,6 +144,7 @@ export default function CVEditorPage() {
   const [currentRating, setCurrentRating] = useState<number | undefined>(
     undefined,
   );
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAction, setPendingAction] = useState<null | {
     action: "leave" | "rate";
     run: () => void;
@@ -331,15 +335,41 @@ export default function CVEditorPage() {
               <Menu size={14} className="flex-shrink-0 text-ink-muted" />
               <span className="truncate">{activeSectionLabel}</span>
             </button>
-            <input
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                setIsDirty(true);
-              }}
-              className="hidden md:block font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
-              placeholder="CV Title"
-            />
+            <div className="hidden md:flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
+                <input
+                  ref={titleInputRef}
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  className="w-full font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
+                  placeholder="CV Title"
+                />
+                <div className="text-[9px] text-ink-muted mt-0.5 flex items-center gap-2">
+                  <Info size={12} className="text-ink-muted" />
+                  <span className="font-mono">
+                    {(cvData.personal_info.full_name
+                      ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                      : title || "CV") + ".pdf"}
+                  </span>
+                </div>
+              </div>
+              <button
+                className="btn-ghost p-1.5"
+                title="Rename title"
+                onClick={() => {
+                  const el = document.querySelector(
+                    'input[placeholder="CV Title"]',
+                  ) as HTMLInputElement | null;
+                  el?.focus();
+                  el?.select();
+                }}
+              >
+                <PencilLine size={14} />
+              </button>
+            </div>
 
             <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
               <select

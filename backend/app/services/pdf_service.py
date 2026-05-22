@@ -37,6 +37,8 @@ MX     = 18 * mm      # horizontal margin
 MY     = 14 * mm      # vertical margin
 CW     = PW - 2 * MX  # usable content width
 
+FONT_SCALE = 1.16
+
 # ─── Leading table  (font-size → line height in pt) ──────────────────────────
 _LEAD: dict[float, float] = {
     7: 10, 7.5: 10.5, 8: 11, 8.5: 12, 9: 12.5, 9.5: 13.5,
@@ -44,7 +46,8 @@ _LEAD: dict[float, float] = {
     14: 19, 16: 22, 18: 25, 20: 27, 22: 30, 24: 33, 28: 38, 30: 41,
 }
 def _lead(size: float) -> float:
-    return _LEAD.get(size, size * 1.38)
+    scaled = size * FONT_SCALE
+    return _LEAD.get(scaled, scaled * 1.38)
 
 
 # ─── Themes ──────────────────────────────────────────────────────────────────
@@ -72,7 +75,7 @@ def _s(v) -> str:
     return str(v).strip() if v else ""
 
 def _wrap(txt: str, font: str, size: float, max_w: float) -> list[str]:
-    return _simpleSplit(_s(txt), font, size, max_w) if _ok(txt) else []
+    return _simpleSplit(_s(txt), font, size * FONT_SCALE, max_w) if _ok(txt) else []
 
 def _text_h(txt: str, font: str, size: float, max_w: float) -> float:
     lines = _wrap(txt, font, size, max_w)
@@ -83,7 +86,7 @@ def _draw_text(c, txt: str, font: str, size: float, col: Color,
     """Draw wrapped text, return y BELOW last line."""
     lead = _lead(size)
     for line in _wrap(txt, font, size, max_w):
-        c.setFont(font, size)
+        c.setFont(font, size * FONT_SCALE)
         c.setFillColor(col)
         c.drawString(x, y, line)
         y -= lead
@@ -91,7 +94,7 @@ def _draw_text(c, txt: str, font: str, size: float, col: Color,
 
 def _draw_right(c, txt: str, font: str, size: float, col: Color, rx: float, y: float):
     if _ok(txt):
-        c.setFont(font, size); c.setFillColor(col)
+        c.setFont(font, size * FONT_SCALE); c.setFillColor(col)
         c.drawRightString(rx, y, _s(txt))
 
 def _hr(c, x: float, y: float, w: float, col: Color, thick: float = 0.5):
@@ -193,7 +196,7 @@ class Pen:
         """Section label + rule."""
         self.check(22)
         self.gap(top_gap)
-        self.c.setFont(self.t["fb"], 8)
+        self.c.setFont(self.t["fb"], 8 * FONT_SCALE)
         self.c.setFillColor(self.t["accent"])
         self.c.drawString(self.x, self.y, label.upper())
         self.y -= 4
@@ -369,7 +372,7 @@ def _tpl_standard(c, cv, t: dict, public_url: str):
         if qr_img:
             qr_sz = 18 * mm
             c.drawImage(qr_img, MX, pen.y - qr_sz, qr_sz, qr_sz, mask="auto")
-            c.setFont(t["fn"], 8); c.setFillColor(t["sec"])
+            c.setFont(t["fn"], 8 * FONT_SCALE); c.setFillColor(t["sec"])
             c.drawString(MX + qr_sz + 5, pen.y - 10,
                          f"Verify at {public_url}")
 
@@ -412,17 +415,17 @@ def _tpl_atlas(c, cv, t: dict, public_url: str):
     av_cy = sp.y - av_r - 4
     _fill_rect(c, av_cx - av_r, av_cy - av_r,
                av_r * 2, av_r * 2, _hc("#FFFFFF30"), radius=av_r)
-    c.setFont(t["fb"], 16); c.setFillColor(white)
+    c.setFont(t["fb"], 16 * FONT_SCALE); c.setFillColor(white)
     c.drawCentredString(av_cx, av_cy - 6, _initials(_s(pi.full_name)))
     sp.y = av_cy - av_r - 10
 
     # Name / title centred
     if _ok(pi.full_name):
-        c.setFont(t["fb"], 13); c.setFillColor(white)
+        c.setFont(t["fb"], 13 * FONT_SCALE); c.setFillColor(white)
         c.drawCentredString(av_cx, sp.y, _s(pi.full_name))
         sp.y -= _lead(13)
     if _ok(pi.job_title):
-        c.setFont(t["fn"], 9); c.setFillColor(st["sec"])
+        c.setFont(t["fn"], 9 * FONT_SCALE); c.setFillColor(st["sec"])
         c.drawCentredString(av_cx, sp.y, _s(pi.job_title))
         sp.y -= _lead(9)
     sp.gap(4)
@@ -432,7 +435,7 @@ def _tpl_atlas(c, cv, t: dict, public_url: str):
     # Contact
     cts = _contacts(pi)
     if cts:
-        sp.c.setFont(st["fb"], 7.5); sp.c.setFillColor(st["sec"])
+        sp.c.setFont(st["fb"], 7.5 * FONT_SCALE); sp.c.setFillColor(st["sec"])
         sp.c.drawString(sp.x, sp.y, "CONTACT"); sp.y -= 10
         for ct in cts:
             sp.text(_s(ct), size=9, col=white)
@@ -441,7 +444,7 @@ def _tpl_atlas(c, cv, t: dict, public_url: str):
     sk = _skill_items(cv)
     if sk:
         sp.gap(8)
-        sp.c.setFont(st["fb"], 7.5); sp.c.setFillColor(st["sec"])
+        sp.c.setFont(st["fb"], 7.5 * FONT_SCALE); sp.c.setFillColor(st["sec"])
         sp.c.drawString(sp.x, sp.y, "SKILLS"); sp.y -= 10
         sp.text(", ".join(sk), size=9, col=white)
 
@@ -449,7 +452,7 @@ def _tpl_atlas(c, cv, t: dict, public_url: str):
     ll = _lang_items(cv)
     if ll:
         sp.gap(8)
-        sp.c.setFont(st["fb"], 7.5); sp.c.setFillColor(st["sec"])
+        sp.c.setFont(st["fb"], 7.5 * FONT_SCALE); sp.c.setFillColor(st["sec"])
         sp.c.drawString(sp.x, sp.y, "LANGUAGES"); sp.y -= 10
         for l in ll:
             line = _s(l.language) + (f" ({_s(l.proficiency)})" if _ok(l.proficiency) else "")
@@ -458,7 +461,7 @@ def _tpl_atlas(c, cv, t: dict, public_url: str):
     # Summary
     if _ok(cv.summary):
         sp.gap(8)
-        sp.c.setFont(st["fb"], 7.5); sp.c.setFillColor(st["sec"])
+        sp.c.setFont(st["fb"], 7.5 * FONT_SCALE); sp.c.setFillColor(st["sec"])
         sp.c.drawString(sp.x, sp.y, "PROFILE"); sp.y -= 10
         sp.text(cv.summary, size=9, col=white)
 
@@ -490,14 +493,14 @@ def _tpl_horizon(c, cv, t: dict, public_url: str):
 
     hy = PH - MY - 4
     if _ok(pi.full_name):
-        c.setFont(t["fb"], 22); c.setFillColor(white)
+        c.setFont(t["fb"], 22 * FONT_SCALE); c.setFillColor(white)
         c.drawString(MX, hy, _s(pi.full_name)); hy -= 27
     if _ok(pi.job_title):
-        c.setFont(t["fn"], 11); c.setFillColor(_hc("#DDDDDD"))
+        c.setFont(t["fn"], 11 * FONT_SCALE); c.setFillColor(_hc("#DDDDDD"))
         c.drawString(MX, hy, _s(pi.job_title)); hy -= 15
     cts = "  |  ".join(_contacts(pi))
     if cts:
-        c.setFont(t["fn"], 8.5); c.setFillColor(_hc("#AAAAAA"))
+        c.setFont(t["fn"], 8.5 * FONT_SCALE); c.setFillColor(_hc("#AAAAAA"))
         c.drawString(MX, hy, cts)
 
     # ── Optional summary strip ────────────────────────────────────────────────
@@ -574,7 +577,7 @@ def _tpl_pulse(c, cv, t: dict, public_url: str):
     # ── Timeline section helper ───────────────────────────────────────────────
     def tl_section(label: str):
         pen.check(24); pen.gap(8)
-        c.setFont(t["fb"], 8.5); c.setFillColor(t["accent"])
+        c.setFont(t["fb"], 8.5 * FONT_SCALE); c.setFillColor(t["accent"])
         c.drawString(TEXT_X, pen.y, label.upper()); pen.y -= 4
         _hr(c, TEXT_X, pen.y, TEXT_W, t["line"]); pen.gap(8)
 
@@ -671,7 +674,7 @@ def _tpl_pulse(c, cv, t: dict, public_url: str):
 
         yL = pen.y
         if sk:
-            c.setFont(t["fb"], 8); c.setFillColor(t["accent"])
+            c.setFont(t["fb"], 8 * FONT_SCALE); c.setFillColor(t["accent"])
             c.drawString(TEXT_X, yL, "SKILLS"); yL -= 10
             yL = _draw_text(c, ", ".join(sk), t["fn"], 9.5, t["text"],
                             TEXT_X, yL, LEFT_W2)
@@ -682,7 +685,7 @@ def _tpl_pulse(c, cv, t: dict, public_url: str):
             ("AWARDS",         aw, lambda a: _s(a.title)),
         ]:
             if items2:
-                c.setFont(t["fb"], 8); c.setFillColor(t["accent"])
+                c.setFont(t["fb"], 8 * FONT_SCALE); c.setFillColor(t["accent"])
                 c.drawString(RIGHT_X2, yR, label); yR -= 10
                 for it in items2:
                     yR = _draw_text(c, fmt(it), t["fn"], 9.5, t["text"],
@@ -711,13 +714,13 @@ def _tpl_grid(c, cv, t: dict, public_url: str):
 
     hy = y - PAD - 2
     if _ok(pi.full_name):
-        c.setFont(t["fb"], 20); c.setFillColor(t["accent"])
+        c.setFont(t["fb"], 20 * FONT_SCALE); c.setFillColor(t["accent"])
         c.drawString(MX + PAD + 6, hy, _s(pi.full_name)); hy -= _lead(20)
     if _ok(pi.job_title):
-        c.setFont(t["fn"], 11); c.setFillColor(t["sec"])
+        c.setFont(t["fn"], 11 * FONT_SCALE); c.setFillColor(t["sec"])
         c.drawString(MX + PAD + 6, hy, _s(pi.job_title)); hy -= _lead(11)
     for ct in cts:
-        c.setFont(t["fn"], 8.5); c.setFillColor(t["sec"])
+        c.setFont(t["fn"], 8.5 * FONT_SCALE); c.setFillColor(t["sec"])
         c.drawString(MX + PAD + 6, hy, ct); hy -= _lead(9)
     y -= hdr_h + 8
 
@@ -814,14 +817,14 @@ def _tpl_minimal_pro(c, cv, t: dict, public_url: str):
 
     # ── Big header ────────────────────────────────────────────────────────────
     if _ok(pi.full_name):
-        c.setFont(t["fb"], 28); c.setFillColor(t["text"])
+        c.setFont(t["fb"], 28 * FONT_SCALE); c.setFillColor(t["text"])
         c.drawString(MX, y, _s(pi.full_name)); y -= _lead(28)
     if _ok(pi.job_title):
-        c.setFont(t["fn"], 12); c.setFillColor(t["sec"])
+        c.setFont(t["fn"], 12 * FONT_SCALE); c.setFillColor(t["sec"])
         c.drawString(MX, y, _s(pi.job_title)); y -= _lead(12)
     cts = "  |  ".join(_contacts(pi))
     if cts:
-        c.setFont(t["fn"], 9); c.setFillColor(t["sec"])
+        c.setFont(t["fn"], 9 * FONT_SCALE); c.setFillColor(t["sec"])
         c.drawString(MX, y, cts); y -= _lead(9)
     y -= 6
     _hr(c, MX, y, CW, t["text"], 2.5); y -= 14
@@ -851,7 +854,7 @@ def _tpl_minimal_pro(c, cv, t: dict, public_url: str):
                    BORDER_W, row_top - row_bottom, t["accent"])
 
         # Label
-        c.setFont(t["fb"], 7.5); c.setFillColor(t["sec"])
+        c.setFont(t["fb"], 7.5 * FONT_SCALE); c.setFillColor(t["sec"])
         c.drawString(MX, row_top, label.upper())
 
         # Content

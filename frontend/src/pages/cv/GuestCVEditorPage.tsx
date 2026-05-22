@@ -27,8 +27,11 @@ import {
   AlertTriangle,
   Menu,
   Target,
+  Info,
+  PencilLine,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
+import { useRef } from "react";
 
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
 import CVContextSelector from "../../components/cv/CVContextSelector";
@@ -199,6 +202,7 @@ export default function GuestCVEditorPage() {
 
   const updateData = (patch: Partial<CVData>) =>
     setCvData((prev) => ({ ...prev, ...patch }));
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDownloadPDF = async () => {
     setDownloading(true);
@@ -213,7 +217,10 @@ export default function GuestCVEditorPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${cvData.personal_info.full_name || "cv"}.pdf`;
+      const fullName = cvData.personal_info.full_name?.trim();
+      a.download = fullName
+        ? `${fullName} - ${title || "CV"}.pdf`
+        : `${title || "CV"}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("PDF downloaded");
@@ -302,12 +309,35 @@ export default function GuestCVEditorPage() {
               <span className="truncate">{activeSectionLabel}</span>
             </button>
 
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="hidden md:block font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
-              placeholder="CV Title"
-            />
+            <div className="hidden md:flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
+                <input
+                  ref={titleInputRef}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full font-display font-semibold text-sm text-ink bg-transparent border-none outline-none flex-1 min-w-0"
+                  placeholder="CV Title"
+                />
+                <div className="text-xs text-ink-muted mt-0.5 flex items-center gap-2">
+                  <Info size={12} className="text-ink-muted" />
+                  <span className="font-mono">
+                    {(cvData.personal_info.full_name
+                      ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                      : title || "CV") + ".pdf"}
+                  </span>
+                </div>
+              </div>
+              <button
+                className="btn-ghost p-1.5"
+                title="Rename title"
+                onClick={() => {
+                  titleInputRef.current?.focus();
+                  titleInputRef.current?.select();
+                }}
+              >
+                <PencilLine size={14} />
+              </button>
+            </div>
 
             {/* Right controls */}
             <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">

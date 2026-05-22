@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
-import { cvApi, publicApi, api } from '../api'
-import { renderCVtoHTML } from '../utils/renderCVtoHTML'
-import toast from 'react-hot-toast'
+import { useState, useCallback } from "react";
+import { cvApi, publicApi, api } from "../api";
+import { renderCVtoHTML } from "../utils/renderCVtoHTML";
+import toast from "react-hot-toast";
 
 /**
  * Generates PDFs by:
@@ -15,92 +15,88 @@ import toast from 'react-hot-toast'
  */
 
 function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a   = document.createElement('a')
-  a.href     = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function generateAndDownload(
-  cvDataObj:  object,
-  theme:      string,
-  template:   string,
-  filename:   string,
+  cvDataObj: object,
+  theme: string,
+  template: string,
+  filename: string,
 ) {
   // Render the React component to HTML in the current browser
-  const { cvData } = cvDataObj as any
-  const html = await renderCVtoHTML(cvData, theme, template)
+  const { cvData } = cvDataObj as any;
+  const html = await renderCVtoHTML(cvData, theme, template, 1.16);
 
   // Send to backend for Playwright PDF generation
-  const blob = await api.post(
-    '/export/html-pdf',
-    { html },
-    { responseType: 'blob' },
-  ).then(r => r.data as Blob)
+  const blob = await api
+    .post("/export/html-pdf", { html }, { responseType: "blob" })
+    .then((r) => r.data as Blob);
 
-  download(blob, filename)
+  download(blob, filename);
 }
 
 export function usePrintCV() {
-  const [isPrinting, setIsPrinting] = useState(false)
-  const printJob = null
-  const clearJob = useCallback(() => {}, [])
+  const [isPrinting, setIsPrinting] = useState(false);
+  const printJob = null;
+  const clearJob = useCallback(() => {}, []);
 
   const printCV = useCallback(async (cvId: string) => {
-    setIsPrinting(true)
-    const tid = toast.loading('Rendering PDF…')
+    setIsPrinting(true);
+    const tid = toast.loading("Rendering PDF…");
     try {
-      const cv   = await cvApi.get(cvId)
-      const name = cv.data.personal_info.full_name || cv.owner_username
+      const cv = await cvApi.get(cvId);
+      const name = cv.data.personal_info.full_name || cv.owner_username;
       const html = await renderCVtoHTML(
         cv.data,
-        cv.theme    || 'minimal',
-        cv.template || 'standard',
-      )
-      const blob = await api.post(
-        '/export/html-pdf',
-        { html },
-        { responseType: 'blob' },
-      ).then(r => r.data as Blob)
-      download(blob, `${name}-${cv.title}.pdf`)
-      toast.success('PDF downloaded', { id: tid })
+        cv.theme || "minimal",
+        cv.template || "standard",
+        1.16,
+      );
+      const blob = await api
+        .post("/export/html-pdf", { html }, { responseType: "blob" })
+        .then((r) => r.data as Blob);
+      download(blob, `${name}-${cv.title}.pdf`);
+      toast.success("PDF downloaded", { id: tid });
     } catch (e) {
-      console.error(e)
-      toast.error('Could not generate PDF', { id: tid })
+      console.error(e);
+      toast.error("Could not generate PDF", { id: tid });
     } finally {
-      setIsPrinting(false)
+      setIsPrinting(false);
     }
-  }, [])
+  }, []);
 
   const printPublicCV = useCallback(async (username: string, slug: string) => {
-    setIsPrinting(true)
-    const tid = toast.loading('Rendering PDF…')
+    setIsPrinting(true);
+    const tid = toast.loading("Rendering PDF…");
     try {
-      const cv   = await publicApi.getCV(username, slug)
-      const name = cv.data.personal_info.full_name || username
+      const cv = await publicApi.getCV(username, slug);
+      const name = cv.data.personal_info.full_name || username;
       const html = await renderCVtoHTML(
         cv.data,
-        cv.theme    || 'minimal',
-        cv.template || 'standard',
-      )
-      const blob = await api.post(
-        '/export/html-pdf',
-        { html },
-        { responseType: 'blob' },
-      ).then(r => r.data as Blob)
-      download(blob, `${name}-${slug}.pdf`)
-      toast.success('PDF downloaded', { id: tid })
+        cv.theme || "minimal",
+        cv.template || "standard",
+        1.16,
+      );
+      const blob = await api
+        .post("/export/html-pdf", { html }, { responseType: "blob" })
+        .then((r) => r.data as Blob);
+      download(blob, `${name}-${slug}.pdf`);
+      toast.success("PDF downloaded", { id: tid });
     } catch (e) {
-      console.error(e)
-      toast.error('Could not generate PDF', { id: tid })
+      console.error(e);
+      toast.error("Could not generate PDF", { id: tid });
     } finally {
-      setIsPrinting(false)
+      setIsPrinting(false);
     }
-  }, [])
+  }, []);
 
-  return { printCV, printPublicCV, printJob, clearJob, isPrinting }
+  return { printCV, printPublicCV, printJob, clearJob, isPrinting };
 }
