@@ -5,39 +5,56 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications</title>
+
   <meta name="description"
     content="Create ATS-friendly resumes and CVs with AXIOM CV. Turn your experience into clear, truthful, recruiter-ready applications at axiomcv.site." />
+
   <meta name="keywords"
     content="AXIOM CV, axiomcv.site, AI CV generator, AI resume builder, ATS friendly resume, CV maker, resume generator, job application tools" />
+
   <meta name="author" content="AXIOM CV" />
+
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="AXIOM CV" />
   <meta property="og:url" content="https://axiomcv.site/" data-dynamic-og-url="true" />
   <meta property="og:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+
   <meta property="og:description"
     content="Build truthful, ATS-friendly resumes and CVs with AXIOM CV. Fast, clear, recruiter-ready resume generation at axiomcv.site." />
+
   <meta property="og:image" content="https://axiomcv.site/favicon.ico" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+
   <meta name="twitter:description"
     content="Create recruiter-ready resumes and CVs with AI assistance from AXIOM CV at axiomcv.site." />
+
   <meta name="twitter:image" content="https://axiomcv.site/favicon.ico" />
 
-  <meta name="theme-color" content="#0b1020" />
+  <meta name="theme-color" content="#F8FAFC" />
 
   <script>
     (function () {
       var canonicalHref = window.location.origin + window.location.pathname;
-      var canonical = document.createElement('link');
-      canonical.setAttribute('rel', 'canonical');
-      canonical.setAttribute('href', canonicalHref);
+
+      var canonical = document.createElement("link");
+      canonical.setAttribute("rel", "canonical");
+      canonical.setAttribute("href", canonicalHref);
+
       document.head.appendChild(canonical);
 
-      var ogUrl = document.querySelector('meta[data-dynamic-og-url="true"]');
-      if (ogUrl) ogUrl.setAttribute('content', canonicalHref);
+      var ogUrl = document.querySelector(
+        'meta[data-dynamic-og-url="true"]'
+      );
+
+      if (ogUrl) {
+        ogUrl.setAttribute("content", canonicalHref);
+      }
     })();
   </script>
 
@@ -58,50 +75,105 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #F8FAFC;
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+
     .boot-loader {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #ffffff;
-      color: #0f172a;
-      font-family: "DM Sans", system-ui, sans-serif;
+      background: #F8FAFC;
+      color: #0F172A;
+      overflow: hidden;
     }
 
-    .boot-loader__card {
-      width: min(360px, calc(100% - 48px));
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+    .boot-loader__inner {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
-    .boot-loader__title {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 700;
+    .boot-loader__stage {
+      position: relative;
+      width: 190px;
+      height: 190px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.45ch;
     }
 
-    .boot-loader__desc {
-      margin: 6px 0 0;
-      font-size: 14px;
-      color: #475569;
+    .boot-loader__svg {
+      width: 190px;
+      height: 190px;
+      transform: rotate(-90deg);
     }
 
-    /* Spelling word slot */
+    .boot-loader__bg-ring {
+      fill: transparent;
+      stroke: #E2E8F0;
+      stroke-width: 4;
+    }
+
+    .boot-loader__progress-ring {
+      fill: transparent;
+      stroke: #0F172A;
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.25s ease-out;
+    }
+
+    .boot-loader__center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .boot-loader__percent {
+      margin: 0;
+      font-family: "Syne", sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: #0F172A;
+    }
+
+    .boot-loader__word {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #0F172A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 18px;
+    }
+
     .boot-spelling {
       display: inline-flex;
       justify-content: center;
-      width: 5ch;
+      width: 8ch;
       overflow: hidden;
       position: relative;
     }
@@ -123,19 +195,13 @@
       }
     }
 
-    .boot-spelling__letter--out {
-      animation: boot-letter-out 0.18s ease-in-out forwards;
-    }
-
-    @keyframes boot-letter-out {
-      from {
-        opacity: 1;
-        transform: translateY(0);
+    @media (prefers-reduced-motion: reduce) {
+      .boot-spelling__letter {
+        animation: none;
       }
 
-      to {
-        opacity: 0;
-        transform: translateY(-3px);
+      .boot-loader__progress-ring {
+        transition: none;
       }
     }
   </style>
@@ -144,70 +210,97 @@
 <body>
   <div id="root">
     <div class="boot-loader" role="status" aria-live="polite" aria-busy="true">
-      <!-- The Bouncing Favicon -->
-      <img id="dvd-bouncer" src="/favicon.ico" style="position: absolute; width: 48px; height: 48px; z-index: 10;" />
+      <div class="boot-loader__inner">
+        <div class="boot-loader__stage">
+          <svg class="boot-loader__svg" viewBox="0 0 190 190" aria-hidden="true">
+            <circle class="boot-loader__bg-ring" cx="95" cy="95" r="74" />
 
-      <div class="boot-loader__card" style="position: relative; z-index: 1;">
-        <p class="boot-loader__title">
-          <span class="boot-spelling"><span class="boot-spelling__letter">A</span></span>
-          <span>is loading…</span>
-        </p>
-        <p class="boot-loader__desc">Starting AXIOM CV. Thanks for hanging tight.</p>
+            <circle id="boot-progress-ring" class="boot-loader__progress-ring" cx="95" cy="95" r="74" />
+          </svg>
+
+          <div class="boot-loader__center">
+            <p id="boot-percent" class="boot-loader__percent">0%</p>
+
+            <div class="boot-loader__word">
+              <span class="boot-spelling" id="boot-spelling">A</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
     (function () {
-      const img = document.getElementById('dvd-bouncer');
-      let x = Math.random() * (window.innerWidth - 48);
-      let y = Math.random() * (window.innerHeight - 48);
-      let xSpeed = 2; // Adjust for speed
-      let ySpeed = 2;
+      var progress = 0;
 
-      function animate() {
-        if (!img) return;
-        const screenWidth = window.innerWidth - img.clientWidth;
-        const screenHeight = window.innerHeight - img.clientHeight;
+      var percent = document.getElementById("boot-percent");
+      var ring = document.getElementById("boot-progress-ring");
 
-        x += xSpeed;
-        y += ySpeed;
+      var radius = 74;
+      var circumference = 2 * Math.PI * radius;
 
-        if (x >= screenWidth || x <= 0) xSpeed *= -1;
-        if (y >= screenHeight || y <= 0) ySpeed *= -1;
+      ring.style.strokeDasharray = circumference;
 
-        img.style.left = x + 'px';
-        img.style.top = y + 'px';
+      function updateRing(value) {
+        var offset =
+          circumference - (value / 100) * circumference;
 
-        requestAnimationFrame(animate);
+        ring.style.strokeDashoffset = offset;
       }
-      animate();
+
+      updateRing(0);
+
+      var interval = setInterval(function () {
+        progress += Math.floor(Math.random() * 8) + 2;
+
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+        }
+
+        if (percent) {
+          percent.textContent = progress + "%";
+        }
+
+        updateRing(progress);
+      }, 120);
     })();
 
     (function () {
-      var SEQUENCE = ['A', 'X', 'I', 'O', 'M', 'AXIOM'];
+      var SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
+
       var LETTER_MS = 500;
       var FULL_MS = 1600;
+
       var index = 0;
-      var slot = document.querySelector('.boot-spelling');
+
+      var slot = document.getElementById("boot-spelling");
+
       if (!slot) return;
+
       function render() {
-        var span = document.createElement('span');
-        span.className = 'boot-spelling__letter';
+        var span = document.createElement("span");
+
+        span.className = "boot-spelling__letter";
         span.textContent = SEQUENCE[index];
-        slot.innerHTML = '';
+
+        slot.innerHTML = "";
         slot.appendChild(span);
+
         setTimeout(function () {
           index = (index + 1) % SEQUENCE.length;
           render();
-        }, index === SEQUENCE.length - 1 ? FULL_MS : LETTER_MS);
+        }, index === SEQUENCE.length - 1
+          ? FULL_MS
+          : LETTER_MS);
       }
+
       render();
     })();
   </script>
 
   <script type="module" src="/src/main.tsx"></script>
 </body>
-
 
 </html>

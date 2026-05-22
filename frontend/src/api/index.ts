@@ -81,7 +81,32 @@ export const cvApi = {
   aiInterview: (
     message: string,
     history: Array<{ role: string; content: string }>,
-  ) => api.post("/cv/ai/interview", { message, history }).then((r) => r.data),
+    cvData?: object,
+  ) =>
+    api
+      .post("/cv/ai/interview", { message, history, cv_data: cvData })
+      .then((r) => r.data),
+  aiReview: (cvData: object, jobDescription?: string) =>
+    api
+      .post("/cv/ai/review", {
+        cv_data: cvData,
+        job_description: jobDescription,
+      })
+      .then((r) => r.data),
+  aiOptimizeBullets: (cvData: object, experienceIndex: number) =>
+    api
+      .post("/cv/ai/optimize-bullets", {
+        cv_data: cvData,
+        experience_index: experienceIndex,
+      })
+      .then((r) => r.data),
+  aiKeywordGap: (cvData: object, jobDescription: string) =>
+    api
+      .post("/cv/ai/keyword-gap", {
+        cv_data: cvData,
+        job_description: jobDescription,
+      })
+      .then((r) => r.data),
   uploadCV: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
-import { EMPTY_CV_DATA, CVData } from "../../types";
+import { EMPTY_CV_DATA, CVData, normalizeCVData } from "../../types";
 import toast from "react-hot-toast";
 import {
   Upload,
@@ -12,6 +12,7 @@ import {
   Send,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
+import TargetingSection from "../../components/cv/TargetingSection";
 
 type Mode = "choose" | "blank" | "upload" | "interview";
 
@@ -20,6 +21,13 @@ export default function CVNewPage() {
   const [mode, setMode] = useState<Mode>("choose");
   const [title, setTitle] = useState("");
   const [pageCount, setPageCount] = useState(1);
+  const [targeting, setTargeting] = useState<
+    Pick<CVData, "career_level" | "industry" | "target_role">
+  >({
+    career_level: "",
+    industry: "",
+    target_role: "",
+  });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [extractedData, setExtractedData] = useState<CVData | null>(null);
@@ -30,6 +38,11 @@ export default function CVNewPage() {
   const [interviewLoading, setInterviewLoading] = useState(false);
   const { bannerH } = useAnnouncement();
 
+  const applyTargeting = (data: CVData): CVData => ({
+    ...data,
+    ...targeting,
+  });
+
   const handleCreateBlank = async () => {
     if (!title.trim()) {
       toast.error("Give your CV a title");
@@ -39,7 +52,7 @@ export default function CVNewPage() {
     try {
       const cv = await cvApi.create({
         title,
-        data: EMPTY_CV_DATA,
+        data: applyTargeting(EMPTY_CV_DATA),
         page_count: pageCount,
       });
       navigate(`/cv/${cv.id}`);
@@ -56,7 +69,7 @@ export default function CVNewPage() {
     setUploading(true);
     try {
       const res = await cvApi.uploadCV(file);
-      setExtractedData(res.data);
+      setExtractedData(normalizeCVData(res.data));
       toast.success("CV extracted — review and create");
     } catch {
       toast.error("Could not parse PDF");
@@ -74,7 +87,7 @@ export default function CVNewPage() {
     try {
       const cv = await cvApi.create({
         title,
-        data: extractedData || EMPTY_CV_DATA,
+        data: applyTargeting(extractedData || EMPTY_CV_DATA),
         page_count: pageCount,
       });
       navigate(`/cv/${cv.id}`);
@@ -93,7 +106,11 @@ export default function CVNewPage() {
     setInterviewInput("");
     setInterviewLoading(true);
     try {
-      const res = await cvApi.aiInterview(interviewInput, interviewMessages);
+      const res = await cvApi.aiInterview(
+        interviewInput,
+        interviewMessages,
+        applyTargeting(EMPTY_CV_DATA),
+      );
       setInterviewMessages([
         ...newHistory,
         { role: "assistant", content: res.response },
@@ -117,11 +134,11 @@ export default function CVNewPage() {
         .join("\n");
       const editRes = await cvApi.aiEdit(
         `Extract structured CV data from this interview conversation: ${conversation}`,
-        EMPTY_CV_DATA,
+        applyTargeting(EMPTY_CV_DATA),
       );
       const cv = await cvApi.create({
         title,
-        data: editRes.data || EMPTY_CV_DATA,
+        data: applyTargeting(normalizeCVData(editRes.data)),
         page_count: pageCount,
       });
       navigate(`/cv/${cv.id}`);
@@ -151,6 +168,10 @@ export default function CVNewPage() {
         <p className="text-sm text-ink-muted mb-6">
           Choose how you want to start
         </p>
+
+        <div className="mb-6">
+          <TargetingSection data={targeting} onChange={setTargeting} />
+        </div>
 
         {/* ── Choose mode ── */}
         {mode === "choose" && (

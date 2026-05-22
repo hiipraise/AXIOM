@@ -26,10 +26,12 @@ import {
   ArrowRight,
   AlertTriangle,
   Menu,
+  Target,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
 
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
+import TargetingSection from "../../components/cv/TargetingSection";
 import SummarySection from "../../components/cv/SummarySection";
 import SkillsSection from "../../components/cv/SkillsSection";
 import ExperienceSection from "../../components/cv/ExperienceSection";
@@ -44,6 +46,7 @@ import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 
 const SECTIONS = [
   { id: "personal", label: "Personal Info", icon: User },
+  { id: "targeting", label: "Targeting", icon: Target },
   { id: "summary", label: "Summary", icon: AlignLeft },
   { id: "skills", label: "Skills", icon: Wrench },
   { id: "experience", label: "Experience", icon: Briefcase },
@@ -315,7 +318,9 @@ export default function GuestCVEditorPage() {
                 className="hidden sm:block text-xs border border-ash-border rounded-lg px-2 py-1.5 bg-ash text-ink-muted focus:outline-none"
               >
                 {CV_THEME_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
               <select
@@ -373,6 +378,16 @@ export default function GuestCVEditorPage() {
                 <PersonalInfoSection
                   data={cvData.personal_info}
                   onChange={(v) => updateData({ personal_info: v })}
+                />
+              )}
+              {activeSection === "targeting" && (
+                <TargetingSection
+                  data={{
+                    career_level: cvData.career_level,
+                    industry: cvData.industry,
+                    target_role: cvData.target_role,
+                  }}
+                  onChange={(v) => updateData(v)}
                 />
               )}
               {activeSection === "summary" && (

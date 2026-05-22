@@ -1,8 +1,15 @@
+# app/models/schemas.py
+# Only the CVData model and new request schemas shown — merge with your existing file.
+# All existing fields preserved. Three new fields added to CVData.
+# Two new request bodies added for review and keyword gap analysis.
+
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
+
+# ─── Existing models (unchanged) ─────────────────────────────────────────────
 
 class UserRole(str, Enum):
     user = "user"
@@ -50,8 +57,6 @@ class RecoverAccount(BaseModel):
     secret_answer: str
     new_password: str = Field(..., min_length=6)
 
-
-# CV Schemas
 
 class PersonalInfo(BaseModel):
     full_name: str = ""
@@ -112,7 +117,7 @@ class AwardItem(BaseModel):
 
 class LanguageItem(BaseModel):
     language: str = ""
-    proficiency: str = ""  # Native, Fluent, Conversational, Basic
+    proficiency: str = ""
 
 
 class VolunteerItem(BaseModel):
@@ -122,6 +127,8 @@ class VolunteerItem(BaseModel):
     end_date: str = ""
     description: str = ""
 
+
+# ─── CVData — three new fields added ─────────────────────────────────────────
 
 class CVData(BaseModel):
     personal_info: PersonalInfo = Field(default_factory=PersonalInfo)
@@ -136,6 +143,23 @@ class CVData(BaseModel):
     volunteer: List[VolunteerItem] = []
     job_description: str = ""
 
+    # ── NEW ──────────────────────────────────────────────────────────────────
+    # Stored on the CV, not the user — one CV can be tailored differently
+    career_level: str = ""
+    # Valid values: student | graduate | mid | senior | career_switch | executive
+    # Empty string = general (no level-specific prompt injection)
+
+    industry: str = ""
+    # Valid values: tech | business | marketing | health | creative |
+    #               engineering | education | legal | general
+    # Empty string = general
+
+    target_role: str = ""
+    # Free text — e.g. "Senior Product Manager at a fintech startup"
+    # Used directly in prompt injection and review scoring
+
+
+# ─── Existing CV schemas (unchanged) ─────────────────────────────────────────
 
 class CVCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=120)
@@ -177,6 +201,12 @@ class AIPromptRequest(BaseModel):
     context: Optional[str] = None
 
 
+class AIInterviewRequest(BaseModel):
+    message: str
+    history: List[dict] = Field(default_factory=list)
+    cv_data: Optional[CVData] = None
+
+
 class AIEditRequest(BaseModel):
     instruction: str
     cv_data: CVData
@@ -184,6 +214,26 @@ class AIEditRequest(BaseModel):
 
 
 class JobMatchRequest(BaseModel):
+    cv_data: CVData
+    job_description: str
+
+
+# ─── NEW request schemas ──────────────────────────────────────────────────────
+
+class CVReviewRequest(BaseModel):
+    cv_data: CVData
+    job_description: Optional[str] = None
+    # job_description is optional — review works without it,
+    # but ATS keyword gap section only populates when provided
+
+
+class OptimizeBulletsRequest(BaseModel):
+    cv_data: CVData
+    experience_index: int = Field(..., ge=0)
+    # Index into cv_data.experience — optimises that single entry
+
+
+class KeywordGapRequest(BaseModel):
     cv_data: CVData
     job_description: str
 

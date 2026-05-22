@@ -1,7 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.schemas import CVCreate, CVUpdate, AIPromptRequest, AIEditRequest, JobMatchRequest, CVRating
+from app.models.schemas import (
+    CVCreate,
+    CVUpdate,
+    AIPromptRequest,
+    AIEditRequest,
+    JobMatchRequest,
+    CVRating,
+    CVReviewRequest,
+    OptimizeBulletsRequest,
+    KeywordGapRequest,
+    AIInterviewRequest,
+)
 from app.services import ai_service
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -208,11 +219,40 @@ async def ai_match_job(body: JobMatchRequest, current_user=Depends(get_current_u
 
 
 @router.post("/ai/interview")
-async def ai_interview(body: dict, current_user=Depends(get_current_user)):
-    message = body.get("message", "")
-    history = body.get("history", [])
-    response = await ai_service.interview_user(message, history)
+async def ai_interview(body: AIInterviewRequest, current_user=Depends(get_current_user)):
+    response = await ai_service.interview_user(
+        body.message,
+        body.history,
+        body.cv_data.model_dump() if body.cv_data else None,
+    )
     return {"response": response}
+
+
+@router.post("/ai/review")
+async def ai_review(body: CVReviewRequest, current_user=Depends(get_current_user)):
+    review = await ai_service.review_cv(
+        body.cv_data.model_dump(),
+        body.job_description or "",
+    )
+    return {"review": review}
+
+
+@router.post("/ai/optimize-bullets")
+async def ai_optimize_bullets(body: OptimizeBulletsRequest, current_user=Depends(get_current_user)):
+    updated = await ai_service.optimize_bullets(
+        body.cv_data.model_dump(),
+        body.experience_index,
+    )
+    return {"data": updated}
+
+
+@router.post("/ai/keyword-gap")
+async def ai_keyword_gap(body: KeywordGapRequest, current_user=Depends(get_current_user)):
+    analysis = await ai_service.keyword_gap_analysis(
+        body.cv_data.model_dump(),
+        body.job_description,
+    )
+    return {"analysis": analysis}
 
 
 @router.post("/upload-cv")

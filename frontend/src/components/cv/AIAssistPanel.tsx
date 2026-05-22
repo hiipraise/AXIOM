@@ -4,7 +4,7 @@ import { CVData } from "../../types";
 import { X, Sparkles, Wand2, FileSearch, Send } from "lucide-react";
 import toast from "react-hot-toast";
 
-type Tab = "chat" | "edit" | "job";
+type Tab = "chat" | "edit" | "review" | "job";
 
 interface Props {
   cvData: CVData;
@@ -32,6 +32,7 @@ export default function AIAssistPanel({
   const [chatInput, setChatInput] = useState("");
   const [editInstruction, setEditInstruction] = useState("");
   const [jobDesc, setJobDesc] = useState(cvData.job_description || "");
+  const [reviewResult, setReviewResult] = useState("");
   const [loading, setLoading] = useState(false);
 
   const sendChat = async () => {
@@ -83,8 +84,22 @@ export default function AIAssistPanel({
     }
   };
 
+  const runReview = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await cvApi.aiReview(cvData, jobDesc.trim() || undefined);
+      setReviewResult(res.review);
+      toast.success("Review complete");
+    } catch {
+      toast.error("Review failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="w-full md:w-80 bg-white border-l border-ash-border flex flex-col h-full">
+    <div className="w-full md:w-80 bg-white border-l border-ash-border flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-ash-border flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -104,6 +119,7 @@ export default function AIAssistPanel({
         {[
           { id: "chat" as Tab, label: "Chat", icon: Sparkles },
           { id: "edit" as Tab, label: "Edit", icon: Wand2 },
+          { id: "review" as Tab, label: "Review", icon: FileSearch },
           { id: "job" as Tab, label: "Job Match", icon: FileSearch },
         ].map(({ id, label, icon: Icon }) => (
           <button
@@ -117,7 +133,7 @@ export default function AIAssistPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {tab === "chat" && (
           <>
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -163,10 +179,10 @@ export default function AIAssistPanel({
         )}
 
         {tab === "edit" && (
-          <div className="p-4 space-y-4 flex-1">
+          <div className="p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex flex-col">
             <p className="text-xs text-ink-muted">
-              Write a plain-language instruction and the AI will update your
-              entire CV accordingly.
+              Write a plain-language optimisation instruction and the AI will
+              tighten your CV without inventing experience.
             </p>
             <div className="space-y-2">
               {[
@@ -201,8 +217,34 @@ export default function AIAssistPanel({
           </div>
         )}
 
+        {tab === "review" && (
+          <div className="p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex flex-col">
+            <p className="text-xs text-ink-muted">
+              Run an aggressive review that scores the CV, calls out failures,
+              and prioritises optimisation over generic feedback.
+            </p>
+            <textarea
+              value={jobDesc}
+              onChange={(e) => setJobDesc(e.target.value)}
+              rows={8}
+              placeholder="Optional job description for ATS keyword review…"
+              className="w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink resize-none"
+            />
+            <button
+              onClick={runReview}
+              disabled={loading}
+              className="w-full py-2.5 bg-ink text-white text-xs font-medium rounded-lg hover:bg-ink-light disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <FileSearch size={13} /> {loading ? "Reviewing…" : "Run Review"}
+            </button>
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-ash-border bg-ash/40 p-3 text-xs leading-relaxed whitespace-pre-wrap text-ink">
+              {reviewResult || "The review output will appear here."}
+            </div>
+          </div>
+        )}
+
         {tab === "job" && (
-          <div className="p-4 space-y-4 flex-1 flex flex-col">
+          <div className="p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex flex-col">
             <p className="text-xs text-ink-muted">
               Paste a job description below. The AI will align your CV's
               language and emphasis to the role — without fabricating anything.
