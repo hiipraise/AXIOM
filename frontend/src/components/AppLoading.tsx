@@ -1,114 +1,112 @@
 import { useEffect, useState } from "react";
 
-type AppLoadingProps = {
+interface AppLoadingProps {
+  fullScreen?: boolean;
   message?: string;
-  ready?: boolean;
-  className?: string;
-};
+}
 
-export function AppLoading({
-  message = "Starting Axiom",
-  ready = false,
-  className = "",
-}: AppLoadingProps) {
-  const [progress, setProgress] = useState(8);
-  const [isReady, setIsReady] = useState(ready);
-
-  useEffect(() => {
-    setIsReady(ready);
-  }, [ready]);
+/**
+ * Shown by React components (ProtectedRoute, etc.) while auth state resolves.
+ * Listens to the same `axiom:load-progress` events emitted by main.tsx so the
+ * progress bar reflects real backend readiness rather than a fake timer.
+ */
+export function AppLoading({ fullScreen = false, message }: AppLoadingProps) {
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus]     = useState("");
 
   useEffect(() => {
-    const onReady = () => setIsReady(true);
+    function onProgress(e: Event) {
+      const pct = (e as CustomEvent<number>).detail ?? 0;
+      setProgress(pct);
 
-    window.addEventListener("axiom:app-ready", onReady);
-    return () => window.removeEventListener("axiom:app-ready", onReady);
-  }, []);
-
-  useEffect(() => {
-    if (isReady) {
-      setProgress(100);
-      return;
+      if (pct < 20)       setStatus("Connecting to server…");
+      else if (pct < 50)  setStatus("Server starting up — free tier takes ~30 s");
+      else if (pct < 88)  setStatus("Almost there…");
+      else if (pct < 100) setStatus("Loading your account…");
+      else                setStatus("");
     }
 
-    const startedAt = Date.now();
-    const interval = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const cap = elapsed > 12_000 ? 92 : elapsed > 6_000 ? 88 : 82;
+    window.addEventListener("axiom:load-progress", onProgress);
+    return () => window.removeEventListener("axiom:load-progress", onProgress);
+  }, []);
 
-      setProgress((current) => {
-        const next = current + Math.max(0.25, (cap - current) * 0.035);
-        return Math.min(next, cap);
-      });
-    }, 250);
-
-    return () => window.clearInterval(interval);
-  }, [isReady]);
-
-  const percent = Math.round(progress);
+  const pct = Math.round(progress);
 
   return (
     <div
-      className={`app-loading ${className}`.trim()}
-      aria-busy={!isReady}
+      role="status"
+      aria-busy={progress < 100}
       style={{
-        display: "grid",
-        minHeight: "100vh",
-        placeItems: "center",
-        padding: "24px",
-        background: "#0f172a",
-        color: "#f8fafc",
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
+        minHeight:      fullScreen ? "100vh" : "240px",
+        background:     "#F8FAFC",
+        padding:        "24px",
+        gap:            "16px",
       }}
     >
+      {/* Logo mark */}
       <div
-        className="app-loading__mark"
         aria-hidden="true"
         style={{
-          display: "grid",
-          width: "56px",
-          height: "56px",
-          marginBottom: "20px",
-          placeItems: "center",
-          borderRadius: "8px",
-          background: "#f8fafc",
-          color: "#0f172a",
-          fontWeight: 800,
-          letterSpacing: 0,
+          width:          "44px",
+          height:         "44px",
+          borderRadius:   "8px",
+          background:     "#0F172A",
+          color:          "#F8FAFC",
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          fontFamily:     '"Syne", sans-serif',
+          fontWeight:     800,
+          fontSize:       "14px",
+          letterSpacing:  "0.02em",
         }}
       >
         AX
       </div>
-      <div className="app-loading__content" style={{ width: "min(360px, 100%)" }}>
-        <p className="app-loading__message" style={{ margin: "0 0 12px", textAlign: "center", fontSize: "14px" }}>
-          {message}
-        </p>
+
+      {/* Progress track */}
+      <div style={{ width: "min(300px, 90vw)", display: "flex", flexDirection: "column", gap: "8px" }}>
+        {message && (
+          <p style={{ margin: 0, fontSize: "13px", color: "#334155", textAlign: "center" }}>
+            {message}
+          </p>
+        )}
+
         <div
-          className="app-loading__track"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={percent}
+          aria-valuenow={pct}
           style={{
-            height: "6px",
-            overflow: "hidden",
+            height:       "5px",
+            background:   "#E2E8F0",
             borderRadius: "999px",
-            background: "rgba(248, 250, 252, 0.2)",
+            overflow:     "hidden",
           }}
         >
           <div
-            className="app-loading__bar"
             style={{
-              width: `${percent}%`,
-              height: "100%",
+              width:        `${pct}%`,
+              height:       "100%",
+              background:   "#0F172A",
               borderRadius: "inherit",
-              background: "#38bdf8",
-              transition: "width 250ms ease",
+              transition:   "width 0.6s ease-out",
             }}
           />
         </div>
-        <p className="app-loading__percent" style={{ margin: "10px 0 0", textAlign: "center", fontSize: "12px" }}>
-          {percent}%
-        </p>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p style={{ margin: 0, fontSize: "11px", color: "#64748B" }}>
+            {status || (pct > 0 ? "Loading…" : "")}
+          </p>
+          <p style={{ margin: 0, fontSize: "11px", color: "#94A3B8", fontVariantNumeric: "tabular-nums" }}>
+            {pct > 0 ? `${pct}%` : ""}
+          </p>
+        </div>
       </div>
     </div>
   );

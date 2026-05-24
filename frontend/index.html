@@ -6,7 +6,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications</title>
+  <title>AXIOM CV | AI Resume &amp; CV Generator for ATS-Friendly Applications</title>
 
   <meta name="description"
     content="Create ATS-friendly resumes and CVs with AXIOM CV. Turn your experience into clear, truthful, recruiter-ready applications at axiomcv.site." />
@@ -21,7 +21,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="AXIOM CV" />
   <meta property="og:url" content="https://axiomcv.site/" data-dynamic-og-url="true" />
-  <meta property="og:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+  <meta property="og:title" content="AXIOM CV | AI Resume &amp; CV Generator for ATS-Friendly Applications" />
 
   <meta property="og:description"
     content="Build truthful, ATS-friendly resumes and CVs with AXIOM CV. Fast, clear, recruiter-ready resume generation at axiomcv.site." />
@@ -29,7 +29,7 @@
   <meta property="og:image" content="https://axiomcv.site/favicon.ico" />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="AXIOM CV | AI Resume & CV Generator for ATS-Friendly Applications" />
+  <meta name="twitter:title" content="AXIOM CV | AI Resume &amp; CV Generator for ATS-Friendly Applications" />
 
   <meta name="twitter:description"
     content="Create recruiter-ready resumes and CVs with AI assistance from AXIOM CV at axiomcv.site." />
@@ -135,7 +135,7 @@
       stroke: #0F172A;
       stroke-width: 8;
       stroke-linecap: round;
-      transition: stroke-dashoffset 0.25s ease-out;
+      transition: stroke-dashoffset 0.6s ease-out;
     }
 
     .boot-loader__center {
@@ -168,6 +168,16 @@
       align-items: center;
       justify-content: center;
       min-height: 18px;
+    }
+
+    .boot-loader__status {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #64748B;
+      letter-spacing: 0.04em;
+      text-align: center;
+      min-height: 16px;
+      transition: opacity 0.4s ease;
     }
 
     .boot-spelling {
@@ -214,7 +224,6 @@
         <div class="boot-loader__stage">
           <svg class="boot-loader__svg" viewBox="0 0 190 190" aria-hidden="true">
             <circle class="boot-loader__bg-ring" cx="95" cy="95" r="74" />
-
             <circle id="boot-progress-ring" class="boot-loader__progress-ring" cx="95" cy="95" r="74" />
           </svg>
 
@@ -226,47 +235,85 @@
             </div>
           </div>
         </div>
+
+        <!-- Status line — updated with real messages from main.tsx events -->
+        <p id="boot-status" class="boot-loader__status"></p>
       </div>
     </div>
   </div>
 
+  <!-- ── Boot progress: real events from main.tsx override the crawl timer ── -->
   <script>
     (function () {
-      var progress = 0;
+      var progress    = 0;
+      var realMode    = false;   // true once main.tsx starts emitting events
+      var startedAt   = Date.now();
 
-      var percent = document.getElementById("boot-percent");
-      var ring = document.getElementById("boot-progress-ring");
+      var percent  = document.getElementById("boot-percent");
+      var ring     = document.getElementById("boot-progress-ring");
+      var statusEl = document.getElementById("boot-status");
 
-      var radius = 74;
-      var circumference = 2 * Math.PI * radius;
-
+      var radius         = 74;
+      var circumference  = 2 * Math.PI * radius;
       ring.style.strokeDasharray = circumference;
 
       function updateRing(value) {
-        var offset =
-          circumference - (value / 100) * circumference;
+        var clamped = Math.max(0, Math.min(100, value));
+        ring.style.strokeDashoffset = circumference - (clamped / 100) * circumference;
+        if (percent) percent.textContent = Math.round(clamped) + '%';
+      }
 
-        ring.style.strokeDashoffset = offset;
+      function setStatus(msg) {
+        if (statusEl) statusEl.textContent = msg;
       }
 
       updateRing(0);
 
-      var interval = setInterval(function () {
-        progress += Math.floor(Math.random() * 8) + 2;
+      // ── Listen for REAL progress from main.tsx health polling ──────────────
+      window.addEventListener('axiom:load-progress', function (e) {
+        var pct = typeof e.detail === 'number' ? e.detail : 0;
+        realMode = true;
+        progress = pct;
+        updateRing(pct);
 
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
+        if (pct < 20) {
+          setStatus('Connecting to server\u2026');
+        } else if (pct < 50) {
+          setStatus('Server is starting up \u2014 this takes ~30s on free tier');
+        } else if (pct < 88) {
+          setStatus('Almost there\u2026');
+        } else if (pct < 100) {
+          setStatus('Loading your account\u2026');
+        } else {
+          setStatus('');
+        }
+      });
+
+      // ── Slow crawl fallback (only runs before real events arrive) ──────────
+      // Crawls 0 → 15 % over ~8 s to show the ring is alive, then stalls.
+      // Once main.tsx emits its first event, realMode=true and this stops.
+      var crawlInterval = setInterval(function () {
+        if (realMode) { clearInterval(crawlInterval); return; }
+
+        var elapsed = Date.now() - startedAt;
+
+        // Gentle crawl: reach 15 % after ~8 s, then hold
+        var target = Math.min(15, (elapsed / 8000) * 15);
+        if (target > progress) {
+          progress = target;
+          updateRing(progress);
         }
 
-        if (percent) {
-          percent.textContent = progress + "%";
+        // After 4 s of silence, hint that we're connecting
+        if (elapsed > 4000 && statusEl && !statusEl.textContent) {
+          setStatus('Connecting to server\u2026');
         }
-
-        updateRing(progress);
-      }, 120);
+      }, 200);
     })();
+  </script>
 
+  <!-- ── AXIOM letter-by-letter spelling animation ── -->
+  <script>
     (function () {
       var SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
 
@@ -301,117 +348,59 @@
   </script>
 
   <script type="module" src="/src/main.tsx"></script>
-    <script>
-      (function () {
-        var ready = false;
-        var progress = 8;
-        var startedAt = Date.now();
-        var root = document.getElementById("root");
 
-        function findLoader() {
-          return (
-            document.getElementById("app-loader") ||
-            document.getElementById("initial-loader") ||
-            document.getElementById("splash-screen") ||
-            document.getElementById("loading-screen") ||
-            document.querySelector("[data-app-loader]") ||
-            document.querySelector("[data-loading-screen]") ||
-            document.querySelector(".app-loading") ||
-            document.querySelector(".initial-loader") ||
-            document.querySelector(".splash-screen") ||
-            document.querySelector(".loading-screen") ||
-            document.querySelector(".loader")
-          );
-        }
+  <!-- ── App-loading state manager (hides boot-loader once React mounts) ── -->
+  <script>
+    (function () {
+      var ready = false;
+      var root  = document.getElementById("root");
 
-        function findProgress(loader) {
-          if (!loader) return null;
-          return (
-            loader.querySelector("[data-progress-bar]") ||
-            loader.querySelector("[data-loader-progress]") ||
-            loader.querySelector(".loader-progress") ||
-            loader.querySelector(".progress-bar") ||
-            loader.querySelector(".loading-progress") ||
-            loader.querySelector('[role="progressbar"]')
-          );
-        }
+      function findLoader() {
+        return (
+          document.getElementById("app-loader") ||
+          document.getElementById("initial-loader") ||
+          document.getElementById("splash-screen") ||
+          document.getElementById("loading-screen") ||
+          document.querySelector("[data-app-loader]") ||
+          document.querySelector("[data-loading-screen]") ||
+          document.querySelector(".app-loading") ||
+          document.querySelector(".initial-loader") ||
+          document.querySelector(".splash-screen") ||
+          document.querySelector(".loading-screen") ||
+          document.querySelector(".loader")
+        );
+      }
 
-        function findProgressText(loader) {
-          if (!loader) return null;
-          return (
-            loader.querySelector("[data-progress-text]") ||
-            loader.querySelector("[data-loader-percent]") ||
-            loader.querySelector(".loader-percent") ||
-            loader.querySelector(".progress-text") ||
-            loader.querySelector(".loading-percent")
-          );
-        }
+      function finishLoader() {
+        if (ready) return;
+        ready = true;
+        window.__AXIOM_APP_READY__ = true;
 
-        function setProgress(value) {
+        window.setTimeout(function () {
           var loader = findLoader();
-          var bar = findProgress(loader);
-          var text = findProgressText(loader);
-          var percent = Math.max(0, Math.min(100, Math.round(value)));
-
-          if (loader && !ready) {
-            loader.style.display = loader.dataset.axiomDisplay || "flex";
-            loader.style.opacity = "1";
-            loader.style.pointerEvents = "auto";
-            loader.classList.remove("hidden", "loaded", "complete", "is-hidden");
-            loader.removeAttribute("hidden");
-            loader.setAttribute("aria-busy", "true");
-          }
-
-          if (bar) {
-            bar.style.width = percent + "%";
-            bar.setAttribute("aria-valuenow", String(percent));
-          }
-
-          if (text) {
-            text.textContent = percent + "%";
-          }
-        }
-
-        function finishLoader() {
-          if (ready) return;
-          ready = true;
-          window.__AXIOM_APP_READY__ = true;
-          setProgress(100);
-
+          if (!loader) return;
+          loader.style.opacity = "0";
+          loader.style.pointerEvents = "none";
+          loader.setAttribute("aria-busy", "false");
           window.setTimeout(function () {
-            var loader = findLoader();
-            if (!loader) return;
-            loader.style.opacity = "0";
-            loader.style.pointerEvents = "none";
-            loader.setAttribute("aria-busy", "false");
-            window.setTimeout(function () {
-              loader.style.display = "none";
-              loader.setAttribute("hidden", "");
-            }, 350);
-          }, 250);
-        }
-
-        window.__AXIOM_APP_READY__ = false;
-        window.addEventListener("axiom:app-ready", finishLoader);
-
-        if (root) {
-          if (root.children.length > 0) finishLoader();
-
-          new MutationObserver(function () {
-            if (root.children.length > 0) finishLoader();
-          }).observe(root, { childList: true });
-        }
-
-        window.setInterval(function () {
-          if (ready) return;
-          var elapsed = Date.now() - startedAt;
-          var cap = elapsed > 12000 ? 92 : elapsed > 6000 ? 88 : 82;
-          progress += Math.max(0.25, (cap - progress) * 0.035);
-          progress = Math.min(progress, cap);
-          setProgress(progress);
+            loader.style.display = "none";
+            loader.setAttribute("hidden", "");
+          }, 350);
         }, 250);
-      })();
-    </script>
-  </body>
+      }
+
+      window.__AXIOM_APP_READY__ = false;
+      window.addEventListener("axiom:app-ready", finishLoader);
+
+      if (root) {
+        if (root.children.length > 0) finishLoader();
+
+        new MutationObserver(function () {
+          if (root.children.length > 0) finishLoader();
+        }).observe(root, { childList: true });
+      }
+    })();
+  </script>
+</body>
 
 </html>

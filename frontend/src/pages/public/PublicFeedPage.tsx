@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAnnouncement } from '../../context/announcement'
 import { publicApi } from '../../api'
+import { useAuthStore } from '../../store/auth'
 import { ArrowLeft, Search, Globe, ExternalLink, Share2, ChevronRight, Briefcase, X } from 'lucide-react'
 import { getCVTheme } from '../../lib/cvThemes'
 
@@ -86,6 +87,8 @@ export default function PublicFeedPage() {
   const [sharing, setSharing] = useState<FeedCV | null>(null)
   const limit    = 12
   const navigate = useNavigate()
+  const user     = useAuthStore((s) => s.user)
+  const createYourCvPath = user ? '/cv/new' : '/register'
 
   const { bannerH } = useAnnouncement()
 
@@ -125,7 +128,7 @@ export default function PublicFeedPage() {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, role, skill…"
                 className="pl-8 pr-4 py-1.5 text-xs border border-ash-border rounded-lg bg-ash focus:outline-none focus:border-ink w-56" />
             </div>
-            <Link to="/register" className="px-3 py-1.5 bg-ink text-white text-xs font-medium rounded-lg hover:bg-ink-light transition-colors">Create yours →</Link>
+            <Link to={createYourCvPath} className="px-3 py-1.5 bg-ink text-white text-xs font-medium rounded-lg hover:bg-ink-light transition-colors">Create yours →</Link>
           </div>
         </div>
       </header>
@@ -151,7 +154,7 @@ export default function PublicFeedPage() {
             <Briefcase size={28} className="mx-auto text-ink-muted/30 mb-3" />
             <p className="text-sm text-ink-muted mb-1">{search ? `No results for "${search}"` : 'No public CVs yet'}</p>
             {search && <button onClick={() => setSearch('')} className="text-xs text-ink underline mt-1">Clear search</button>}
-            {!search && <Link to="/register" className="text-xs text-ink underline mt-1 inline-block">Be the first — create yours</Link>}
+            {!search && <Link to={createYourCvPath} className="text-xs text-ink underline mt-1 inline-block">Be the first — create yours</Link>}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

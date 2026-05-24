@@ -18,15 +18,60 @@ function AppWithTracking() {
   return <App />
 }
 
+// ─── Real progress events → picked up by the index.html boot loader ──────────
+function emitProgress(pct: number) {
+  window.dispatchEvent(
+    new CustomEvent('axiom:load-progress', { detail: Math.min(100, Math.round(pct)) })
+  )
+}
+
+// ─── Poll /health until backend is alive (handles Render cold-start) ──────────
+async function waitForBackend(): Promise<void> {
+  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  const healthUrl = `${base}/health`
+  const START = Date.now()
+  const MAX_WAIT = 90_000   // 90 s — generous for free Render
+  const POLL_MS  = 3_000    // retry every 3 s
+
+  emitProgress(8)
+
+  while (Date.now() - START < MAX_WAIT) {
+    try {
+      const ctrl = new AbortController()
+      const tid  = setTimeout(() => ctrl.abort(), 8_000)
+      const res  = await fetch(healthUrl, { signal: ctrl.signal })
+      clearTimeout(tid)
+      if (res.ok) {
+        emitProgress(88)
+        return
+      }
+    } catch {
+      // backend not up yet — keep polling
+    }
+
+    // Crawl progress proportionally to elapsed time, cap at 82 %
+    const elapsed = Date.now() - START
+    emitProgress(8 + (elapsed / MAX_WAIT) * 74)
+    await new Promise<void>(r => setTimeout(r, POLL_MS))
+  }
+
+  // Timed out — proceed anyway (user will see API errors inline)
+  emitProgress(88)
+}
+
+// ─── Auth bootstrap ───────────────────────────────────────────────────────────
 async function bootstrap() {
-  // token may already be in memory from sessionStorage rehydration (store/auth.ts)
-  // so /auth/me will send it as Bearer — works even if the httpOnly cookie is blocked
+  await waitForBackend()
+  emitProgress(94)
+
   try {
     const user = await authApi.me()
     useAuthStore.getState().setAuth(user)
   } catch {
     useAuthStore.getState().clearAuth()
   }
+
+  emitProgress(100)
 }
 
 bootstrap().then(() => {
