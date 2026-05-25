@@ -48,39 +48,46 @@ export default function Navbar() {
               <ChevronDown size={14} className={`transition-transform ${featuresOpen ? 'rotate-180' : ''}`} />
             </button>
             {featuresOpen && (
-              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-[640px] bg-white border border-ash-border rounded-2xl shadow-xl p-5 grid grid-cols-3 gap-4 animate-fade-in">
-                {FEATURES.map(({ group, items }) => (
-                  <div key={group}>
-                    <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-3 px-1">{group}</p>
-                    <div className="space-y-1">
-                      {items.map(({ icon: Icon, label, desc }) => {
-                        const floatDelay = ALL_ITEMS.findIndex(i => i.label === label) * 0.28
-                        return (
-                          <div key={label} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-ash transition-colors cursor-default">
-                            <div className="w-7 h-7 rounded-lg bg-ink/5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: floatDelay }}>
-                                <Icon size={13} className="text-ink" />
-                              </motion.div>
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-ink leading-tight">{label}</p>
-                              <p className="text-[11px] text-ink-muted leading-snug mt-0.5">{desc}</p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-[640px] bg-white border border-ash-border rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+    
+    {/* Scrollable feature grid */}
+    <div className="p-5 grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+      {FEATURES.map(({ group, items }) => (
+        <div key={group}>
+          <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-3 px-1">{group}</p>
+          <div className="space-y-1">
+            {items.map(({ icon: Icon, label, desc }) => {
+              const floatDelay = ALL_ITEMS.findIndex(i => i.label === label) * 0.28
+              return (
+                <div key={label} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-ash transition-colors cursor-default">
+                  <div className="w-7 h-7 rounded-lg bg-ink/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: floatDelay }}>
+                      <Icon size={13} className="text-ink" />
+                    </motion.div>
                   </div>
-                ))}
-                <div className="col-span-3 border-t border-ash-border pt-4 mt-1 flex items-center justify-between">
-                  <p className="text-xs text-ink-muted">Zero-cliché AI writing · ATS-safe PDF · Version history</p>
-                  <Link to="/register" onClick={() => setFeaturesOpen(false)} className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline">
-                    Start free
-                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}><ArrowRight size={11} /></motion.span>
-                  </Link>
+                  <div>
+                    <p className="text-xs font-medium text-ink leading-tight">{label}</p>
+                    <p className="text-[11px] text-ink-muted leading-snug mt-0.5">{desc}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* Sticky footer — never scrolls away */}
+    <div className="border-t border-ash-border px-5 py-4 flex items-center justify-between bg-white">
+      <p className="text-xs text-ink-muted">Zero-cliché AI writing · ATS-safe PDF · Version history</p>
+      <Link to="/register" onClick={() => setFeaturesOpen(false)} className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline">
+        Start free
+        <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}><ArrowRight size={11} /></motion.span>
+      </Link>
+    </div>
+
+  </div>
+)}
           </div>
           <a href="#how-it-works" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">How it works</a>
           <a href="#explore"      className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">Explore CVs</a>

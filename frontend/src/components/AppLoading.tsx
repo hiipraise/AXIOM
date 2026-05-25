@@ -20,7 +20,7 @@ export function AppLoading({ fullScreen = false, message }: AppLoadingProps) {
       setProgress(pct);
 
       if (pct < 20)       setStatus("Connecting to server…");
-      else if (pct < 50)  setStatus("Server starting up — free tier takes ~30 s");
+      else if (pct < 50)  setStatus("Server starting up — takes ~30 s");
       else if (pct < 88)  setStatus("Almost there…");
       else if (pct < 100) setStatus("Loading your account…");
       else                setStatus("");
