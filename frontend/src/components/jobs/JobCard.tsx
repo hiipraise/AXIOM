@@ -2,6 +2,19 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarDays, MapPin, Bookmark } from "lucide-react";
 import { JobResult } from "../../types";
 
+function stripHtml(raw: string): string {
+  return raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function formatSalary(job: JobResult) {
   if (job.salary_min == null && job.salary_max == null)
     return "Salary not listed";
@@ -66,7 +79,7 @@ export default function JobCard({
           </span>
         </div>
         <p className="text-sm text-ink-muted mt-3 line-clamp-3">
-          {job.description}
+          {stripHtml(job.description)}
         </p>
       </div>
       {saved && (

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re as _re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -19,10 +20,26 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _strip_html(raw: str) -> str:
+    """Remove HTML/XML tags and decode common entities."""
+    text = _re.sub(r"<[^>]+>", " ", raw)
+    text = (
+        text.replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&nbsp;", " ")
+            .replace("&#39;", "'")
+            .replace("&quot;", '"')
+    )
+    # Collapse runs of whitespace / newlines down to single spaces
+    text = _re.sub(r"\s{2,}", " ", text)
+    return text.strip()
+
+
 def _normalize_text(value: Any) -> str:
     if value is None:
         return ""
-    return str(value).strip()
+    return _strip_html(str(value))
 
 
 def _parse_datetime(value: Any) -> datetime:
@@ -255,7 +272,7 @@ async def _search_muse(query: str, location: str, remote: Optional[bool]) -> lis
             currency="",
             description=description,
             apply_url=apply_url,
-            posted_at=_parse_datetime(item.get("publication_date") or item.get("publication_date") or item.get("date")),
+            posted_at=_parse_datetime(item.get("publication_date") or item.get("date")),
             source="muse",
             category=_normalize_text(item.get("category") or ""),
             logo_url=None,
