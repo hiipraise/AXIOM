@@ -23,6 +23,8 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/auth";
 import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
+import { jobsApi } from "../../api";
+import { JobResult } from "../../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,15 +47,22 @@ interface KebabMenuProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MENU_WIDTH = 176;       // w-44 = 11rem = 176px
-const MENU_ITEM_HEIGHT = 44;  // approx px per item (2.75rem)
-const MENU_ITEMS = 5;         // Rename, Rate, Edit, Duplicate, Delete
+const MENU_WIDTH = 176; // w-44 = 11rem = 176px
+const MENU_ITEM_HEIGHT = 44; // approx px per item (2.75rem)
+const MENU_ITEMS = 5; // Rename, Rate, Edit, Duplicate, Delete
 const MENU_ESTIMATED_HEIGHT = MENU_ITEM_HEIGHT * MENU_ITEMS + 8 + 1; // items + padding + divider
-const VIEWPORT_MARGIN = 8;    // minimum gap from viewport edge
+const VIEWPORT_MARGIN = 8; // minimum gap from viewport edge
 
 // ─── KebabMenu ────────────────────────────────────────────────────────────────
 
-function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: KebabMenuProps) {
+function KebabMenu({
+  cv,
+  onRename,
+  onRate,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: KebabMenuProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -86,7 +95,11 @@ function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: Keba
     } else if (fitsAbove) {
       // Open upward — not enough room below
       return {
-        bottom: vh - btn.top + (document.documentElement.scrollHeight - vh - window.scrollY) + 4,
+        bottom:
+          vh -
+          btn.top +
+          (document.documentElement.scrollHeight - vh - window.scrollY) +
+          4,
         right,
         maxHeight: spaceAbove,
         openUpward: true,
@@ -103,7 +116,11 @@ function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: Keba
         };
       } else {
         return {
-          bottom: vh - btn.top + (document.documentElement.scrollHeight - vh - window.scrollY) + 4,
+          bottom:
+            vh -
+            btn.top +
+            (document.documentElement.scrollHeight - vh - window.scrollY) +
+            4,
           right,
           maxHeight: spaceAbove,
           openUpward: true,
@@ -202,14 +219,20 @@ function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: Keba
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onRename(); closeMenu(); }}
+              onClick={() => {
+                onRename();
+                closeMenu();
+              }}
             >
               <PencilLine size={14} /> Rename
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onRate(); closeMenu(); }}
+              onClick={() => {
+                onRate();
+                closeMenu();
+              }}
             >
               <Star
                 size={14}
@@ -220,14 +243,20 @@ function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: Keba
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onEdit(); closeMenu(); }}
+              onClick={() => {
+                onEdit();
+                closeMenu();
+              }}
             >
               <Edit size={14} /> Edit
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onDuplicate(); closeMenu(); }}
+              onClick={() => {
+                onDuplicate();
+                closeMenu();
+              }}
             >
               <Copy size={14} /> Duplicate
             </button>
@@ -235,12 +264,15 @@ function KebabMenu({ cv, onRename, onRate, onEdit, onDuplicate, onDelete }: Keba
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50"
-              onClick={() => { onDelete(); closeMenu(); }}
+              onClick={() => {
+                onDelete();
+                closeMenu();
+              }}
             >
               <Trash2 size={14} /> Delete
             </button>
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );
@@ -262,6 +294,26 @@ export default function DashboardPage() {
     queryKey: ["cvs"],
     queryFn: cvApi.list,
     enabled: !!user,
+  });
+
+  const primaryCv = cvs[0];
+  const matchSeed =
+    primaryCv?.data.target_role ||
+    primaryCv?.data.personal_info.job_title ||
+    primaryCv?.title ||
+    "";
+
+  const { data: matchJobs = [] } = useQuery<JobResult[]>({
+    queryKey: ["dashboard-jobs", primaryCv?.id, matchSeed],
+    queryFn: async () => {
+      const res = await jobsApi.search({
+        q: matchSeed,
+        location: primaryCv?.data.personal_info.location || "",
+        per_page: 5,
+      });
+      return res.items.slice(0, 5);
+    },
+    enabled: !!user && !!primaryCv && !!matchSeed,
   });
 
   const handleDuplicate = async (id: string) => {
@@ -339,6 +391,74 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {user && primaryCv && (
+        <div className="card mb-6 border-ink/10 bg-gradient-to-br from-white to-ash/40">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">
+                Jobs matching your CV
+              </p>
+              <h2 className="mt-1 font-display text-lg font-bold text-ink tracking-tight">
+                Based on {matchSeed || "your latest CV"}
+              </h2>
+              <p className="text-sm text-ink-muted mt-1">
+                Quick matches pulled from live job sources. Open the board to
+                refine filters or start tracking.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="btn-secondary"
+                onClick={() => navigate("/jobs")}
+              >
+                Browse jobs
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => navigate("/tracker")}
+              >
+                View tracker
+              </button>
+            </div>
+          </div>
+          {matchJobs.length > 0 ? (
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {matchJobs.map((job) => (
+                <button
+                  key={job.id}
+                  onClick={() =>
+                    navigate(`/jobs/${encodeURIComponent(job.id)}`)
+                  }
+                  className="text-left rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink truncate">
+                        {job.title}
+                      </p>
+                      <p className="text-sm text-ink-muted truncate mt-0.5">
+                        {job.company}
+                      </p>
+                    </div>
+                    <span className="badge bg-ash-dark text-ink-muted capitalize">
+                      {job.source}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-muted mt-3 line-clamp-2">
+                    {job.location}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted mt-4">
+              No matches yet. Add a target role or skills to your latest CV and
+              try again.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Empty state */}
       {!isLoading && cvs.length === 0 && (
         <div className="card text-center py-16 border-dashed">
@@ -356,7 +476,6 @@ export default function DashboardPage() {
       <div className="space-y-2">
         {cvs.map((cv) => (
           <div key={cv.id} className="card !p-4">
-
             {/* ── MOBILE LAYOUT (hidden on sm+) ── */}
             <div className="sm:hidden">
               <div className="flex items-center gap-2 w-full">
@@ -415,15 +534,25 @@ export default function DashboardPage() {
                   className={`badge text-[10px] ${cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"}`}
                 >
                   {cv.is_public ? (
-                    <><Globe size={9} className="inline mr-0.5" />Public</>
+                    <>
+                      <Globe size={9} className="inline mr-0.5" />
+                      Public
+                    </>
                   ) : (
-                    <><Lock size={9} className="inline mr-0.5" />Private</>
+                    <>
+                      <Lock size={9} className="inline mr-0.5" />
+                      Private
+                    </>
                   )}
                 </span>
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
+                      <Star
+                        key={i}
+                        size={10}
+                        className="text-amber-400 fill-amber-400"
+                      />
                     ))}
                   </div>
                 )}
@@ -435,7 +564,9 @@ export default function DashboardPage() {
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
+                <span>
+                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
+                </span>
                 {cv.data.personal_info.job_title && (
                   <span className="truncate max-w-[180px]">
                     {cv.data.personal_info.job_title}
@@ -503,16 +634,26 @@ export default function DashboardPage() {
                   className={`badge text-[10px] flex-shrink-0 ${cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"}`}
                 >
                   {cv.is_public ? (
-                    <><Globe size={9} className="inline mr-0.5" />Public</>
+                    <>
+                      <Globe size={9} className="inline mr-0.5" />
+                      Public
+                    </>
                   ) : (
-                    <><Lock size={9} className="inline mr-0.5" />Private</>
+                    <>
+                      <Lock size={9} className="inline mr-0.5" />
+                      Private
+                    </>
                   )}
                 </span>
 
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
+                      <Star
+                        key={i}
+                        size={10}
+                        className="text-amber-400 fill-amber-400"
+                      />
                     ))}
                   </div>
                 )}
@@ -527,7 +668,9 @@ export default function DashboardPage() {
                   >
                     <Star
                       size={13}
-                      className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
+                      className={
+                        cv.rating ? "text-amber-400 fill-amber-400" : ""
+                      }
                     />
                   </button>
                   <button
@@ -560,7 +703,9 @@ export default function DashboardPage() {
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
+                <span>
+                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
+                </span>
                 {cv.data.personal_info.job_title && (
                   <span className="truncate max-w-[160px]">
                     {cv.data.personal_info.job_title}
@@ -575,7 +720,6 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-
           </div>
         ))}
       </div>
@@ -595,7 +739,9 @@ export default function DashboardPage() {
         description={
           <>
             Delete{" "}
-            <span className="font-medium text-ink">"{deleteTarget?.title}"</span>
+            <span className="font-medium text-ink">
+              "{deleteTarget?.title}"
+            </span>
             ? This cannot be undone.
           </>
         }

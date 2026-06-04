@@ -222,3 +222,65 @@ export type CVTheme =
   | "terracotta"
   | "forest"
   | "royal";
+
+export interface JobResult {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  remote: boolean;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency: string;
+  description: string;
+  apply_url: string;
+  posted_at: string;
+  source: string;
+  category: string;
+  logo_url?: string | null;
+}
+
+export interface JobSearchResponse {
+  items: JobResult[];
+  total: number;
+  page: number;
+  per_page: number;
+  cached: boolean;
+}
+
+export interface JobMatchResult {
+  present_keywords: string[];
+  missing_keywords: Array<{
+    keyword: string;
+    priority?: string;
+    suggested_placement?: string;
+  }>;
+  ats_score_estimate: number;
+  notes: string;
+  match_percentage: number;
+  verdict: string;
+}
+
+export interface CoverLetterResponse {
+  cover_letter: string;
+}
+
+export type ApplicationStatus =
+  | "saved"
+  | "applied"
+  | "interview"
+  | "offer"
+  | "rejected";
+
+export interface ApplicationEntry {
+  id: string;
+  user_id: string;
+  job_id: string;
+  status: ApplicationStatus;
+  cv_id?: string | null;
+  notes: string;
+  applied_url?: string | null;
+  created_at: string;
+  updated_at: string;
+  job?: JobResult | null;
+}

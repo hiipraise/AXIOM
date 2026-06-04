@@ -19,6 +19,7 @@ import clsx from "clsx";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/jobs", label: "Jobs", icon: Compass },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/account", label: "Account", icon: Settings },
 ];
