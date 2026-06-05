@@ -17,6 +17,7 @@ import PublicFeedPage from "./pages/public/PublicFeedPage";
 import AccountPage from "./pages/dashboard/AccountPage";
 import JobBoardPage from "./pages/jobs/JobBoardPage";
 import JobDetailPage from "./pages/jobs/JobDetailPage";
+import PublicJobsPage from "./pages/jobs/PublicJobsPage";
 import ApplicationTrackerPage from "./pages/jobs/ApplicationTrackerPage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot" element={<ForgotPage />} />
         <Route path="/guest" element={<GuestCVEditorPage />} />
+        <Route path="/jobs/explore" element={<PublicJobsPage />} />
         <Route path="/jobs" element={<JobBoardPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="/explore" element={<PublicFeedPage />} />

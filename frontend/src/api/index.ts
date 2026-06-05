@@ -169,8 +169,14 @@ export const jobsApi = {
     remote?: boolean | null;
     page?: number;
     per_page?: number;
-  }) => api.get("/jobs/search", { params }).then((r) => r.data),
-  get: (id: string) => api.get(`/jobs/${id}`).then((r) => r.data),
+  }) =>
+    api
+      .get("/jobs/search", { params })
+      .then((r) => r.data as import("../types").JobSearchResponse),
+
+  get: (jobId: string) =>
+    api.get(`/jobs/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
   matchCv: (cvData: object, jobDescription: string) =>
     api
       .post("/jobs/match-cv", {
@@ -178,6 +184,7 @@ export const jobsApi = {
         job_description: jobDescription,
       })
       .then((r) => r.data),
+
   coverLetter: (
     cvData: object,
     jobTitle: string,
@@ -192,15 +199,23 @@ export const jobsApi = {
         job_description: jobDescription,
       })
       .then((r) => r.data),
-  saved: () => api.get("/jobs/saved").then((r) => r.data),
-  save: (jobId: string) => api.post(`/jobs/saved/${jobId}`).then((r) => r.data),
+
+  save: (jobId: string) =>
+    api.post(`/jobs/saved/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
   unsave: (jobId: string) =>
-    api.delete(`/jobs/saved/${jobId}`).then((r) => r.data),
+    api.delete(`/jobs/saved/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
+  savedList: () => api.get("/jobs/saved").then((r) => r.data),
+
   applications: () => api.get("/jobs/applications").then((r) => r.data),
-  createApplication: (data: object) =>
-    api.post("/jobs/applications", data).then((r) => r.data),
-  updateApplication: (id: string, data: object) =>
-    api.put(`/jobs/applications/${id}`, data).then((r) => r.data),
+
+  createApplication: (body: object) =>
+    api.post("/jobs/applications", body).then((r) => r.data),
+
+  updateApplication: (id: string, body: object) =>
+    api.put(`/jobs/applications/${id}`, body).then((r) => r.data),
+
   deleteApplication: (id: string) =>
     api.delete(`/jobs/applications/${id}`).then((r) => r.data),
 };

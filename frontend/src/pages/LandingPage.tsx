@@ -4,6 +4,7 @@ import {
   FeaturesSection,
   HowItWorksSection,
   ExploreTeaserSection,
+  JobsTeaserSection,
   CTASection,
   Footer,
 } from '../components/landing'
@@ -16,6 +17,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <HowItWorksSection />
       <ExploreTeaserSection />
+      <JobsTeaserSection />
       <CTASection />
       <Footer />
     </div>

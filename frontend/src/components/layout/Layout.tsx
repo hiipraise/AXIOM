@@ -10,6 +10,7 @@ import {
   Compass,
   Menu,
   X,
+  Briefcase
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
@@ -19,7 +20,7 @@ import clsx from "clsx";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs", icon: Compass },
+  { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/account", label: "Account", icon: Settings },
 ];

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     rapidapi_key: str = ""
     rapidapi_host: str = ""
-    muse_api_key: str = ""
+    # muse_api_key: str = ""
 
     allowed_origins: str = "http://localhost:5173"
 
