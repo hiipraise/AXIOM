@@ -284,3 +284,57 @@ export interface ApplicationEntry {
   updated_at: string;
   job?: JobResult | null;
 }
+
+export type InterviewMode = "behavioural" | "technical" | "full";
+
+export interface InterviewScore {
+  clarity: number;
+  specificity: number;
+  evidence: number;
+  length: number;
+}
+
+export interface InterviewFeedback {
+  score: InterviewScore;
+  overall_score: number;
+  what_was_strong: string;
+  what_was_vague: string;
+  recruiter_takeaway: string;
+  suggested_improvement: string;
+}
+
+export interface InterviewSessionListItem {
+  id: string;
+  cv_id: string;
+  job_id?: string | null;
+  job_title: string;
+  company: string;
+  mode: InterviewMode;
+  status: "active" | "completed" | string;
+  created_at: string;
+  updated_at: string;
+  question_count: number;
+  answered_count: number;
+  overall_score?: number | null;
+}
+
+export interface InterviewMessage {
+  id: string;
+  session_id: string;
+  question: string;
+  answer: string;
+  feedback?: InterviewFeedback | null;
+  created_at: string;
+  answered_at?: string | null;
+}
+
+export interface InterviewSessionDetail extends InterviewSessionListItem {
+  job_description: string;
+  summary?: {
+    overall_score?: number;
+    weakest_area?: string;
+    top_3_improvements?: string[];
+    summary?: string;
+  } | null;
+  messages: InterviewMessage[];
+}

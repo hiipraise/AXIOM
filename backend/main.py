@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.database import connect_db, close_db, init_admin
-from app.routers import auth, cv, export, admin, public, analytics, feedback, announcements, jobs
+from app.routers import auth, cv, export, admin, public, analytics, feedback, announcements, jobs, interview
 
 
 @asynccontextmanager
@@ -52,6 +52,7 @@ app.include_router(analytics.router,     prefix="/api/analytics",     tags=["Ana
 app.include_router(feedback.router,      prefix="/api/feedback",      tags=["Feedback"])
 app.include_router(announcements.router, prefix="/api/announcements", tags=["Announcements"])
 app.include_router(jobs.router,          prefix="/api/jobs",          tags=["Jobs"])
+app.include_router(interview.router,     prefix="/api/interview",     tags=["Interview"])
 
 
 @app.get("/", tags=["Root"])

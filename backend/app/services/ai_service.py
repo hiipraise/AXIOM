@@ -384,3 +384,144 @@ Return only the cover letter text."""
         [{"role": "user", "content": prompt}],
         max_tokens=900,
     )
+
+# ─── Interview preparation sessions ───────────────────────────────────────────
+
+def _safe_json_object(text: str) -> dict:
+    """Best-effort JSON object parsing for model responses."""
+    stripped = _strip_fences(text)
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(stripped[start : end + 1])
+        raise
+
+
+def _interview_context(cv_data: dict, job_description: str, mode: str, use_star: bool) -> str:
+    cv_bits = {
+        "target_role": cv_data.get("target_role", ""),
+        "summary": cv_data.get("summary", ""),
+        "skills": cv_data.get("skills", []),
+        "experience": cv_data.get("experience", []),
+        "projects": cv_data.get("projects", []),
+        "career_level": cv_data.get("career_level", ""),
+        "industry": cv_data.get("industry", ""),
+    }
+    star_line = "Prompt for STAR structure where useful." if use_star else "Do not force STAR structure."
+    return f"""You are AXIOM Interview Prep, a practical recruiter-style mock interviewer.
+Create role-specific interview practice from the submitted CV and job description.
+
+Mode: {mode}
+STAR setting: {star_line}
+
+Question mix rules:
+- behavioural: ask behavioural and situational questions grounded in the JD.
+- technical: ask technical or role-specific questions based on required skills.
+- full: mix behavioural, situational, technical/role-specific, and CV-probing questions.
+- Always include CV-probing questions when the CV contains projects or quantified achievements.
+- Ask one concise question at a time. Do not answer for the user.
+- Never invent facts about the candidate.
+
+CV context:
+{json.dumps(cv_bits, indent=2)}
+
+Job description:
+{job_description or cv_data.get('job_description', '')}
+"""
+
+
+async def generate_interview_question(
+    cv_data: dict,
+    job_description: str,
+    mode: str,
+    asked_questions: list[str],
+    use_star: bool = True,
+) -> str:
+    prompt = f"""Generate the next mock interview question.
+
+Already asked:
+{json.dumps(asked_questions, indent=2)}
+
+Return JSON only in this exact shape:
+{{"question":"one tailored question"}}"""
+    text = _create_completion(
+        _interview_context(cv_data, job_description, mode, use_star),
+        [{"role": "user", "content": prompt}],
+        max_tokens=400,
+    )
+    data = _safe_json_object(text)
+    return str(data.get("question", "")).strip() or "Tell me about a relevant achievement for this role."
+
+
+async def evaluate_interview_answer(
+    cv_data: dict,
+    job_description: str,
+    mode: str,
+    question: str,
+    answer: str,
+    use_star: bool = True,
+) -> dict:
+    prompt = f"""Evaluate this interview answer as a recruiter would hear it.
+
+Question: {question}
+Answer: {answer}
+
+Score strictly. Reward concrete evidence, role relevance, and clear structure. Penalise vague claims, missing examples, rambling, or answers that ignore the question.
+
+Return JSON only in this exact shape:
+{{
+  "score": {{"clarity": 0, "specificity": 0, "evidence": 0, "length": 0}},
+  "overall_score": 0,
+  "what_was_strong": "one sentence",
+  "what_was_vague": "one sentence",
+  "recruiter_takeaway": "one sentence about what a recruiter would infer",
+  "suggested_improvement": "one actionable rewrite instruction"
+}}"""
+    text = _create_completion(
+        _interview_context(cv_data, job_description, mode, use_star),
+        [{"role": "user", "content": prompt}],
+        max_tokens=800,
+    )
+    data = _safe_json_object(text)
+    score = data.get("score") or {}
+    data["score"] = {
+        "clarity": int(score.get("clarity", 0) or 0),
+        "specificity": int(score.get("specificity", 0) or 0),
+        "evidence": int(score.get("evidence", 0) or 0),
+        "length": int(score.get("length", 0) or 0),
+    }
+    data["overall_score"] = int(data.get("overall_score", 0) or 0)
+    return data
+
+
+async def summarize_interview_session(
+    cv_data: dict,
+    job_description: str,
+    mode: str,
+    transcript: list[dict],
+    use_star: bool = True,
+) -> dict:
+    prompt = f"""Summarise this completed mock interview session.
+
+Transcript:
+{json.dumps(transcript, indent=2)}
+
+Return JSON only in this exact shape:
+{{
+  "overall_score": 0,
+  "weakest_area": "short label",
+  "top_3_improvements": ["specific improvement 1", "specific improvement 2", "specific improvement 3"],
+  "summary": "short paragraph"
+}}"""
+    text = _create_completion(
+        _interview_context(cv_data, job_description, mode, use_star),
+        [{"role": "user", "content": prompt}],
+        max_tokens=800,
+    )
+    data = _safe_json_object(text)
+    data["overall_score"] = int(data.get("overall_score", 0) or 0)
+    data["top_3_improvements"] = list(data.get("top_3_improvements") or [])[:3]
+    return data
