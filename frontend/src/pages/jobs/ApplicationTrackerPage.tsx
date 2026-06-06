@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Brain, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { jobsApi } from "../../api";
 import { ApplicationEntry, ApplicationStatus } from "../../types";
@@ -115,6 +115,15 @@ export default function ApplicationTrackerPage() {
                             </option>
                           ))}
                         </select>
+                        {entry.status === "interview" && (
+                          <Link
+                            className="btn-ghost p-2"
+                            title="Practise interview"
+                            to={`/interview?job=${encodeURIComponent(entry.job_id)}&cv=${entry.cv_id || ""}`}
+                          >
+                            <Brain size={14} />
+                          </Link>
+                        )}
                         <button
                           className="btn-ghost p-2"
                           onClick={() => deleteMutation.mutate(entry.id)}

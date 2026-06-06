@@ -335,3 +335,79 @@ class ApplicationUpdate(BaseModel):
     cv_id: Optional[str] = None
     notes: Optional[str] = None
     applied_url: Optional[str] = None
+
+class InterviewMode(str, Enum):
+    behavioural = "behavioural"
+    technical = "technical"
+    full = "full"
+
+
+class InterviewStartRequest(BaseModel):
+    cv_id: str
+    job_id: Optional[str] = None
+    job_description: Optional[str] = None
+    mode: InterviewMode = InterviewMode.behavioural
+    use_star: bool = True
+
+
+class InterviewStartResponse(BaseModel):
+    session_id: str
+    first_question: str
+
+
+class InterviewAnswerRequest(BaseModel):
+    session_id: str
+    answer: str = Field(..., min_length=1)
+
+
+class InterviewScore(BaseModel):
+    clarity: int = Field(default=0, ge=0, le=10)
+    specificity: int = Field(default=0, ge=0, le=10)
+    evidence: int = Field(default=0, ge=0, le=10)
+    length: int = Field(default=0, ge=0, le=10)
+
+
+class InterviewFeedback(BaseModel):
+    score: InterviewScore = Field(default_factory=InterviewScore)
+    overall_score: int = Field(default=0, ge=0, le=100)
+    what_was_strong: str = ""
+    what_was_vague: str = ""
+    recruiter_takeaway: str = ""
+    suggested_improvement: str = ""
+
+
+class InterviewAnswerResponse(BaseModel):
+    feedback: InterviewFeedback
+    next_question: Optional[str] = None
+    done: bool = False
+
+
+class InterviewSessionListItem(BaseModel):
+    id: str
+    cv_id: str
+    job_id: Optional[str] = None
+    job_title: str = ""
+    company: str = ""
+    mode: InterviewMode
+    status: str = "active"
+    created_at: datetime
+    updated_at: datetime
+    question_count: int = 0
+    answered_count: int = 0
+    overall_score: Optional[int] = None
+
+
+class InterviewMessageOut(BaseModel):
+    id: str
+    session_id: str
+    question: str
+    answer: str = ""
+    feedback: Optional[InterviewFeedback] = None
+    created_at: datetime
+    answered_at: Optional[datetime] = None
+
+
+class InterviewSessionDetail(InterviewSessionListItem):
+    job_description: str = ""
+    summary: Optional[dict] = None
+    messages: List[InterviewMessageOut] = Field(default_factory=list)

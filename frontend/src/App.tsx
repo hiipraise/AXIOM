@@ -19,6 +19,9 @@ import JobBoardPage from "./pages/jobs/JobBoardPage";
 import JobDetailPage from "./pages/jobs/JobDetailPage";
 import PublicJobsPage from "./pages/jobs/PublicJobsPage";
 import ApplicationTrackerPage from "./pages/jobs/ApplicationTrackerPage";
+import InterviewStartPage from "./pages/interview/InterviewStartPage";
+import InterviewSessionPage from "./pages/interview/InterviewSessionPage";
+import InterviewReviewPage from "./pages/interview/InterviewReviewPage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -86,6 +89,9 @@ export default function App() {
           <Route path="cv/new" element={<CVNewPage />} />
           <Route path="cv/:id" element={<CVEditorPage />} />
           <Route path="tracker" element={<ApplicationTrackerPage />} />
+          <Route path="interview" element={<InterviewStartPage />} />
+          <Route path="interview/:sessionId" element={<InterviewSessionPage />} />
+          <Route path="interview/:sessionId/review" element={<InterviewReviewPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
 

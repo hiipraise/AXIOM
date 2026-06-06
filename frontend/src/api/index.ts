@@ -219,3 +219,25 @@ export const jobsApi = {
   deleteApplication: (id: string) =>
     api.delete(`/jobs/applications/${id}`).then((r) => r.data),
 };
+
+
+export const interviewApi = {
+  start: (body: {
+    cv_id: string;
+    job_id?: string;
+    job_description?: string;
+    mode: import("../types").InterviewMode;
+    use_star?: boolean;
+  }) => api.post("/interview/start", body).then((r) => r.data as { session_id: string; first_question: string }),
+
+  answer: (sessionId: string, answer: string) =>
+    api
+      .post("/interview/answer", { session_id: sessionId, answer })
+      .then((r) => r.data as { feedback: import("../types").InterviewFeedback; next_question?: string | null; done: boolean }),
+
+  sessions: () =>
+    api.get("/interview/sessions").then((r) => r.data as import("../types").InterviewSessionListItem[]),
+
+  session: (id: string) =>
+    api.get(`/interview/sessions/${id}`).then((r) => r.data as import("../types").InterviewSessionDetail),
+};
