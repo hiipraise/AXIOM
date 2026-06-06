@@ -39,6 +39,14 @@ async def setup_indexes():
     # CV History
     await db.cv_history.create_index([("cv_id", ASCENDING)])
     await db.cv_history.create_index([("owner_id", ASCENDING)])
+    # Jobs cache and tracker collections
+    await db.job_cache.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    await db.job_cache.create_index([("cache_key", ASCENDING)], unique=True, sparse=True)
+    await db.job_cache.create_index([("job_id", ASCENDING)], unique=True, sparse=True)
+    await db.saved_jobs.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
+    await db.saved_jobs.create_index([("user_id", ASCENDING), ("saved_at", ASCENDING)])
+    await db.applications.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
+    await db.applications.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
     logger.info("Database indexes ensured")
 
 

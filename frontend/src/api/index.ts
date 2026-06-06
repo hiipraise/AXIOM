@@ -161,3 +161,61 @@ export const adminApi = {
   ratings: (skip = 0, limit = 50) =>
     api.get(`/admin/ratings?skip=${skip}&limit=${limit}`).then((r) => r.data),
 };
+
+export const jobsApi = {
+  search: (params: {
+    q?: string;
+    location?: string;
+    remote?: boolean | null;
+    page?: number;
+    per_page?: number;
+  }) =>
+    api
+      .get("/jobs/search", { params })
+      .then((r) => r.data as import("../types").JobSearchResponse),
+
+  get: (jobId: string) =>
+    api.get(`/jobs/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
+  matchCv: (cvData: object, jobDescription: string) =>
+    api
+      .post("/jobs/match-cv", {
+        cv_data: cvData,
+        job_description: jobDescription,
+      })
+      .then((r) => r.data),
+
+  coverLetter: (
+    cvData: object,
+    jobTitle: string,
+    company: string,
+    jobDescription: string,
+  ) =>
+    api
+      .post("/jobs/cover-letter", {
+        cv_data: cvData,
+        job_title: jobTitle,
+        company,
+        job_description: jobDescription,
+      })
+      .then((r) => r.data),
+
+  save: (jobId: string) =>
+    api.post(`/jobs/saved/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
+  unsave: (jobId: string) =>
+    api.delete(`/jobs/saved/${encodeURIComponent(jobId)}`).then((r) => r.data),
+
+  savedList: () => api.get("/jobs/saved").then((r) => r.data),
+
+  applications: () => api.get("/jobs/applications").then((r) => r.data),
+
+  createApplication: (body: object) =>
+    api.post("/jobs/applications", body).then((r) => r.data),
+
+  updateApplication: (id: string, body: object) =>
+    api.put(`/jobs/applications/${id}`, body).then((r) => r.data),
+
+  deleteApplication: (id: string) =>
+    api.delete(`/jobs/applications/${id}`).then((r) => r.data),
+};

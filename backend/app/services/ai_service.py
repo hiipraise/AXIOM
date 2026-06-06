@@ -349,3 +349,38 @@ Return ONLY the JSON."""
         max_tokens=1000,
     )
     return json.loads(_strip_fences(text))
+
+
+async def generate_cover_letter(
+    cv_data: dict,
+    job_title: str,
+    company: str,
+    job_description: str,
+) -> str:
+    ctx = _cv_context(cv_data)
+    prompt = f"""Write a tailored cover letter for this job.
+
+Rules:
+- Under 350 words
+- Professional, specific, and concise
+- No clichés or buzzwords
+- Use only truthful evidence from the CV
+- Structure: opening, evidence, close
+- Address the role and company directly
+
+Job title: {job_title}
+Company: {company}
+
+Job description:
+{job_description}
+
+CV data:
+{json.dumps(cv_data, indent=2)}
+
+Return only the cover letter text."""
+
+    return _create_completion(
+        text_system_prompt(**ctx),
+        [{"role": "user", "content": prompt}],
+        max_tokens=900,
+    )

@@ -10,6 +10,7 @@ import {
   Users,
   Zap,
   Search,
+  Briefcase
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -62,6 +63,26 @@ export const FEATURES: FeatureGroup[] = [
         icon: FileText,
         label: "6 CV Templates",
         desc: "Standard, Atlas, Horizon, Pulse, Grid, Minimal Pro — all ATS-safe with clean typography.",
+      },
+    ],
+  },
+  {
+    group: "Jobs & Applications",
+    items: [
+      {
+        icon: Briefcase,
+        label: "Live Job Board",
+        desc: "Search roles from Adzuna, Remotive, The Muse and more — filtered to match your CV.",
+      },
+      {
+        icon: Zap,
+        label: "CV–Job Match Score",
+        desc: "AI scores your CV against any role. See exactly which keywords are missing.",
+      },
+      {
+        icon: FileText,
+        label: "Application Tracker",
+        desc: "Track every application from saved → applied → interview → offer in one board.",
       },
     ],
   },

@@ -242,3 +242,96 @@ class CVRating(BaseModel):
     cv_id: str
     score: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
+
+
+class JobResult(BaseModel):
+    id: str
+    title: str
+    company: str
+    location: str
+    remote: bool = False
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    currency: str = ""
+    description: str = ""
+    apply_url: str = ""
+    posted_at: datetime
+    source: str
+    category: str = ""
+    logo_url: Optional[str] = None
+
+
+class JobSearchResponse(BaseModel):
+    items: List[JobResult]
+    total: int = 0
+    page: int = 1
+    per_page: int = 20
+    cached: bool = False
+
+
+class CoverLetterRequest(BaseModel):
+    cv_data: CVData
+    job_title: str
+    company: str
+    job_description: str
+
+
+class CoverLetterResponse(BaseModel):
+    cover_letter: str
+
+
+class JobMatchResponse(BaseModel):
+    present_keywords: List[str] = []
+    missing_keywords: List[dict] = []
+    ats_score_estimate: int = 0
+    notes: str = ""
+    match_percentage: int = 0
+    verdict: str = ""
+
+
+class SavedJobToggleResponse(BaseModel):
+    saved: bool
+
+
+class JobSaveEntry(BaseModel):
+    id: str
+    user_id: str
+    job_id: str
+    saved_at: datetime
+    job: Optional[JobResult] = None
+
+
+class ApplicationStatus(str, Enum):
+    saved = "saved"
+    applied = "applied"
+    interview = "interview"
+    offer = "offer"
+    rejected = "rejected"
+
+
+class ApplicationEntry(BaseModel):
+    id: str
+    user_id: str
+    job_id: str
+    status: ApplicationStatus = ApplicationStatus.saved
+    cv_id: Optional[str] = None
+    notes: str = ""
+    applied_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    job: Optional[JobResult] = None
+
+
+class ApplicationCreate(BaseModel):
+    job_id: str
+    status: ApplicationStatus = ApplicationStatus.saved
+    cv_id: Optional[str] = None
+    notes: str = ""
+    applied_url: Optional[str] = None
+
+
+class ApplicationUpdate(BaseModel):
+    status: Optional[ApplicationStatus] = None
+    cv_id: Optional[str] = None
+    notes: Optional[str] = None
+    applied_url: Optional[str] = None

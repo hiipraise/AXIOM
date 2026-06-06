@@ -4,6 +4,7 @@ export { default as Hero }                 from './Hero'
 export { default as FeaturesSection }      from './FeaturesSection'
 export { default as HowItWorksSection }    from './HowItWorksSection'
 export { default as ExploreTeaserSection } from './ExploreTeaserSection'
+export { default as JobsTeaserSection } from './JobsTeaserSection';
 export { default as CTASection }           from './CTASection'
 export { default as Footer }               from './Footer'
 export { FEATURES, STEPS }                 from './data'

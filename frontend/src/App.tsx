@@ -15,6 +15,10 @@ import PublicCVPage from "./pages/public/PublicCVPage";
 import PublicProfilePage from "./pages/public/PublicProfilePage";
 import PublicFeedPage from "./pages/public/PublicFeedPage";
 import AccountPage from "./pages/dashboard/AccountPage";
+import JobBoardPage from "./pages/jobs/JobBoardPage";
+import JobDetailPage from "./pages/jobs/JobDetailPage";
+import PublicJobsPage from "./pages/jobs/PublicJobsPage";
+import ApplicationTrackerPage from "./pages/jobs/ApplicationTrackerPage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -59,6 +63,9 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot" element={<ForgotPage />} />
         <Route path="/guest" element={<GuestCVEditorPage />} />
+        <Route path="/jobs/explore" element={<PublicJobsPage />} />
+        <Route path="/jobs" element={<JobBoardPage />} />
+        <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="/explore" element={<PublicFeedPage />} />
         <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
         <Route path="/profile/:username" element={<PublicProfilePage />} />
@@ -78,6 +85,7 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="cv/new" element={<CVNewPage />} />
           <Route path="cv/:id" element={<CVEditorPage />} />
+          <Route path="tracker" element={<ApplicationTrackerPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
 
