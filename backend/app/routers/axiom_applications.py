@@ -40,7 +40,7 @@ def _app_out(doc: dict, job: AxiomJobOut | None = None) -> AxiomApplicationOut:
         job=job,
     )
 
-
+@router.get("", response_model=list[AxiomApplicationOut], include_in_schema=False)
 @router.get("/", response_model=list[AxiomApplicationOut])
 async def list_candidate_applications(current_user=Depends(get_current_user), db=Depends(get_db)):
     cursor = db.axiom_applications.find({"candidate_id": str(current_user["_id"])}).sort("updated_at", -1)

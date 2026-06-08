@@ -34,7 +34,7 @@ def _out(doc: dict) -> NotificationOut:
         created_at=doc.get("created_at", _utcnow()),
     )
 
-
+@router.get("", response_model=list[NotificationOut], include_in_schema=False)
 @router.get("/", response_model=list[NotificationOut])
 async def list_notifications(current_user=Depends(get_current_user), db=Depends(get_db)):
     cursor = db.notifications.find({"user_id": str(current_user["_id"])}).sort("created_at", -1).limit(50)
