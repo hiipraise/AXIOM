@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Brain, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, jobsApi } from "../../api";
-import { ApplicationEntry, ApplicationStatus, AxiomApplication } from "../../types";
+import {
+  ApplicationEntry,
+  ApplicationStatus,
+  AxiomApplication,
+} from "../../types";
 import { Link, useNavigate } from "react-router-dom";
 
 const STATUSES: ApplicationStatus[] = [
@@ -16,16 +20,25 @@ const STATUSES: ApplicationStatus[] = [
 
 function TrackerSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-5 md:grid-cols-2" aria-label="Loading applications">
+    <div
+      className="grid gap-4 xl:grid-cols-5 md:grid-cols-2"
+      aria-label="Loading applications"
+    >
       {STATUSES.map((status) => (
-        <section key={status} className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse">
+        <section
+          key={status}
+          className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse"
+        >
           <div className="mb-4 flex items-center justify-between">
             <div className="h-4 w-20 rounded bg-ash-dark" />
             <div className="h-5 w-8 rounded-full bg-ash-dark" />
           </div>
           <div className="space-y-3">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-ash-border bg-ash/30 p-3">
+              <div
+                key={i}
+                className="rounded-xl border border-ash-border bg-ash/30 p-3"
+              >
                 <div className="h-4 w-5/6 rounded bg-ash-dark mb-2" />
                 <div className="h-3 w-1/2 rounded bg-ash-dark mb-4" />
                 <div className="h-8 rounded-lg bg-ash-dark" />
@@ -45,7 +58,9 @@ export default function ApplicationTrackerPage() {
     queryKey: ["applications"],
     queryFn: jobsApi.applications,
   });
-  const { data: axiomApplications = [], isLoading: axiomLoading } = useQuery<AxiomApplication[]>({
+  const { data: axiomApplications = [], isLoading: axiomLoading } = useQuery<
+    AxiomApplication[]
+  >({
     queryKey: ["axiom-applications"],
     queryFn: axiomApplicationsApi.list,
   });
@@ -96,27 +111,45 @@ export default function ApplicationTrackerPage() {
           </Link>
         </div>
 
-        {(isLoading || axiomLoading) ? (
+        {isLoading || axiomLoading ? (
           <TrackerSkeleton />
         ) : (
           <>
             {axiomApplications.length > 0 && (
               <section className="mb-6 rounded-2xl border border-ash-border bg-white p-4">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="font-display text-xl font-bold text-ink">AXIOM applications</h2>
-                  <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">{axiomApplications.length}</span>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    AXIOM applications
+                  </h2>
+                  <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {axiomApplications.length}
+                  </span>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {axiomApplications.map((entry) => (
-                    <article key={entry.id} className="rounded-xl border border-ash-border bg-ash/30 p-3">
-                      <Link to={`/jobs/axiom/${entry.job_id}`} className="font-medium text-ink hover:underline line-clamp-2">
+                    <article
+                      key={entry.id}
+                      className="rounded-xl border border-ash-border bg-ash/30 p-3"
+                    >
+                      <Link
+                        to={`/jobs/axiom/${entry.job_id}`}
+                        className="font-medium text-ink hover:underline line-clamp-2"
+                      >
                         {entry.job?.title || "AXIOM job"}
                       </Link>
-                      <p className="mt-0.5 text-sm text-ink-muted line-clamp-1">{entry.job?.company_name || "AXIOM employer"}</p>
+                      <p className="mt-0.5 text-sm text-ink-muted line-clamp-1">
+                        {entry.job?.company_name || "AXIOM employer"}
+                      </p>
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="badge bg-white text-ink-muted border border-ash-border">{entry.status.replace("_", " ")}</span>
+                        <span className="badge bg-white text-ink-muted border border-ash-border">
+                          {entry.status.replace("_", " ")}
+                        </span>
                         {entry.status === "interview_scheduled" && (
-                          <Link className="btn-ghost p-2" title="Interview prep" to={`/interview?cv=${entry.cv_id}`}>
+                          <Link
+                            className="btn-ghost p-2"
+                            title="Interview prep"
+                            to={`/interview?cv=${entry.cv_id}`}
+                          >
                             <Brain size={14} />
                           </Link>
                         )}
@@ -133,7 +166,9 @@ export default function ApplicationTrackerPage() {
                   className="rounded-2xl border border-ash-border bg-white p-4"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-medium text-ink capitalize">{status}</h2>
+                    <h2 className="font-medium text-ink capitalize">
+                      {status}
+                    </h2>
                     <span className="badge bg-ash-dark text-ink-muted">
                       {grouped[status].length}
                     </span>

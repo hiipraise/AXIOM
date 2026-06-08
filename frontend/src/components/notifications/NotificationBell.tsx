@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
+import { Bell, BellRing } from "lucide-react";
 import { Link } from "react-router-dom";
 import { notificationsApi } from "../../api";
 import { useState } from "react";
@@ -21,12 +21,12 @@ export default function NotificationBell() {
   return (
     <div className="relative">
       <button
-        className="relative p-2 text-ink-muted hover:text-ink"
+        className="relative p-2 text-ink-muted hover:text-ink transition-colors"
         onClick={() => setOpen(!open)}
-        aria-label="Notifications"
+        aria-label={open ? "Close notifications" : "Open notifications"}
       >
-        <Bell size={17} />
-        {unread > 0 && (
+        {open ? <BellRing size={17} /> : <Bell size={17} />}
+        {!open && unread > 0 && (
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
         )}
       </button>

@@ -47,7 +47,11 @@ async def list_candidate_applications(current_user=Depends(get_current_user), db
     docs = await cursor.to_list(100)
     result = []
     for doc in docs:
-        job_doc = await db.axiom_jobs.find_one({"_id": _oid(doc["job_id"])})
+        job_doc = None
+        try:
+            job_doc = await db.axiom_jobs.find_one({"_id": _oid(doc["job_id"])})
+        except Exception:
+            pass
         result.append(_app_out(doc, _job_out(job_doc) if job_doc else None))
     return result
 
@@ -90,7 +94,11 @@ async def employer_applications(current_user=Depends(get_current_user), db=Depen
     docs = await cursor.to_list(200)
     result = []
     for doc in docs:
-        job_doc = await db.axiom_jobs.find_one({"_id": _oid(doc["job_id"])})
+        job_doc = None
+        try:
+            job_doc = await db.axiom_jobs.find_one({"_id": _oid(doc["job_id"])})
+        except Exception:
+            pass
         result.append(_app_out(doc, _job_out(job_doc) if job_doc else None))
     return result
 
