@@ -41,7 +41,7 @@ export default function LoginPage() {
           >
             AXIOM
           </Link>
-          <p className="text-sm text-ink-muted mt-1">AI CV Generator</p>
+          <p className="text-sm text-ink-muted mt-1">Career Workspace</p>
         </div>
 
         <div className="card">

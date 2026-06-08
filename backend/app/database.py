@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import IndexModel, ASCENDING
+from pymongo import ASCENDING, DESCENDING
 from app.config import settings
 from app.services.auth_service import hash_password
 import logging
@@ -47,6 +47,22 @@ async def setup_indexes():
     await db.saved_jobs.create_index([("user_id", ASCENDING), ("saved_at", ASCENDING)])
     await db.applications.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
     await db.applications.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
+    await db.axiom_jobs.create_index([("employer_id", ASCENDING)])
+    await db.axiom_jobs.create_index([("is_active", ASCENDING), ("is_approved", ASCENDING)])
+    await db.axiom_jobs.create_index([("share_token", ASCENDING)], unique=True, sparse=True)
+    await db.axiom_jobs.create_index([("created_at", DESCENDING)])
+    await db.axiom_jobs.create_index([("skills_required", ASCENDING)])
+    await db.axiom_applications.create_index([("job_id", ASCENDING), ("candidate_id", ASCENDING)], unique=True)
+    await db.axiom_applications.create_index([("employer_id", ASCENDING)])
+    await db.axiom_applications.create_index([("candidate_id", ASCENDING)])
+    await db.axiom_applications.create_index([("status", ASCENDING)])
+    await db.axiom_applications.create_index([("created_at", DESCENDING)])
+    await db.company_profiles.create_index([("user_id", ASCENDING)], unique=True)
+    await db.company_profiles.create_index([("company_slug", ASCENDING)], unique=True, sparse=True)
+    await db.notifications.create_index([("user_id", ASCENDING), ("read", ASCENDING)])
+    await db.notifications.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+    await db.notifications.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    await db.interview_sessions.create_index([("axiom_application_id", ASCENDING)], sparse=True)
     logger.info("Database indexes ensured")
 
 

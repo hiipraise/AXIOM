@@ -79,7 +79,7 @@ export default function Navbar() {
 
     {/* Sticky footer — never scrolls away */}
     <div className="border-t border-ash-border px-5 py-4 flex items-center justify-between bg-white">
-      <p className="text-xs text-ink-muted">Zero-cliché AI writing · ATS-safe PDF · Version history</p>
+      <p className="text-xs text-ink-muted">CV builder · job board · tracker · interview prep</p>
       <Link to="/register" onClick={() => setFeaturesOpen(false)} className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline">
         Start free
         <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}><ArrowRight size={11} /></motion.span>

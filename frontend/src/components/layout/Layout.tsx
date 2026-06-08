@@ -11,12 +11,14 @@ import {
   Menu,
   X,
   Briefcase,
-  Brain
+  Brain,
+  Building2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
 import { authApi } from "../../api";
 import { useAnnouncement } from "../../context/announcement";
+import NotificationBell from "../notifications/NotificationBell";
 import clsx from "clsx";
 
 const NAV = [
@@ -31,6 +33,7 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const isAdmin = user && ["admin", "superadmin", "staff"].includes(user.role);
+  const canRecruit = user && ["recruiter", "admin", "superadmin", "staff"].includes(user.role);
 
   const handleLogout = async () => {
     try {
@@ -51,7 +54,7 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
           AXIOM
         </Link>
         <span className="block text-[10px] text-ink-muted font-mono tracking-widest mt-0.5">
-          CV GENERATOR
+          CAREER WORKSPACE
         </span>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -81,6 +84,20 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
         >
           <Plus size={15} /> New CV
         </button>
+        <NavLink
+          to={canRecruit ? "/recruiter" : "/recruiter/register"}
+          onClick={onNav}
+          className={({ isActive }) =>
+            clsx(
+              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+              isActive
+                ? "bg-ink text-white"
+                : "text-ink-muted hover:bg-ash hover:text-ink",
+            )
+          }
+        >
+          <Building2 size={15} /> Recruiter
+        </NavLink>
         {isAdmin && (
           <NavLink
             to="/admin"
@@ -99,18 +116,21 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
         )}
       </nav>
       <div className="px-4 py-4 border-t border-ash-border">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
-            {user?.username.charAt(0).toUpperCase()}
+        <div className="flex items-center justify-between gap-2.5 mb-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
+              {user?.username.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-ink truncate">
+                {user?.username}
+              </p>
+              <p className="text-[10px] text-ink-muted capitalize">
+                {user?.role}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-ink truncate">
-              {user?.username}
-            </p>
-            <p className="text-[10px] text-ink-muted capitalize">
-              {user?.role}
-            </p>
-          </div>
+          <NotificationBell />
         </div>
         <button
           onClick={handleLogout}
@@ -155,12 +175,15 @@ export default function Layout() {
         >
           AXIOM
         </Link>
-        <button
-          onClick={() => setOpen(true)}
-          className="p-2 text-ink-muted hover:text-ink transition-colors"
-        >
-          <Menu size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            onClick={() => setOpen(true)}
+            className="p-2 text-ink-muted hover:text-ink transition-colors"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

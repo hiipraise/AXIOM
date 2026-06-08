@@ -10,12 +10,15 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
     groq_api_key: str = ""
+    groq_model: str
     frontend_url: str = "http://localhost:5173"
     adzuna_app_id: str = ""
     adzuna_app_key: str = ""
     rapidapi_key: str = ""
     rapidapi_host: str = ""
     # muse_api_key: str = ""
+    axiom_auto_approve_recruiters: bool = True
+    jitsi_domain: str = "meet.jit.si"
 
     allowed_origins: str = "http://localhost:5173"
 

@@ -24,10 +24,45 @@ async def list_users(
 @router.put("/users/{user_id}/role")
 async def set_user_role(user_id: str, body: dict, admin=Depends(require_admin), db=Depends(get_db)):
     role = body.get("role")
-    if role not in ("user", "staff", "admin"):
+    if role not in ("user", "recruiter", "staff", "admin"):
         raise HTTPException(400, "Invalid role")
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": role}})
     return {"message": f"Role updated to {role}"}
+
+
+@router.get("/recruiters")
+async def list_recruiters(admin=Depends(require_staff), db=Depends(get_db)):
+    cursor = db.company_profiles.find({}).sort("created_at", -1)
+    profiles = await cursor.to_list(200)
+    return [
+        {
+            "id": str(profile["_id"]),
+            "user_id": profile["user_id"],
+            "company_name": profile.get("company_name", ""),
+            "company_slug": profile.get("company_slug", ""),
+            "website": profile.get("website", ""),
+            "verified": bool(profile.get("verified", False)),
+            "is_approved": bool(profile.get("is_approved", False)),
+            "created_at": profile.get("created_at"),
+        }
+        for profile in profiles
+    ]
+
+
+@router.put("/recruiters/{profile_id}/approval")
+async def set_recruiter_approval(profile_id: str, body: dict, admin=Depends(require_admin), db=Depends(get_db)):
+    approved = bool(body.get("is_approved"))
+    verified = bool(body.get("verified", approved))
+    profile = await db.company_profiles.find_one({"_id": ObjectId(profile_id)})
+    if not profile:
+        raise HTTPException(404, "Recruiter profile not found")
+    await db.company_profiles.update_one(
+        {"_id": profile["_id"]},
+        {"$set": {"is_approved": approved, "verified": verified, "updated_at": datetime.now(timezone.utc)}},
+    )
+    if approved:
+        await db.users.update_one({"_id": ObjectId(profile["user_id"])}, {"$set": {"role": "recruiter"}})
+    return {"message": "Recruiter approval updated"}
 
 
 @router.put("/users/{user_id}/deactivate")

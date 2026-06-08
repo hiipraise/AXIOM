@@ -13,6 +13,7 @@ from enum import Enum
 
 class UserRole(str, Enum):
     user = "user"
+    recruiter = "recruiter"
     staff = "staff"
     admin = "admin"
     superadmin = "superadmin"
@@ -259,6 +260,163 @@ class JobResult(BaseModel):
     source: str
     category: str = ""
     logo_url: Optional[str] = None
+
+
+class AxiomJobStatus(str, Enum):
+    full_time = "full-time"
+    part_time = "part-time"
+    contract = "contract"
+    internship = "internship"
+
+
+class AxiomJobCreate(BaseModel):
+    title: str = Field(..., min_length=2, max_length=160)
+    description: str = Field(..., min_length=20)
+    location: str = ""
+    remote: bool = False
+    job_type: str = "full-time"
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    currency: str = "USD"
+    skills_required: List[str] = Field(default_factory=list)
+    experience_level: str = "mid"
+    industry: str = ""
+    apply_deadline: Optional[datetime] = None
+    is_active: bool = True
+
+
+class AxiomJobUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    remote: Optional[bool] = None
+    job_type: Optional[str] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    currency: Optional[str] = None
+    skills_required: Optional[List[str]] = None
+    experience_level: Optional[str] = None
+    industry: Optional[str] = None
+    apply_deadline: Optional[datetime] = None
+    is_active: Optional[bool] = None
+
+
+class AxiomJobOut(AxiomJobCreate):
+    id: str
+    employer_id: str
+    company_name: str
+    company_slug: str = ""
+    company_logo_url: str = ""
+    is_approved: bool = True
+    share_token: str
+    views: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class AxiomApplicationStatus(str, Enum):
+    applied = "applied"
+    reviewed = "reviewed"
+    shortlisted = "shortlisted"
+    interview_scheduled = "interview_scheduled"
+    interviewed = "interviewed"
+    offered = "offered"
+    rejected = "rejected"
+    accepted = "accepted"
+    declined = "declined"
+
+
+class AxiomApplicationCreate(BaseModel):
+    job_id: str
+    cv_id: str
+    cover_letter: str = ""
+
+
+class AxiomApplicationUpdate(BaseModel):
+    status: Optional[AxiomApplicationStatus] = None
+    employer_notes: Optional[str] = None
+
+
+class AxiomApplicationOut(BaseModel):
+    id: str
+    job_id: str
+    candidate_id: str
+    employer_id: str
+    cv_id: str
+    cv_snapshot: Optional[dict] = None
+    cover_letter: str = ""
+    status: AxiomApplicationStatus = AxiomApplicationStatus.applied
+    employer_notes: str = ""
+    created_at: datetime
+    updated_at: datetime
+    job: Optional[AxiomJobOut] = None
+
+
+class RecruiterRegisterRequest(BaseModel):
+    company_name: str = Field(..., min_length=2, max_length=140)
+    website: str = ""
+    description: str = ""
+    logo_url: str = ""
+    industry: str = ""
+    size: str = ""
+    location: str = ""
+
+
+class RecruiterProfileOut(RecruiterRegisterRequest):
+    id: str
+    user_id: str
+    company_slug: str
+    verified: bool = False
+    is_approved: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class LiveInterviewStart(BaseModel):
+    application_id: str
+    session_type: str = "live_manual"
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: int = Field(default=30, ge=15, le=120)
+
+
+class LiveInterviewSession(BaseModel):
+    id: str
+    session_type: str
+    axiom_application_id: Optional[str] = None
+    jitsi_room: Optional[str] = None
+    jitsi_password: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: int = 30
+    employer_id: Optional[str] = None
+    candidate_id: Optional[str] = None
+    employer_joined_at: Optional[datetime] = None
+    candidate_joined_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    recording_consent: bool = False
+    transcript: List[dict] = Field(default_factory=list)
+    employer_notes: str = ""
+    employer_decision: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class NotificationCreate(BaseModel):
+    user_id: str
+    title: str
+    body: str = ""
+    kind: str = "general"
+    link: str = ""
+
+
+class NotificationOut(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    body: str = ""
+    kind: str = "general"
+    link: str = ""
+    read: bool = False
+    created_at: datetime
 
 
 class JobSearchResponse(BaseModel):

@@ -72,7 +72,7 @@ export const FEATURES: FeatureGroup[] = [
       {
         icon: Briefcase,
         label: "Live Job Board",
-        desc: "Search roles from Adzuna, Remotive, The Muse and more — filtered to match your CV.",
+        desc: "Search AXIOM roles and external jobs from Adzuna, Remotive, The Muse and more.",
       },
       {
         icon: Zap,
@@ -82,7 +82,7 @@ export const FEATURES: FeatureGroup[] = [
       {
         icon: FileText,
         label: "Application Tracker",
-        desc: "Track every application from saved → applied → interview → offer in one board.",
+        desc: "Track every application from saved to applied, interview, offer, or rejection in one board.",
       },
     ],
   },

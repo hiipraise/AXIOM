@@ -49,12 +49,13 @@ async def search_jobs(
     q: str = "",
     location: str = "",
     remote: bool | None = None,
+    region: str = "",
     page: int = 1,
     per_page: int = 20,
     current_user=Depends(get_optional_user),
     db=Depends(get_db),
 ):
-    cache_key = job_service.make_search_cache_key(q, location, remote, page, per_page)
+    cache_key = job_service.make_search_cache_key(q, location, remote, page, per_page, region)
     cached = await job_service.fetch_cached_search(db, cache_key)
     if cached:
         return JobSearchResponse(
@@ -65,17 +66,41 @@ async def search_jobs(
             cached=True,
         )
 
-    jobs = await job_service.search_jobs(q, location, remote)
-    await job_service.cache_search_results(db, cache_key, jobs, {"q": q, "location": location, "remote": remote, "page": page, "per_page": per_page})
+    jobs = await job_service.search_jobs(q, location, remote, region)
+    axiom_jobs = []
+    if region.lower() in ("", "nigeria", "africa"):
+        axiom_filter = {"is_active": True, "is_approved": True}
+        if q:
+            axiom_filter["$or"] = [
+                {"title": {"$regex": q, "$options": "i"}},
+                {"description": {"$regex": q, "$options": "i"}},
+                {"skills_required": {"$regex": q, "$options": "i"}},
+            ]
+        cursor = db.axiom_jobs.find(axiom_filter).sort("created_at", -1).limit(50)
+        async for item in cursor:
+            if location and location.lower() not in item.get("location", "").lower() and location.lower() not in item.get("description", "").lower():
+                continue
+            if remote is True and not item.get("remote", False):
+                continue
+            axiom_jobs.append(JobResult(
+                id=f"axiom:{str(item['_id'])}",
+                title=item.get("title", ""),
+                company=item.get("company_name", "AXIOM employer"),
+                location=item.get("location", ""),
+                remote=bool(item.get("remote", False)),
+                salary_min=item.get("salary_min"),
+                salary_max=item.get("salary_max"),
+                currency=item.get("currency", ""),
+                description=item.get("description", ""),
+                apply_url=f"/jobs/axiom/{str(item['_id'])}",
+                posted_at=item.get("created_at"),
+                source="axiom",
+                category=item.get("job_type", ""),
+                logo_url=item.get("company_logo_url") or None,
+            ))
+    jobs = axiom_jobs + jobs
+    await job_service.cache_search_results(db, cache_key, jobs, {"q": q, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})
     return JobSearchResponse(items=jobs, total=len(jobs), page=page, per_page=per_page, cached=False)
-
-
-@router.get("/{job_id}", response_model=JobResult)
-async def get_job(job_id: str, current_user=Depends(get_optional_user), db=Depends(get_db)):
-    cached = await db.job_cache.find_one({"job_id": job_id})
-    if not cached:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return JobResult.model_validate(cached["payload"])
 
 
 @router.post("/match-cv", response_model=JobMatchResponse)
@@ -213,3 +238,11 @@ async def delete_application(application_id: str, current_user=Depends(get_curre
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Application not found")
     return {"deleted": True}
+
+
+@router.get("/{job_id}", response_model=JobResult)
+async def get_job(job_id: str, current_user=Depends(get_optional_user), db=Depends(get_db)):
+    cached = await db.job_cache.find_one({"job_id": job_id})
+    if not cached:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JobResult.model_validate(cached["payload"])

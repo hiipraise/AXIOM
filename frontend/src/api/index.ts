@@ -142,6 +142,8 @@ export const publicApi = {
     axios.get(`${BASE}/api/public/cv/${username}/${slug}`).then((r) => r.data),
   getProfile: (username: string) =>
     axios.get(`${BASE}/api/public/profile/${username}`).then((r) => r.data),
+  getCompany: (slug: string) =>
+    api.get(`/recruiter/company/${slug}`).then((r) => r.data),
 };
 
 export const adminApi = {
@@ -150,6 +152,9 @@ export const adminApi = {
     api.get(`/admin/users?skip=${skip}&limit=${limit}`).then((r) => r.data),
   setRole: (id: string, role: string) =>
     api.put(`/admin/users/${id}/role`, { role }).then((r) => r.data),
+  recruiters: () => api.get("/admin/recruiters").then((r) => r.data),
+  setRecruiterApproval: (id: string, body: { is_approved: boolean; verified?: boolean }) =>
+    api.put(`/admin/recruiters/${id}/approval`, body).then((r) => r.data),
   deactivate: (id: string) =>
     api.put(`/admin/users/${id}/deactivate`).then((r) => r.data),
   activate: (id: string) =>
@@ -167,6 +172,7 @@ export const jobsApi = {
     q?: string;
     location?: string;
     remote?: boolean | null;
+    region?: string;
     page?: number;
     per_page?: number;
   }) =>
@@ -218,6 +224,42 @@ export const jobsApi = {
 
   deleteApplication: (id: string) =>
     api.delete(`/jobs/applications/${id}`).then((r) => r.data),
+};
+
+export const recruiterApi = {
+  register: (body: object) => api.post("/recruiter/register", body).then((r) => r.data as import("../types").RecruiterProfile),
+  profile: () => api.get("/recruiter/profile").then((r) => r.data as import("../types").RecruiterProfile),
+  updateProfile: (body: object) => api.put("/recruiter/profile", body).then((r) => r.data as import("../types").RecruiterProfile),
+};
+
+export const axiomJobsApi = {
+  list: (params?: { q?: string; region?: string; mine?: boolean }) =>
+    api.get("/axiom-jobs", { params }).then((r) => r.data as import("../types").AxiomJob[]),
+  mine: () => api.get("/axiom-jobs/mine").then((r) => r.data as import("../types").AxiomJob[]),
+  get: (id: string) => api.get(`/axiom-jobs/${id}`).then((r) => r.data as import("../types").AxiomJob),
+  create: (body: object) => api.post("/axiom-jobs", body).then((r) => r.data as import("../types").AxiomJob),
+  update: (id: string, body: object) => api.put(`/axiom-jobs/${id}`, body).then((r) => r.data as import("../types").AxiomJob),
+  close: (id: string) => api.delete(`/axiom-jobs/${id}`).then((r) => r.data),
+  share: (id: string) => api.post(`/axiom-jobs/${id}/share`).then((r) => r.data),
+};
+
+export const axiomApplicationsApi = {
+  list: () => api.get("/axiom-applications").then((r) => r.data as import("../types").AxiomApplication[]),
+  apply: (body: object) => api.post("/axiom-applications", body).then((r) => r.data as import("../types").AxiomApplication),
+  employer: () => api.get("/axiom-applications/employer").then((r) => r.data as import("../types").AxiomApplication[]),
+  updateStatus: (id: string, body: object) => api.put(`/axiom-applications/${id}/status`, body).then((r) => r.data as import("../types").AxiomApplication),
+};
+
+export const liveInterviewApi = {
+  schedule: (body: object) => api.post("/interview-live/schedule", body).then((r) => r.data as import("../types").LiveInterviewSession),
+  get: (id: string) => api.get(`/interview-live/${id}`).then((r) => r.data as import("../types").LiveInterviewSession),
+  feedback: (id: string, body: object) => api.put(`/interview-live/${id}/feedback`, body).then((r) => r.data as import("../types").LiveInterviewSession),
+};
+
+export const notificationsApi = {
+  list: () => api.get("/notifications").then((r) => r.data as import("../types").NotificationItem[]),
+  read: (id: string) => api.put(`/notifications/${id}/read`).then((r) => r.data as import("../types").NotificationItem),
+  readAll: () => api.put("/notifications/read-all").then((r) => r.data),
 };
 
 

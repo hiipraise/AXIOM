@@ -84,7 +84,7 @@ bootstrap().then(() => {
             <AppWithTracking />
           </AnnouncementProvider>
           <Toaster
-            position="top-right"
+            position="top-center"
             toastOptions={{
               style: {
                 borderRadius: '8px',

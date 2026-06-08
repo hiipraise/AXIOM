@@ -2,7 +2,7 @@ export interface User {
   id: string;
   username: string;
   email?: string;
-  role: "user" | "staff" | "admin" | "superadmin";
+  role: "user" | "recruiter" | "staff" | "admin" | "superadmin";
   must_change_password: boolean;
   created_at: string;
   is_active: boolean;
@@ -238,6 +238,107 @@ export interface JobResult {
   source: string;
   category: string;
   logo_url?: string | null;
+}
+
+export interface AxiomJob {
+  id: string;
+  employer_id: string;
+  company_name: string;
+  company_slug: string;
+  company_logo_url: string;
+  title: string;
+  description: string;
+  location: string;
+  remote: boolean;
+  job_type: string;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency: string;
+  skills_required: string[];
+  experience_level: string;
+  industry: string;
+  apply_deadline?: string | null;
+  is_active: boolean;
+  is_approved: boolean;
+  share_token: string;
+  views: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecruiterProfile {
+  id: string;
+  user_id: string;
+  company_name: string;
+  company_slug: string;
+  logo_url: string;
+  website: string;
+  description: string;
+  industry: string;
+  size: string;
+  location: string;
+  verified: boolean;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AxiomApplicationStatus =
+  | "applied"
+  | "reviewed"
+  | "shortlisted"
+  | "interview_scheduled"
+  | "interviewed"
+  | "offered"
+  | "rejected"
+  | "accepted"
+  | "declined";
+
+export interface AxiomApplication {
+  id: string;
+  job_id: string;
+  candidate_id: string;
+  employer_id: string;
+  cv_id: string;
+  cv_snapshot?: Record<string, unknown> | null;
+  cover_letter: string;
+  status: AxiomApplicationStatus;
+  employer_notes: string;
+  created_at: string;
+  updated_at: string;
+  job?: AxiomJob | null;
+}
+
+export interface LiveInterviewSession {
+  id: string;
+  session_type: string;
+  axiom_application_id?: string | null;
+  jitsi_room?: string | null;
+  jitsi_password?: string | null;
+  scheduled_at?: string | null;
+  duration_minutes: number;
+  employer_id?: string | null;
+  candidate_id?: string | null;
+  employer_joined_at?: string | null;
+  candidate_joined_at?: string | null;
+  ended_at?: string | null;
+  recording_consent: boolean;
+  transcript: Array<Record<string, unknown>>;
+  employer_notes: string;
+  employer_decision?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  kind: string;
+  link: string;
+  read: boolean;
+  created_at: string;
 }
 
 export interface JobSearchResponse {

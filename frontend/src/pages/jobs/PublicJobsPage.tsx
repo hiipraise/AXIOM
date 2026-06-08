@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ArrowLeft, Briefcase, ArrowRight } from "lucide-react";
+import { Search, ArrowLeft, Briefcase, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { jobsApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
-import AppLoading from "../../components/AppLoading";
 import { useAnnouncement } from "../../context/announcement";
+
+const PAGE_SIZE = 12;
 
 const FEATURED_QUERIES = [
   "Software Engineer",
@@ -15,18 +16,68 @@ const FEATURED_QUERIES = [
   "Data Analyst",
   "Designer",
   "Marketing",
+  "Sales",
+  "Customer Success",
+  "Finance",
+  "Operations",
+  "Human Resources",
+  "Cybersecurity",
+  "DevOps",
+  "Project Manager",
+  "Content Writer",
+  "Business Analyst",
 ];
+
+const REGION_FILTERS = [
+  { value: "", label: "Worldwide" },
+  { value: "nigeria", label: "Nigeria" },
+  { value: "kenya", label: "Kenya" },
+  { value: "ghana", label: "Ghana" },
+  { value: "south africa", label: "South Africa" },
+  { value: "united kingdom", label: "United Kingdom" },
+  { value: "united states", label: "United States" },
+  { value: "canada", label: "Canada" },
+  { value: "germany", label: "Germany" },
+  { value: "netherlands", label: "Netherlands" },
+  { value: "remote", label: "Remote" },
+  { value: "africa", label: "Africa" },
+];
+
+function JobsGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Loading jobs">
+      {Array.from({ length: 9 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse">
+          <div className="h-3 w-20 rounded bg-ash-dark mb-4" />
+          <div className="h-5 w-4/5 rounded bg-ash-dark mb-2" />
+          <div className="h-3 w-1/2 rounded bg-ash-dark mb-5" />
+          <div className="space-y-2">
+            <div className="h-3 rounded bg-ash-dark" />
+            <div className="h-3 w-11/12 rounded bg-ash-dark" />
+            <div className="h-3 w-2/3 rounded bg-ash-dark" />
+          </div>
+          <div className="mt-5 flex gap-2">
+            <div className="h-7 w-20 rounded-lg bg-ash-dark" />
+            <div className="h-7 w-24 rounded-lg bg-ash-dark" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function PublicJobsPage() {
   const { user }  = useAuthStore();
   const navigate  = useNavigate();
   const { bannerH } = useAnnouncement();
   const [search, setSearch] = useState("");
-  const [active, setActive] = useState(FEATURED_QUERIES[0]);
+  const [active, setActive] = useState("");
+  const [region, setRegion] = useState("");
+  const [page, setPage] = useState(0);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["public-jobs", active],
-    queryFn:  () => jobsApi.search({ q: active, per_page: 18 }),
+    queryKey: ["public-jobs", active, region],
+    queryFn:  () => jobsApi.search({ q: active, region, per_page: 60 }),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -42,6 +93,20 @@ export default function PublicJobsPage() {
         j.description.toLowerCase().includes(q),
     );
   }, [jobs, search]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  function selectCategory(q: string) {
+    setActive((current) => current === q ? "" : q);
+    setSearch("");
+    setPage(0);
+  }
+
+  function selectRegion(value: string) {
+    setRegion((current) => current === value ? "" : value);
+    setPage(0);
+  }
 
   return (
     <div className="min-h-screen bg-ash">
@@ -104,7 +169,7 @@ export default function PublicJobsPage() {
           {FEATURED_QUERIES.map((q) => (
             <button
               key={q}
-              onClick={() => { setActive(q); setSearch(""); }}
+              onClick={() => selectCategory(q)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 active === q
                   ? "bg-ink text-white border-ink"
@@ -112,6 +177,22 @@ export default function PublicJobsPage() {
               }`}
             >
               {q}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2 justify-center mb-6">
+          {REGION_FILTERS.map((option) => (
+            <button
+              key={option.label}
+              onClick={() => selectRegion(option.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                region === option.value
+                  ? "bg-emerald-600 text-white border-emerald-600"
+                  : "border-ash-border text-ink-muted hover:border-ink/30 hover:text-ink bg-white"
+              }`}
+            >
+              {option.label}
             </button>
           ))}
         </div>
@@ -130,19 +211,19 @@ export default function PublicJobsPage() {
         {/* ── Results count ── */}
         {!isLoading && (
           <p className="text-sm text-ink-muted mb-4">
-            {filtered.length} {active} role{filtered.length !== 1 ? "s" : ""} found
+            {filtered.length} {active || "job"} role{filtered.length !== 1 ? "s" : ""} found
             {data?.cached && " · cached"}
           </p>
         )}
 
         {/* ── Jobs grid ── */}
         {isLoading ? (
-          <AppLoading message={`Finding ${active} roles…`} />
+          <JobsGridSkeleton />
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed border-ash-border rounded-2xl">
             <Briefcase size={28} className="mx-auto text-ink-muted/30 mb-3" />
             <p className="text-sm text-ink-muted mb-1">
-              {search ? `No results for "${search}"` : `No ${active} roles at the moment`}
+              {search ? `No results for "${search}"` : `No ${active || "jobs"} at the moment`}
             </p>
             {search && (
               <button onClick={() => setSearch("")} className="text-xs text-ink underline mt-1">
@@ -152,9 +233,21 @@ export default function PublicJobsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((job) => (
+            {paginated.map((job) => (
               <JobCard key={job.id} job={job} />
             ))}
+          </div>
+        )}
+
+        {!isLoading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <button className="btn-ghost p-2" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs text-ink-muted">Page {page + 1} of {totalPages}</span>
+            <button className="btn-ghost p-2" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
 

@@ -17,7 +17,23 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.database import connect_db, close_db, init_admin
-from app.routers import auth, cv, export, admin, public, analytics, feedback, announcements, jobs, interview
+from app.routers import (
+    admin,
+    analytics,
+    announcements,
+    auth,
+    axiom_applications,
+    axiom_jobs,
+    cv,
+    export,
+    feedback,
+    interview,
+    interview_live,
+    jobs,
+    notifications,
+    public,
+    recruiter,
+)
 
 
 @asynccontextmanager
@@ -53,6 +69,11 @@ app.include_router(feedback.router,      prefix="/api/feedback",      tags=["Fee
 app.include_router(announcements.router, prefix="/api/announcements", tags=["Announcements"])
 app.include_router(jobs.router,          prefix="/api/jobs",          tags=["Jobs"])
 app.include_router(interview.router,     prefix="/api/interview",     tags=["Interview"])
+app.include_router(recruiter.router,     prefix="/api/recruiter",     tags=["Recruiter"])
+app.include_router(axiom_jobs.router,    prefix="/api/axiom-jobs",    tags=["AXIOM Jobs"])
+app.include_router(axiom_applications.router, prefix="/api/axiom-applications", tags=["AXIOM Applications"])
+app.include_router(interview_live.router, prefix="/api/interview-live", tags=["Live Interview"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 
 
 @app.get("/", tags=["Root"])

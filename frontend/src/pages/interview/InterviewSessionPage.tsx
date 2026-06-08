@@ -5,6 +5,9 @@ import { ArrowLeft, CheckCircle2, Send, Target } from "lucide-react";
 import toast from "react-hot-toast";
 import { interviewApi } from "../../api";
 import { InterviewFeedback, InterviewSessionDetail } from "../../types";
+import QuestionPlayer from "../../components/interview/QuestionPlayer";
+import VoiceCapturePanel from "../../components/interview/VoiceCapturePanel";
+import VoiceModeToggle from "../../components/interview/VoiceModeToggle";
 
 function ScorePill({ label, value }: { label: string; value: number }) {
   return <span className="rounded-full bg-ash px-3 py-1 text-xs text-ink-muted">{label}: <b className="text-ink">{value}/10</b></span>;
@@ -35,6 +38,7 @@ export default function InterviewSessionPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [answer, setAnswer] = useState("");
+  const [voiceMode, setVoiceMode] = useState(() => localStorage.getItem("axiom_voice_mode") === "true");
 
   const { data: session, isLoading } = useQuery<InterviewSessionDetail>({
     queryKey: ["interview-session", sessionId],
@@ -64,6 +68,11 @@ export default function InterviewSessionPage() {
     answerMutation.mutate();
   };
 
+  const setVoiceModePersisted = (value: boolean) => {
+    setVoiceMode(value);
+    localStorage.setItem("axiom_voice_mode", String(value));
+  };
+
   if (isLoading || !session) return <div className="p-8">Loading interview...</div>;
 
   return (
@@ -81,11 +90,19 @@ export default function InterviewSessionPage() {
           </div>
         </div>
 
+        <div className="mb-5">
+          <VoiceModeToggle enabled={voiceMode} onChange={setVoiceModePersisted} />
+        </div>
+
         <div className="space-y-5">
           {session.messages.map((message, index) => (
             <article key={message.id} className="rounded-3xl border border-ash-border bg-white p-5">
               <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-ink-muted"><Target size={13} /> Question {index + 1}</p>
-              <p className="text-lg font-medium leading-7 text-ink">{message.question}</p>
+              {voiceMode && pendingQuestion?.id === message.id ? (
+                <QuestionPlayer question={message.question} autoPlay />
+              ) : (
+                <p className="text-lg font-medium leading-7 text-ink">{message.question}</p>
+              )}
               {message.answer && <div className="mt-4 rounded-2xl bg-ash p-4 text-sm leading-6 text-ink"><b>Your answer:</b> {message.answer}</div>}
               {message.feedback && <FeedbackCard feedback={message.feedback} />}
             </article>
@@ -95,7 +112,11 @@ export default function InterviewSessionPage() {
         {pendingQuestion && session.status !== "completed" && (
           <form onSubmit={submit} className="sticky bottom-0 mt-6 rounded-t-3xl border border-ash-border bg-white p-4 shadow-lg">
             <label className="label">Your answer</label>
-            <textarea className="input min-h-[140px]" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Answer out loud, then paste or type your best version here. Aim for Situation, Task, Action, Result." />
+            {voiceMode ? (
+              <VoiceCapturePanel value={answer} onChange={setAnswer} />
+            ) : (
+              <textarea className="input min-h-[140px]" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Answer out loud, then paste or type your best version here. Aim for Situation, Task, Action, Result." />
+            )}
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs text-ink-muted">You’ll get feedback before the next question.</p>
               <button className="btn-primary" disabled={answerMutation.isPending || !answer.trim()}><Send size={15} /> {answerMutation.isPending ? "Scoring..." : "Submit answer"}</button>

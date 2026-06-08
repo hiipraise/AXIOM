@@ -14,7 +14,6 @@ import toast from "react-hot-toast";
 import { cvApi, jobsApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import CoverLetterModal from "../../components/jobs/CoverLetterModal";
-import AppLoading from "../../components/AppLoading";
 import { JobResult, JobMatchResult, CV } from "../../types";
 
 function stripHtml(raw: string): string {
@@ -28,6 +27,51 @@ function stripHtml(raw: string): string {
     .replace(/&quot;/g, '"')
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function JobDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-ash">
+      <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+        <div className="mb-4 h-9 w-28 rounded-lg bg-ash-dark animate-pulse" />
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] items-start">
+          <article className="card animate-pulse">
+            <div className="mb-4 flex gap-2">
+              <div className="h-6 w-16 rounded-full bg-ash-dark" />
+              <div className="h-6 w-20 rounded-full bg-ash-dark" />
+            </div>
+            <div className="h-8 w-4/5 rounded bg-ash-dark mb-3" />
+            <div className="h-4 w-1/2 rounded bg-ash-dark mb-8" />
+            <div className="space-y-3">
+              <div className="h-3 rounded bg-ash-dark" />
+              <div className="h-3 rounded bg-ash-dark" />
+              <div className="h-3 w-11/12 rounded bg-ash-dark" />
+              <div className="h-3 w-2/3 rounded bg-ash-dark" />
+            </div>
+          </article>
+          <aside className="space-y-4">
+            <div className="card animate-pulse">
+              <div className="h-3 w-20 rounded bg-ash-dark mb-3" />
+              <div className="h-6 w-40 rounded bg-ash-dark mb-5" />
+              <div className="space-y-3">
+                <div className="h-10 rounded-lg bg-ash-dark" />
+                <div className="h-10 rounded-lg bg-ash-dark" />
+                <div className="h-10 rounded-lg bg-ash-dark" />
+              </div>
+            </div>
+            <div className="card animate-pulse">
+              <div className="h-3 w-20 rounded bg-ash-dark mb-4" />
+              <div className="space-y-3">
+                <div className="h-3 rounded bg-ash-dark" />
+                <div className="h-3 rounded bg-ash-dark" />
+                <div className="h-3 w-4/5 rounded bg-ash-dark" />
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function JobDetailPage() {
@@ -125,7 +169,7 @@ export default function JobDetailPage() {
   });
 
   if (isLoading)
-    return <AppLoading fullScreen message="Loading job details…" />;
+    return <JobDetailSkeleton />;
   if (!job)
     return (
       <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">

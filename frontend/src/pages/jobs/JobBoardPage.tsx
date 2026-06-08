@@ -11,7 +11,7 @@ import { jobsApi, cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
-import AppLoading from "../../components/AppLoading";
+import { useAnnouncement } from "../../context/announcement";
 
 const PAGE_SIZE = 12;
 
@@ -23,8 +23,6 @@ function quickMatchScore(job: JobResult, tokens: string[]): number | null {
   return Math.round((hits / tokens.length) * 100);
 }
 
-const SOURCES = ["adzuna", "remotive", "arbeitnow", "jsearch", "muse"];
-
 const SORT_OPTIONS = [
   { value: "default", label: "Default" },
   { value: "match-desc", label: "Best match first" },
@@ -33,29 +31,57 @@ const SORT_OPTIONS = [
   { value: "oldest", label: "Oldest first" },
 ];
 
+function JobBoardSkeleton() {
+  return (
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading jobs">
+      {Array.from({ length: 9 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="h-3 w-20 rounded bg-ash-dark" />
+            <div className="h-3 w-14 rounded bg-ash-dark" />
+          </div>
+          <div className="h-5 w-5/6 rounded bg-ash-dark mb-2" />
+          <div className="h-3 w-1/2 rounded bg-ash-dark mb-5" />
+          <div className="space-y-2">
+            <div className="h-3 rounded bg-ash-dark" />
+            <div className="h-3 w-11/12 rounded bg-ash-dark" />
+            <div className="h-3 w-3/4 rounded bg-ash-dark" />
+          </div>
+          <div className="mt-5 h-8 rounded-lg bg-ash-dark" />
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function JobBoardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const { bannerH } = useAnnouncement();
 
   // ── Search inputs (live)
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
   const [remote, setRemote] = useState<boolean | "">("");
+  const [region, setRegion] = useState("");
 
   // ── Committed search (fires query)
   const [committed, setCommitted] = useState({
     q: "",
     location: "",
     remote: "" as boolean | "",
+    region: "",
   });
 
   // ── Filters / sort (client-side)
   const [sortBy, setSortBy] = useState("default");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">("all");
+  const [useCvMatch, setUseCvMatch] = useState(false);
   const [page, setPage] = useState(0);
 
   function commit() {
-    setCommitted({ q: query, location, remote });
+    setCommitted({ q: query, location, remote, region });
     setPage(0);
   }
 
@@ -78,14 +104,43 @@ export default function JobBoardPage() {
       .slice(0, 20);
   }, [primaryCv]);
 
+  const cvSearch = useMemo(() => {
+    const parts = [
+      primaryCv?.data.target_role,
+      primaryCv?.data.personal_info.job_title,
+      ...(primaryCv?.data.skills ?? []).slice(0, 4),
+    ].filter(Boolean) as string[];
+    return [...new Set(parts)].join(" ");
+  }, [primaryCv]);
+
+  function applyCvSearch() {
+    if (!cvSearch) return;
+    setUseCvMatch(true);
+    setQuery(cvSearch);
+    setCommitted({ q: cvSearch, location, remote, region });
+    setSortBy("match-desc");
+    setPage(0);
+  }
+
+  function clearCvSearch() {
+    setUseCvMatch(false);
+    if (query === cvSearch) {
+      setQuery("");
+      setCommitted({ q: "", location, remote, region });
+    }
+    if (sortBy.startsWith("match")) setSortBy("default");
+    setPage(0);
+  }
+
   // ── Fetch jobs
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["jobs", committed.q, committed.location, committed.remote],
+    queryKey: ["jobs", committed.q, committed.location, committed.remote, committed.region],
     queryFn: () =>
       jobsApi.search({
         q: committed.q,
         location: committed.location,
         remote: committed.remote === "" ? null : committed.remote,
+        region: committed.region,
         per_page: 60,
       }),
     staleTime: 1000 * 60 * 5,
@@ -104,8 +159,11 @@ export default function JobBoardPage() {
   const processed = useMemo(() => {
     let result = rawJobs.map((job) => ({
       job,
-      score: user && primaryCv ? quickMatchScore(job, tokens) : null,
+      score: user && primaryCv && useCvMatch ? quickMatchScore(job, tokens) : null,
     }));
+
+    if (sourceMode === "axiom") result = result.filter(({ job }) => job.source === "axiom");
+    if (sourceMode === "external") result = result.filter(({ job }) => job.source !== "axiom");
 
     // Source filter
     if (sourceFilter)
@@ -130,7 +188,7 @@ export default function JobBoardPage() {
       );
 
     return result;
-  }, [rawJobs, sortBy, sourceFilter, tokens, user, primaryCv]);
+  }, [rawJobs, sortBy, sourceFilter, sourceMode, tokens, user, primaryCv, useCvMatch]);
 
   const totalPages = Math.ceil(processed.length / PAGE_SIZE);
   const paginated = processed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -138,20 +196,24 @@ export default function JobBoardPage() {
   const resetFilters = () => {
     setSortBy("default");
     setSourceFilter("");
+    setSourceMode("all");
     setPage(0);
   };
 
   return (
     <div className="min-h-screen bg-ash">
       {/* ── Sticky header ── */}
-      <header className="border-b border-ash-border bg-white/80 backdrop-blur-sm sticky top-0 z-20">
+      <header
+        className="border-b border-ash-border bg-white/80 backdrop-blur-sm sticky z-20"
+        style={{ top: bannerH, transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)" }}
+      >
         <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-[10px] uppercase tracking-[0.24em] text-ink-muted">
               AXIOM Jobs
             </p>
             <h1 className="font-display text-xl sm:text-2xl font-bold text-ink tracking-tight">
-              Find roles matched to your CV
+              Find roles across AXIOM
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -176,7 +238,7 @@ export default function JobBoardPage() {
       <main className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
         {/* ── Search bar ── */}
         <section className="card mb-4 bg-white shadow-sm">
-          <div className="grid gap-3 md:grid-cols-[1.4fr_0.9fr_0.7fr_auto]">
+          <div className="grid gap-3 md:grid-cols-[1.3fr_0.85fr_0.65fr_0.65fr_auto]">
             <div>
               <label className="label">Role or keywords</label>
               <div className="relative">
@@ -202,6 +264,18 @@ export default function JobBoardPage() {
                 onKeyDown={(e) => e.key === "Enter" && commit()}
                 placeholder="London, Berlin, Remote"
               />
+            </div>
+            <div>
+              <label className="label">Region</label>
+              <select
+                className="input"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+              >
+                <option value="">All</option>
+                <option value="nigeria">Nigeria</option>
+                <option value="africa">Africa</option>
+              </select>
             </div>
             <div>
               <label className="label">Remote</label>
@@ -230,6 +304,20 @@ export default function JobBoardPage() {
           </div>
         </section>
 
+        {user && primaryCv && (
+          <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ash-border bg-white px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Use your CV for matching</p>
+              <p className="text-xs text-ink-muted">
+                {useCvMatch ? `Searching with: ${cvSearch || "your CV"}` : "Start with all jobs, then switch on CV-aware search when you want it."}
+              </p>
+            </div>
+            <button className={useCvMatch ? "btn-secondary" : "btn-primary"} onClick={useCvMatch ? clearCvSearch : applyCvSearch} disabled={!cvSearch}>
+              {useCvMatch ? "Show all jobs" : "Use my CV"}
+            </button>
+          </section>
+        )}
+
         {/* ── Filters row ── */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <select
@@ -249,6 +337,19 @@ export default function JobBoardPage() {
 
           <select
             className="text-xs border border-ash-border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-ink"
+            value={sourceMode}
+            onChange={(e) => {
+              setSourceMode(e.target.value as "all" | "axiom" | "external");
+              setPage(0);
+            }}
+          >
+            <option value="all">All jobs</option>
+            <option value="axiom">AXIOM only</option>
+            <option value="external">External only</option>
+          </select>
+
+          <select
+            className="text-xs border border-ash-border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-ink"
             value={sourceFilter}
             onChange={(e) => {
               setSourceFilter(e.target.value);
@@ -263,7 +364,7 @@ export default function JobBoardPage() {
             ))}
           </select>
 
-          {(sortBy !== "default" || sourceFilter) && (
+          {(sortBy !== "default" || sourceFilter || sourceMode !== "all") && (
             <button
               className="text-xs text-ink-muted hover:text-ink underline"
               onClick={resetFilters}
@@ -287,7 +388,7 @@ export default function JobBoardPage() {
 
         {/* ── Results ── */}
         {isLoading ? (
-          <AppLoading message="Searching jobs…" />
+          <JobBoardSkeleton />
         ) : paginated.length > 0 ? (
           <>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

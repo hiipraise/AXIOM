@@ -39,7 +39,54 @@ def _strip_html(raw: str) -> str:
 def _normalize_text(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, dict):
+        parts: list[str] = []
+        for item in value.values():
+            if isinstance(item, list):
+                parts.extend(_normalize_text(v) for v in item)
+            elif item is not None:
+                parts.append(_normalize_text(item))
+        return _strip_html(" ".join(part for part in parts if part))
+    if isinstance(value, list):
+        return _strip_html(" ".join(_normalize_text(item) for item in value if item is not None))
     return _strip_html(str(value))
+
+
+def _region_location(region: str, location: str) -> str:
+    if location:
+        return location
+    normalized = (region or "").lower()
+    if normalized == "nigeria":
+        return "Nigeria"
+    if normalized == "africa":
+        return "Africa"
+    return ""
+
+
+def _region_geo(region: str, location: str) -> str:
+    text = (region or location or "").strip().lower()
+    aliases = {
+        "nigeria": "nigeria",
+        "kenya": "kenya",
+        "ghana": "ghana",
+        "south africa": "south-africa",
+        "south-africa": "south-africa",
+        "africa": "africa",
+    }
+    return aliases.get(text, "")
+
+
+def _matches_region(job: JobResult, region: str) -> bool:
+    normalized = (region or "").lower()
+    if not normalized:
+        return True
+    haystack = f"{job.location} {job.description} {job.title}".lower()
+    if normalized == "nigeria":
+        return "nigeria" in haystack or "remote" in haystack
+    if normalized == "africa":
+        markers = ["africa", "nigeria", "kenya", "ghana", "south africa", "egypt", "rwanda", "remote"]
+        return any(marker in haystack for marker in markers)
+    return normalized in haystack
 
 
 def _parse_datetime(value: Any) -> datetime:
@@ -208,8 +255,12 @@ async def _search_jsearch(query: str, location: str, remote: Optional[bool]) -> 
             continue
         city = _normalize_text(item.get("job_city") or item.get("city") or item.get("location"))
         location_text = city or _normalize_text(item.get("job_country") or item.get("country") or "")
-        description = _normalize_text(item.get("snippet") or item.get("job_description") or item.get("description") or item.get("job_highlights"))
-        apply_url = _normalize_text(item.get("job_link") or item.get("apply_link") or item.get("job_google_link") or item.get("url") or "")
+        highlights = item.get("job_highlights")
+        responsibility_text = ""
+        if isinstance(highlights, dict):
+            responsibility_text = " ".join(highlights.get("Responsibilities", []) or [])
+        description = _normalize_text(item.get("job_description") or item.get("snippet") or responsibility_text or item.get("description") or highlights)
+        apply_url = _normalize_text(item.get("job_apply_link") or item.get("job_link") or item.get("job_google_link") or item.get("apply_link") or item.get("url") or "")
         jid = item.get("job_id") or item.get("id") or apply_url or f"{title}-{company}"
         job = JobResult(
             id=f"jsearch:{jid}",
@@ -228,6 +279,49 @@ async def _search_jsearch(query: str, location: str, remote: Optional[bool]) -> 
             logo_url=_normalize_text(item.get("company_logo") or item.get("company_logo_url") or item.get("company_logo_url")) or None,
         )
         if remote is False and job.remote:
+            continue
+        if location and location.lower() not in job.location.lower() and location.lower() not in job.description.lower():
+            continue
+        jobs.append(job)
+    return jobs
+
+
+async def _search_jobicy(query: str, location: str, remote: Optional[bool], region: str = "") -> list[JobResult]:
+    params: dict[str, Any] = {"count": DEFAULT_PER_PAGE}
+    geo = _region_geo(region, location)
+    if geo:
+        params["geo"] = geo
+    if query:
+        params["tag"] = query
+    try:
+        payload = await _fetch_json("https://jobicy.com/api/v2/remote-jobs", params=params)
+    except Exception:
+        return []
+
+    jobs: list[JobResult] = []
+    for item in payload.get("jobs", []):
+        title = _normalize_text(item.get("jobTitle") or item.get("title"))
+        company = _normalize_text(item.get("companyName") or item.get("company"))
+        if not title or not company:
+            continue
+        description = _normalize_text(item.get("jobDescription") or item.get("jobExcerpt") or "")
+        job = JobResult(
+            id=f"jobicy:{item.get('id') or item.get('url') or title}",
+            title=title,
+            company=company,
+            location=_normalize_text(item.get("jobGeo") or "Remote"),
+            remote=True,
+            salary_min=float(item["annualSalaryMin"]) if item.get("annualSalaryMin") not in (None, "") else None,
+            salary_max=float(item["annualSalaryMax"]) if item.get("annualSalaryMax") not in (None, "") else None,
+            currency=_normalize_text(item.get("salaryCurrency") or ""),
+            description=description,
+            apply_url=_normalize_text(item.get("url")),
+            posted_at=_parse_datetime(item.get("pubDate")),
+            source="jobicy",
+            category=_normalize_text(item.get("jobType") or item.get("jobIndustry") or ""),
+            logo_url=_normalize_text(item.get("companyLogo")) or None,
+        )
+        if remote is False:
             continue
         if location and location.lower() not in job.location.lower() and location.lower() not in job.description.lower():
             continue
@@ -285,17 +379,19 @@ async def _search_muse(query: str, location: str, remote: Optional[bool]) -> lis
     return jobs
 
 
-async def search_jobs(query: str = "", location: str = "", remote: Optional[bool] = None) -> list[JobResult]:
+async def search_jobs(query: str = "", location: str = "", remote: Optional[bool] = None, region: str = "") -> list[JobResult]:
+    effective_location = _region_location(region, location)
     tasks = [
-        _search_remotive(query, location, remote),
-        _search_arbeitnow(query, location, remote),
-        _search_muse(query, location, remote),
+        _search_remotive(query, effective_location, remote),
+        _search_arbeitnow(query, effective_location, remote),
+        _search_muse(query, effective_location, remote),
+        _search_jobicy(query, effective_location, remote, region),
     ]
     # RapidAPI JSearch (optional)
     if settings.rapidapi_key and settings.rapidapi_host:
-        tasks.append(_search_jsearch(query, location, remote))
+        tasks.append(_search_jsearch(query, effective_location, remote))
     if settings.adzuna_app_id and settings.adzuna_app_key:
-        tasks.append(_search_adzuna(query, location, remote))
+        tasks.append(_search_adzuna(query, effective_location, remote))
 
     batches = await asyncio.gather(*tasks, return_exceptions=True)
     results: list[JobResult] = []
@@ -304,7 +400,7 @@ async def search_jobs(query: str = "", location: str = "", remote: Optional[bool
         if isinstance(batch, Exception):
             continue
         for job in batch:
-            if job.id in seen:
+            if job.id in seen or not _matches_region(job, region):
                 continue
             seen.add(job.id)
             results.append(job)
@@ -349,5 +445,5 @@ async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_
         )
 
 
-def make_search_cache_key(query: str, location: str, remote: Optional[bool], page: int, per_page: int) -> str:
-    return _search_cache_key({"q": query, "location": location, "remote": remote, "page": page, "per_page": per_page})
+def make_search_cache_key(query: str, location: str, remote: Optional[bool], page: int, per_page: int, region: str = "") -> str:
+    return _search_cache_key({"q": query, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})

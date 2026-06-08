@@ -14,14 +14,25 @@ import GuestCVEditorPage from "./pages/cv/GuestCVEditorPage";
 import PublicCVPage from "./pages/public/PublicCVPage";
 import PublicProfilePage from "./pages/public/PublicProfilePage";
 import PublicFeedPage from "./pages/public/PublicFeedPage";
+import CompanyPublicPage from "./pages/public/CompanyPublicPage";
 import AccountPage from "./pages/dashboard/AccountPage";
 import JobBoardPage from "./pages/jobs/JobBoardPage";
 import JobDetailPage from "./pages/jobs/JobDetailPage";
 import PublicJobsPage from "./pages/jobs/PublicJobsPage";
+import AxiomJobBoardPage from "./pages/jobs/AxiomJobBoardPage";
+import AxiomJobDetailPage from "./pages/jobs/AxiomJobDetailPage";
+import CreateJobPage from "./pages/jobs/CreateJobPage";
+import EditJobPage from "./pages/jobs/EditJobPage";
 import ApplicationTrackerPage from "./pages/jobs/ApplicationTrackerPage";
 import InterviewStartPage from "./pages/interview/InterviewStartPage";
 import InterviewSessionPage from "./pages/interview/InterviewSessionPage";
 import InterviewReviewPage from "./pages/interview/InterviewReviewPage";
+import LiveInterviewLobbyPage from "./pages/interview/LiveInterviewLobbyPage";
+import LiveInterviewPage from "./pages/interview/LiveInterviewPage";
+import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
+import RecruiterRegisterPage from "./pages/recruiter/RecruiterRegisterPage";
+import RecruiterApplicationsPage from "./pages/recruiter/RecruiterApplicationsPage";
+import CompanyProfilePage from "./pages/recruiter/CompanyProfilePage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -67,11 +78,14 @@ export default function App() {
         <Route path="/forgot" element={<ForgotPage />} />
         <Route path="/guest" element={<GuestCVEditorPage />} />
         <Route path="/jobs/explore" element={<PublicJobsPage />} />
+        <Route path="/jobs/axiom" element={<AxiomJobBoardPage />} />
+        <Route path="/jobs/axiom/:id" element={<AxiomJobDetailPage />} />
         <Route path="/jobs" element={<JobBoardPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="/explore" element={<PublicFeedPage />} />
         <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
         <Route path="/profile/:username" element={<PublicProfilePage />} />
+        <Route path="/company/:slug" element={<CompanyPublicPage />} />
 
         {/* Print route — bare page, no layout, no auth required for public CVs */}
         <Route path="/cv/print/:id" element={<CVPrintPage />} />
@@ -89,9 +103,17 @@ export default function App() {
           <Route path="cv/new" element={<CVNewPage />} />
           <Route path="cv/:id" element={<CVEditorPage />} />
           <Route path="tracker" element={<ApplicationTrackerPage />} />
+          <Route path="recruiter" element={<RecruiterDashboard />} />
+          <Route path="recruiter/register" element={<RecruiterRegisterPage />} />
+          <Route path="recruiter/profile" element={<CompanyProfilePage />} />
+          <Route path="recruiter/applications" element={<RecruiterApplicationsPage />} />
+          <Route path="jobs/axiom/new" element={<CreateJobPage />} />
+          <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
           <Route path="interview" element={<InterviewStartPage />} />
           <Route path="interview/:sessionId" element={<InterviewSessionPage />} />
           <Route path="interview/:sessionId/review" element={<InterviewReviewPage />} />
+          <Route path="interview/live/:sessionId/lobby" element={<LiveInterviewLobbyPage />} />
+          <Route path="interview/live/:sessionId" element={<LiveInterviewPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
 
