@@ -62,8 +62,16 @@ async def get_public_profile(username: str, db=Depends(get_db)):
         raise HTTPException(404, "User not found")
     cursor = db.cvs.find({"owner_id": str(user["_id"]), "is_public": True}).sort("updated_at", -1)
     cvs = await cursor.to_list(50)
+    company = await db.company_profiles.find_one({"user_id": str(user["_id"])})
     return {
         "username": user["username"],
+        "role": user.get("role", "user"),
+        "recruiter": {
+            "company_name": (company or {}).get("company_name", ""),
+            "company_slug": (company or {}).get("company_slug", ""),
+            "verified": bool((company or {}).get("verified", False)),
+            "is_approved": bool((company or {}).get("is_approved", False)),
+        } if company else None,
         "cvs": [
             {
                 "id": str(c["_id"]),

@@ -241,6 +241,7 @@ export const axiomJobsApi = {
   update: (id: string, body: object) => api.put(`/axiom-jobs/${id}`, body).then((r) => r.data as import("../types").AxiomJob),
   close: (id: string) => api.delete(`/axiom-jobs/${id}`).then((r) => r.data),
   share: (id: string) => api.post(`/axiom-jobs/${id}/share`).then((r) => r.data),
+  meta: (id: string) => api.get(`/axiom-jobs/${id}/meta`).then((r) => r.data),
 };
 
 export const axiomApplicationsApi = {
@@ -251,8 +252,13 @@ export const axiomApplicationsApi = {
 };
 
 export const liveInterviewApi = {
+  list: () => api.get("/interview-live").then((r) => r.data as import("../types").LiveInterviewSession[]),
   schedule: (body: object) => api.post("/interview-live/schedule", body).then((r) => r.data as import("../types").LiveInterviewSession),
   get: (id: string) => api.get(`/interview-live/${id}`).then((r) => r.data as import("../types").LiveInterviewSession),
+  nextQuestion: (id: string) => api.post(`/interview-live/${id}/next-question`).then((r) => r.data as import("../types").LiveInterviewSession),
+  answer: (id: string, body: object) => api.post(`/interview-live/${id}/answer`, body).then((r) => r.data as import("../types").LiveInterviewSession),
+  followUp: (id: string, body: object) => api.post(`/interview-live/${id}/follow-up`, body).then((r) => r.data as import("../types").LiveInterviewSession),
+  summarize: (id: string) => api.post(`/interview-live/${id}/summarize`).then((r) => r.data as import("../types").LiveInterviewSession),
   feedback: (id: string, body: object) => api.put(`/interview-live/${id}/feedback`, body).then((r) => r.data as import("../types").LiveInterviewSession),
 };
 

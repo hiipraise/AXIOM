@@ -42,6 +42,7 @@ import AdminRatings from "./pages/admin/AdminRatings";
 import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AppLoading from "./components/AppLoading";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -104,16 +105,34 @@ export default function App() {
           <Route path="cv/:id" element={<CVEditorPage />} />
           <Route path="tracker" element={<ApplicationTrackerPage />} />
           <Route path="recruiter" element={<RecruiterDashboard />} />
-          <Route path="recruiter/register" element={<RecruiterRegisterPage />} />
+          <Route
+            path="recruiter/register"
+            element={<RecruiterRegisterPage />}
+          />
           <Route path="recruiter/profile" element={<CompanyProfilePage />} />
-          <Route path="recruiter/applications" element={<RecruiterApplicationsPage />} />
+          <Route
+            path="recruiter/applications"
+            element={<RecruiterApplicationsPage />}
+          />
           <Route path="jobs/axiom/new" element={<CreateJobPage />} />
           <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
           <Route path="interview" element={<InterviewStartPage />} />
-          <Route path="interview/:sessionId" element={<InterviewSessionPage />} />
-          <Route path="interview/:sessionId/review" element={<InterviewReviewPage />} />
-          <Route path="interview/live/:sessionId/lobby" element={<LiveInterviewLobbyPage />} />
-          <Route path="interview/live/:sessionId" element={<LiveInterviewPage />} />
+          <Route
+            path="interview/:sessionId"
+            element={<InterviewSessionPage />}
+          />
+          <Route
+            path="interview/:sessionId/review"
+            element={<InterviewReviewPage />}
+          />
+          <Route
+            path="interview/live/:sessionId/lobby"
+            element={<LiveInterviewLobbyPage />}
+          />
+          <Route
+            path="interview/live/:sessionId"
+            element={<LiveInterviewPage />}
+          />
           <Route path="account" element={<AccountPage />} />
         </Route>
 
@@ -134,7 +153,7 @@ export default function App() {
           <Route path="announcements" element={<AdminAnnouncements />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
 
       <FeedbackWidget />

@@ -1,13 +1,23 @@
 User-agent: *
 Allow: /
 
+# Public job board and explore pages — indexable
+Allow: /jobs/explore
+Allow: /jobs/axiom
+Allow: /explore
+Allow: /cv/
+Allow: /profile/
+Allow: /company/
+
 # Keep private/authenticated app areas out of search indexes
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /account
 Disallow: /cv/new
 Disallow: /cv/print
-Disallow: /cv/
+Disallow: /trackercker
+Disallow: /recruiter
+Disallow: /interview
 Disallow: /api/
 
 # Auth/utility pages are crawlable but generally not useful in search results

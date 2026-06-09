@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app.database import get_db
 from app.middleware.auth import get_current_user, get_optional_user
@@ -162,3 +163,38 @@ async def share_axiom_job(job_id: str, db=Depends(get_db)):
         "description": doc.get("description", "")[:180],
         "logo_url": doc.get("company_logo_url", ""),
     }
+
+
+@router.get("/{job_id}/meta")
+async def axiom_job_meta(job_id: str, db=Depends(get_db)):
+    doc = await db.axiom_jobs.find_one({"_id": _oid(job_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="AXIOM job not found")
+    description = " ".join((doc.get("description", "") or "").split())[:220]
+    return {
+        "title": doc.get("title", ""),
+        "description": description,
+        "company": doc.get("company_name", ""),
+        "image": doc.get("company_logo_url", ""),
+        "url": f"/jobs/axiom/{job_id}",
+    }
+
+
+@router.get("/{job_id}/preview", response_class=HTMLResponse)
+async def axiom_job_preview(job_id: str, db=Depends(get_db)):
+    meta = await axiom_job_meta(job_id, db)
+    title = f"{meta['title']} at {meta['company']}".strip()
+    description = meta["description"]
+    image = meta["image"]
+    url = meta["url"]
+    return f"""<!doctype html>
+<html><head>
+<title>{title}</title>
+<meta property="og:title" content="{title}" />
+<meta property="og:description" content="{description}" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="{url}" />
+<meta property="og:image" content="{image}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta http-equiv="refresh" content="0; url={url}" />
+</head><body><a href="{url}">{title}</a></body></html>"""

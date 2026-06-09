@@ -2,10 +2,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAnnouncement } from '../../context/announcement'
 import { publicApi } from '../../api'
-import { FileText, ExternalLink, ArrowLeft } from 'lucide-react'
+import { BadgeCheck, Building2, FileText, ExternalLink, ArrowLeft } from 'lucide-react'
 
 interface PublicProfile {
   username: string
+  role?: string
+  recruiter?: { company_name: string; company_slug: string; verified: boolean; is_approved: boolean } | null
   cvs: { id: string; title: string; slug: string; updated_at: string }[]
 }
 
@@ -52,6 +54,12 @@ export default function PublicProfilePage() {
             {data.username.charAt(0).toUpperCase()}
           </div>
           <h1 className="font-display font-bold text-xl text-ink">@{data.username}</h1>
+          {data.recruiter?.is_approved && (
+            <Link to={`/company/${data.recruiter.company_slug}`} className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              {data.recruiter.verified ? <BadgeCheck size={13} /> : <Building2 size={13} />}
+              {data.recruiter.verified ? "Verified recruiter" : "Recruiter"} · {data.recruiter.company_name}
+            </Link>
+          )}
           <p className="text-xs text-ink-muted mt-1">{data.cvs.length} public {data.cvs.length === 1 ? 'CV' : 'CVs'}</p>
         </div>
 

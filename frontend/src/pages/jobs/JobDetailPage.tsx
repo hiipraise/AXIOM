@@ -98,7 +98,7 @@ export default function JobDetailPage() {
     enabled: !!user,
     staleTime: 1000 * 60 * 2,
   });
-  
+
   const selectedCv = useMemo(
     () => cvs.find((cv) => cv.id === selectedCvId) || cvs[0],
     [cvs, selectedCvId],
@@ -168,8 +168,7 @@ export default function JobDetailPage() {
     onError: () => toast.error("Could not tailor CV"),
   });
 
-  if (isLoading)
-    return <JobDetailSkeleton />;
+  if (isLoading) return <JobDetailSkeleton />;
   if (!job)
     return (
       <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">

@@ -394,6 +394,11 @@ class LiveInterviewSession(BaseModel):
     ended_at: Optional[datetime] = None
     recording_consent: bool = False
     transcript: List[dict] = Field(default_factory=list)
+    question_queue: List[str] = Field(default_factory=list)
+    current_question: str = ""
+    employer_question: str = ""
+    employer_question_updated_at: Optional[datetime] = None
+    ai_summary: str = ""
     employer_notes: str = ""
     employer_decision: Optional[str] = None
     created_at: datetime

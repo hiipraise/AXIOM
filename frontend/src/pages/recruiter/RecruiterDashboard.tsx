@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { Briefcase, FileText, Plus, Trash2 } from "lucide-react";
+import { Briefcase, CalendarClock, FileText, Plus, Star, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, axiomJobsApi, recruiterApi } from "../../api";
 
@@ -96,6 +96,8 @@ export default function RecruiterDashboard() {
 
   const activeJobs = (jobs.data || []).filter((job) => job.is_active);
   const inactiveJobs = (jobs.data || []).filter((job) => !job.is_active);
+  const shortlisted = (applications.data || []).filter((app) => app.status === "shortlisted");
+  const upcomingInterviews = (applications.data || []).filter((app) => app.status === "interview_scheduled");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -194,6 +196,33 @@ export default function RecruiterDashboard() {
           )}
         </div>
       </section>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <section className="card">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-bold text-ink"><CalendarClock size={18} /> Upcoming interviews</h2>
+          <div className="divide-y divide-ash-border">
+            {upcomingInterviews.slice(0, 5).map((app) => (
+              <Link key={app.id} to="/recruiter/applications" className="block py-3 hover:bg-ash/40">
+                <p className="font-medium text-ink">{app.job?.title || "AXIOM role"}</p>
+                <p className="text-xs text-ink-muted">Candidate {app.candidate_id}</p>
+              </Link>
+            ))}
+            {upcomingInterviews.length === 0 && <p className="py-6 text-center text-sm text-ink-muted">No scheduled interviews yet</p>}
+          </div>
+        </section>
+        <section className="card">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-bold text-ink"><Star size={18} /> Shortlisted candidates</h2>
+          <div className="divide-y divide-ash-border">
+            {shortlisted.slice(0, 5).map((app) => (
+              <Link key={app.id} to="/recruiter/applications" className="block py-3 hover:bg-ash/40">
+                <p className="font-medium text-ink">{app.job?.title || "AXIOM role"}</p>
+                <p className="text-xs text-ink-muted">Ready for interview scheduling</p>
+              </Link>
+            ))}
+            {shortlisted.length === 0 && <p className="py-6 text-center text-sm text-ink-muted">No shortlisted candidates yet</p>}
+          </div>
+        </section>
+      </div>
 
       {inactiveJobs.length > 0 && (
         <section className="mt-6 card bg-ash/40">

@@ -324,6 +324,11 @@ export interface LiveInterviewSession {
   ended_at?: string | null;
   recording_consent: boolean;
   transcript: Array<Record<string, unknown>>;
+  question_queue: string[];
+  current_question: string;
+  employer_question: string;
+  employer_question_updated_at?: string | null;
+  ai_summary: string;
   employer_notes: string;
   employer_decision?: string | null;
   created_at: string;

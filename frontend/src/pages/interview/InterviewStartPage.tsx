@@ -1,9 +1,9 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Brain, Clock, MessageSquare, Play, Star } from "lucide-react";
+import { Brain, Clock, MessageSquare, Play, Star, Video } from "lucide-react";
 import toast from "react-hot-toast";
-import { cvApi, interviewApi, jobsApi } from "../../api";
+import { cvApi, interviewApi, jobsApi, liveInterviewApi } from "../../api";
 import { ApplicationEntry, CV, InterviewMode, InterviewSessionListItem } from "../../types";
 
 const MODES: Array<{ value: InterviewMode; label: string; description: string }> = [
@@ -19,11 +19,13 @@ export default function InterviewStartPage() {
   const [jobId, setJobId] = useState(searchParams.get("job") || "");
   const [jobDescription, setJobDescription] = useState("");
   const [mode, setMode] = useState<InterviewMode>("behavioural");
+  const [sessionKind, setSessionKind] = useState<"prep" | "live">("prep");
   const [useStar, setUseStar] = useState(true);
 
   const { data: cvs = [] } = useQuery<CV[]>({ queryKey: ["cvs"], queryFn: cvApi.list });
   const { data: applications = [] } = useQuery<ApplicationEntry[]>({ queryKey: ["applications"], queryFn: jobsApi.applications });
   const { data: sessions = [] } = useQuery<InterviewSessionListItem[]>({ queryKey: ["interview-sessions"], queryFn: interviewApi.sessions });
+  const { data: liveSessions = [] } = useQuery({ queryKey: ["live-interviews"], queryFn: liveInterviewApi.list });
 
   const selectedApplication = useMemo(
     () => applications.find((app) => app.job_id === jobId),
@@ -45,6 +47,12 @@ export default function InterviewStartPage() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (sessionKind === "live") {
+      const next = liveSessions[0];
+      if (!next) return toast.error("No scheduled live interview found");
+      navigate(`/interview/live/${next.id}`);
+      return;
+    }
     if (!cvId) return toast.error("Choose the CV you submitted");
     if (!jobId && !jobDescription.trim()) return toast.error("Pick a tracked role or paste a job description");
     startMutation.mutate();
@@ -113,6 +121,11 @@ export default function InterviewStartPage() {
 
           <section className="card space-y-5">
             <div>
+              <label className="label">Session type</label>
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                <button type="button" className={sessionKind === "prep" ? "btn-primary justify-center" : "btn-secondary justify-center"} onClick={() => setSessionKind("prep")}><Brain size={15} /> Prep</button>
+                <button type="button" className={sessionKind === "live" ? "btn-primary justify-center" : "btn-secondary justify-center"} onClick={() => setSessionKind("live")}><Video size={15} /> Live</button>
+              </div>
               <label className="label">Session mode</label>
               <div className="grid gap-3">
                 {MODES.map((option) => (
@@ -134,8 +147,22 @@ export default function InterviewStartPage() {
             </label>
 
             <button className="btn-primary w-full justify-center" disabled={startMutation.isPending}>
-              <Play size={16} /> {startMutation.isPending ? "Starting..." : "Start mock interview"}
+              <Play size={16} /> {sessionKind === "live" ? "Join live interview" : startMutation.isPending ? "Starting..." : "Start mock interview"}
             </button>
+
+            {sessionKind === "live" && (
+              <div className="rounded-2xl border border-ash-border p-4">
+                <p className="mb-2 text-sm font-medium text-ink">Scheduled live sessions</p>
+                <div className="space-y-2">
+                  {liveSessions.slice(0, 3).map((session) => (
+                    <Link key={session.id} to={`/interview/live/${session.id}`} className="block rounded-lg bg-ash p-3 text-sm text-ink hover:bg-ash-dark">
+                      {session.session_type === "live_ai" ? "AI assisted" : "Manual"} · {session.scheduled_at ? new Date(session.scheduled_at).toLocaleString() : "Ready now"}
+                    </Link>
+                  ))}
+                  {liveSessions.length === 0 && <p className="text-sm text-ink-muted">Scheduled AXIOM application interviews will appear here.</p>}
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl bg-ash p-4 text-sm text-ink-muted">
               <p className="mb-2 flex items-center gap-2 font-medium text-ink"><MessageSquare size={15} /> What you’ll get</p>

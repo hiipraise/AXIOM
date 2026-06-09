@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Share2, Send } from "lucide-react";
@@ -54,6 +54,25 @@ export default function AxiomJobDetailPage() {
   const { data: job, isLoading } = useQuery({ queryKey: ["axiom-job", id], queryFn: () => axiomJobsApi.get(id), enabled: !!id });
   const { data: cvs = [] } = useQuery<CV[]>({ queryKey: ["cvs"], queryFn: cvApi.list, enabled: !!user });
   const description = useMemo(() => (job?.description || "").replace(/<[^>]+>/g, "\n").replace(/\n{3,}/g, "\n\n"), [job]);
+  useEffect(() => {
+    if (!job) return;
+    const title = `${job.title} at ${job.company_name} | AXIOM Jobs`;
+    document.title = title;
+    const setMeta = (property: string, content: string) => {
+      let tag = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute("property", property);
+        document.head.appendChild(tag);
+      }
+      tag.content = content;
+    };
+    setMeta("og:title", title);
+    setMeta("og:description", description.slice(0, 220));
+    setMeta("og:type", "website");
+    setMeta("og:url", window.location.href);
+    if (job.company_logo_url) setMeta("og:image", job.company_logo_url);
+  }, [description, job]);
 
   if (isLoading) return <AxiomJobDetailSkeleton />;
   if (!job) return <div className="p-8">Job not found.</div>;
