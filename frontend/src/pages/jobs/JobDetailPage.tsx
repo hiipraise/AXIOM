@@ -14,7 +14,7 @@ import toast from "react-hot-toast";
 import { cvApi, jobsApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import CoverLetterModal from "../../components/jobs/CoverLetterModal";
-import { JobResult, JobMatchResult, CV } from "../../types";
+import { JobResult, JobMatchResult, CV, ApplicationEntry } from "../../types";
 
 function stripHtml(raw: string): string {
   return raw
@@ -99,6 +99,17 @@ export default function JobDetailPage() {
     staleTime: 1000 * 60 * 2,
   });
 
+  const { data: savedJobs = [] } = useQuery<ApplicationEntry[]>({
+    queryKey: ["saved-jobs"],
+    queryFn: jobsApi.savedList,
+    enabled: !!user,
+  });
+
+  const isSaved = useMemo(
+    () => savedJobs.some((savedJob) => savedJob.job_id === id),
+    [savedJobs, id],
+  );
+
   const selectedCv = useMemo(
     () => cvs.find((cv) => cv.id === selectedCvId) || cvs[0],
     [cvs, selectedCvId],
@@ -129,9 +140,12 @@ export default function JobDetailPage() {
     onError: () => toast.error("Could not generate cover letter"),
   });
 
-  const saveMutation = useMutation({
-    mutationFn: () => jobsApi.save(id),
-    onSuccess: () => toast.success("Job saved"),
+  const toggleSaveMutation = useMutation({
+    mutationFn: () => (isSaved ? jobsApi.unsave(id) : jobsApi.save(id)),
+    onSuccess: () => {
+      toast.success(isSaved ? "Removed from saved" : "Job saved");
+      qc.invalidateQueries({ queryKey: ["saved-jobs"] });
+    },
   });
 
   const trackMutation = useMutation({
@@ -360,10 +374,11 @@ export default function JobDetailPage() {
                   <div className="border-t border-ash-border pt-3 space-y-2">
                     <button
                       className="btn-ghost w-full justify-center text-xs"
-                      onClick={() => saveMutation.mutate()}
-                      disabled={saveMutation.isPending}
+                      onClick={() => toggleSaveMutation.mutate()}
+                      disabled={toggleSaveMutation.isPending}
                     >
-                      <Save size={13} /> Save job
+                      <Save size={13} className={isSaved ? "fill-current text-indigo-600" : ""} />
+                      {isSaved ? "Unsave" : "Save job"}
                     </button>
                     <button
                       className="btn-primary w-full justify-center"
