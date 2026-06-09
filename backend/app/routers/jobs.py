@@ -68,36 +68,36 @@ async def search_jobs(
 
     jobs = await job_service.search_jobs(q, location, remote, region)
     axiom_jobs = []
-    if region.lower() in ("", "nigeria", "africa"):
-        axiom_filter = {"is_active": True, "is_approved": True}
-        if q:
-            axiom_filter["$or"] = [
-                {"title": {"$regex": q, "$options": "i"}},
-                {"description": {"$regex": q, "$options": "i"}},
-                {"skills_required": {"$regex": q, "$options": "i"}},
-            ]
-        cursor = db.axiom_jobs.find(axiom_filter).sort("created_at", -1).limit(50)
-        async for item in cursor:
-            if location and location.lower() not in item.get("location", "").lower() and location.lower() not in item.get("description", "").lower():
-                continue
-            if remote is True and not item.get("remote", False):
-                continue
-            axiom_jobs.append(JobResult(
-                id=f"axiom:{str(item['_id'])}",
-                title=item.get("title", ""),
-                company=item.get("company_name", "AXIOM employer"),
-                location=item.get("location", ""),
-                remote=bool(item.get("remote", False)),
-                salary_min=item.get("salary_min"),
-                salary_max=item.get("salary_max"),
-                currency=item.get("currency", ""),
-                description=item.get("description", ""),
-                apply_url=f"/jobs/axiom/{str(item['_id'])}",
-                posted_at=item.get("created_at"),
-                source="axiom",
-                category=item.get("job_type", ""),
-                logo_url=item.get("company_logo_url") or None,
-            ))
+    axiom_filter = {"is_active": True, "is_approved": True}
+    if q:
+        axiom_filter["$or"] = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"description": {"$regex": q, "$options": "i"}},
+            {"skills_required": {"$regex": q, "$options": "i"}},
+            {"company_name": {"$regex": q, "$options": "i"}},
+        ]
+    cursor = db.axiom_jobs.find(axiom_filter).sort("created_at", -1).limit(50)
+    async for item in cursor:
+        if location and location.lower() not in item.get("location", "").lower() and location.lower() not in item.get("description", "").lower():
+            continue
+        if remote is True and not item.get("remote", False):
+            continue
+        axiom_jobs.append(JobResult(
+            id=f"axiom:{str(item['_id'])}",
+            title=item.get("title", ""),
+            company=item.get("company_name", "AXIOM employer"),
+            location=item.get("location", ""),
+            remote=bool(item.get("remote", False)),
+            salary_min=item.get("salary_min"),
+            salary_max=item.get("salary_max"),
+            currency=item.get("currency", ""),
+            description=item.get("description", ""),
+            apply_url=f"/jobs/axiom/{str(item['_id'])}",
+            posted_at=item.get("created_at"),
+            source="axiom",
+            category=item.get("job_type", ""),
+            logo_url=item.get("company_logo_url") or None,
+        ))
     jobs = axiom_jobs + jobs
     await job_service.cache_search_results(db, cache_key, jobs, {"q": q, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})
     return JobSearchResponse(items=jobs, total=len(jobs), page=page, per_page=per_page, cached=False)
@@ -188,6 +188,8 @@ async def list_applications(current_user=Depends(get_current_user), db=Depends(g
 
 @router.post("/applications")
 async def create_application(body: ApplicationCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    if body.job_id.startswith("axiom:"):
+        raise HTTPException(status_code=400, detail="Use the AXIOM application flow for AXIOM jobs")
     job_doc = await db.job_cache.find_one({"job_id": body.job_id})
     if not job_doc:
         raise HTTPException(status_code=404, detail="Job not found")

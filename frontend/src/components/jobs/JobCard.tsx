@@ -37,6 +37,11 @@ interface JobCardProps {
 }
 
 export default function JobCard({ job, matchPercentage, saved }: JobCardProps) {
+  const detailUrl =
+    job.source === "axiom" && job.id.startsWith("axiom:")
+      ? `/jobs/axiom/${job.id.slice("axiom:".length)}`
+      : `/jobs/${encodeURIComponent(job.id)}`;
+
   return (
     <article className="card p-4 h-full flex flex-col justify-between gap-4 hover:shadow-sm transition-shadow">
       {/* ── Header ── */}
@@ -106,7 +111,7 @@ export default function JobCard({ job, matchPercentage, saved }: JobCardProps) {
           )}
         </div>
         <Link
-          to={`/jobs/${encodeURIComponent(job.id)}`}
+          to={detailUrl}
           className="btn-secondary shrink-0 !py-1.5 !px-3 !text-xs"
         >
           View <ArrowUpRight size={13} />

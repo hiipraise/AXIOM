@@ -373,6 +373,12 @@ export default function JobBoardPage() {
             </button>
           )}
 
+          {sourceMode === "axiom" && !rawJobs.some((j) => j.source === "axiom") && (
+            <p className="text-xs text-amber-600">
+              No AXIOM jobs match this search. Try broader keywords or clear the region filter.
+            </p>
+          )}
+
           <div className="ml-auto flex items-center gap-2 text-xs text-ink-muted">
             {isFetching && !isLoading && (
               <span className="animate-pulse">Updating…</span>

@@ -61,6 +61,8 @@ async def apply_to_axiom_job(body: AxiomApplicationCreate, current_user=Depends(
     job = await db.axiom_jobs.find_one({"_id": _oid(body.job_id), "is_active": True, "is_approved": True})
     if not job:
         raise HTTPException(status_code=404, detail="AXIOM job not found")
+    if job.get("employer_id") == str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="You cannot apply to your own job")
     cv = await db.cvs.find_one({"_id": _oid(body.cv_id), "owner_id": str(current_user["_id"])})
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
