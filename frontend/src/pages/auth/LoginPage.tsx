@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import toast from "react-hot-toast";
@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const requestedNext = params.get("next") || params.get("from") || "/dashboard";
+  const next = requestedNext.startsWith("/") ? requestedNext : "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +26,7 @@ export default function LoginPage() {
         toast("Please set a new password.", { icon: "🔒" });
         navigate("/account");
       } else {
-        navigate("/dashboard");
+        navigate(next);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Invalid credentials");

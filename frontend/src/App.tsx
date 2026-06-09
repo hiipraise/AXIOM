@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/auth";
 import FeedbackWidget from "./components/FeedbackWidget";
 import Layout from "./components/layout/Layout";
@@ -47,16 +47,24 @@ import NotFoundPage from "./pages/NotFoundPage";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const location = useLocation();
   if (isLoading) return <AppLoading fullScreen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const location = useLocation();
   if (isLoading) return <AppLoading fullScreen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   if (!["admin", "superadmin", "staff"].includes(user.role))
     return <Navigate to="/dashboard" replace />;
   return <>{children}</>;

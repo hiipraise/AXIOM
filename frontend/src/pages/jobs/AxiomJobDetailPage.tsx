@@ -99,7 +99,7 @@ export default function AxiomJobDetailPage() {
           <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             <div className="card">
               <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">Apply</p>
-              <button className="btn-primary mt-4 w-full justify-center" onClick={() => user ? setApplyOpen(true) : navigate("/login")}>
+              <button className="btn-primary mt-4 w-full justify-center" onClick={() => user ? setApplyOpen(true) : navigate(`/login?next=${encodeURIComponent(`/jobs/axiom/${id}`)}`)}>
                 <Send size={15} /> Apply on AXIOM
               </button>
               <button className="btn-secondary mt-2 w-full justify-center" onClick={() => setShareOpen(true)}>
