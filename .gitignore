@@ -35,5 +35,3 @@ mongo_data/
 # Logs
 *.log
 logs/
-
-AXIOM_PLATFORM_AUDIT.md
