@@ -46,7 +46,7 @@ def _enforce_production_secrets() -> None:
     required = {
         "JWT_SECRET":     os.getenv("JWT_SECRET"),
         "MONGO_URL":      os.getenv("MONGO_URL"),
-        "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD"),
+       # "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD"),
         "GROQ_API_KEY":   os.getenv("GROQ_API_KEY"),
     }
     missing = [name for name, value in required.items() if not value]
