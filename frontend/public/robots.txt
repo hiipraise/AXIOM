@@ -8,6 +8,11 @@ Allow: /explore
 Allow: /cv/
 Allow: /profile/
 Allow: /company/
+Allow: /about
+Allow: /why-axiom
+Allow: /terms
+Allow: /privacy
+Allow: /recruiter/help
 
 # Keep private/authenticated app areas out of search indexes
 Disallow: /admin
@@ -15,8 +20,10 @@ Disallow: /dashboard
 Disallow: /account
 Disallow: /cv/new
 Disallow: /cv/print
-Disallow: /trackercker
-Disallow: /recruiter
+Disallow: /tracker
+Disallow: /recruiter$
+Disallow: /recruiter/applications
+Disallow: /recruiter/profile
 Disallow: /interview
 Disallow: /api/
 
