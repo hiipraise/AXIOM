@@ -30,8 +30,18 @@ api.interceptors.response.use(
 
 export const authApi = {
   register: (data: object) =>
-    api.post("/auth/register", data).then((r) => r.data),
-  login: (data: object) => api.post("/auth/login", data).then((r) => r.data),
+    api
+      .post("/auth/register", data, {
+        headers: { "X-Return-Token": "true" },
+      })
+      .then((r) => r.data),
+
+  login: (data: object) =>
+    api
+      .post("/auth/login", data, {
+        headers: { "X-Return-Token": "true" },
+      })
+      .then((r) => r.data),
   logout: () => api.post("/auth/logout"),
   me: () => api.get("/auth/me").then((r) => r.data),
   changePassword: (data: object) =>
