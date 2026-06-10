@@ -43,8 +43,7 @@ export default function LegalPage() {
           <div>
             <h2 className="font-display text-2xl font-bold text-ink">Contact</h2>
             <p className="mt-3">
-              For privacy, support, or legal requests, contact AXIOM through the email
-              link in the footer.
+              For privacy, support, or legal requests, contact AXIOM through hello@axiomcv.site.
             </p>
           </div>
         </section>
