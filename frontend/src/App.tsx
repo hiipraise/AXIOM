@@ -104,8 +104,7 @@ export default function App() {
         <Route path="/company/:slug" element={<CompanyPublicPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/why-axiom" element={<WhyAxiomPage />} />
-        <Route path="/terms" element={<LegalPage />} />
-        <Route path="/privacy" element={<LegalPage />} />
+        <Route path="/terms-privacy" element={<LegalPage />} />
         <Route path="/recruiter/help" element={<RecruiterHelpPage />} />
 
         {/* Print route — bare page, no layout, no auth required for public CVs */}
