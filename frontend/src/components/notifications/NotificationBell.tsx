@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, BellRing } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -7,7 +8,8 @@ import { useEffect, useRef, useState } from "react";
 export default function NotificationBell() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const { data = [] } = useQuery({
     queryKey: ["notifications"],
@@ -22,44 +24,48 @@ export default function NotificationBell() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
-  // Close on outside click/touch
+  const openBell = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDropPos({
+      top: rect.bottom + 6,
+      right: window.innerWidth - rect.right,
+    });
+    setOpen(true);
+  };
+
+  // Close on outside click or scroll
   useEffect(() => {
     if (!open) return;
-    function handleOutside(e: MouseEvent | TouchEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("touchstart", handleOutside);
+    const close = () => setOpen(false);
+    const onMouse = (e: MouseEvent) => {
+      if (!triggerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onMouse);
+    window.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("resize", close, { passive: true });
     return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("touchstart", handleOutside);
+      document.removeEventListener("mousedown", onMouse);
+      window.removeEventListener("scroll", close);
+      window.removeEventListener("resize", close);
     };
   }, [open]);
 
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        className="relative p-2 text-ink-muted hover:text-ink transition-colors"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-label={open ? "Close notifications" : "Open notifications"}
-      >
-        {open ? <BellRing size={17} /> : <Bell size={17} />}
-        {!open && unread > 0 && (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-        )}
-      </button>
-
-      {open && (
+  const dropdown = open && dropPos
+    ? createPortal(
         <div
-          className="
-            absolute right-0 z-50
-            w-72 max-w-[calc(100vw-1rem)]
-            rounded-lg border border-ash-border bg-white p-3 shadow-xl
-            mt-2
-            md:mt-0 md:mb-2 md:bottom-full
-          "
+          style={{
+            position: "fixed",
+            top: dropPos.top,
+            right: dropPos.right,
+            zIndex: 9999,
+            width: 288,
+          }}
+          className="rounded-xl border border-ash-border bg-white shadow-xl p-3"
         >
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold text-ink">Notifications</p>
@@ -67,33 +73,54 @@ export default function NotificationBell() {
               className="text-xs text-ink-muted underline"
               onClick={() => readAll.mutate()}
             >
-              Mark read
+              Mark all read
             </button>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto space-y-0.5">
             {data.slice(0, 8).map((item) => (
               <Link
                 key={item.id}
                 to={item.link || "#"}
                 onClick={() => setOpen(false)}
-                className="block rounded-lg p-2 hover:bg-ash"
+                className={`block rounded-lg p-2.5 transition-colors ${
+                  item.read ? "hover:bg-ash" : "bg-ash hover:bg-ash-dark"
+                }`}
               >
-                <p className="text-sm font-medium text-ink">{item.title}</p>
+                <p className={`text-sm ${item.read ? "text-ink-muted" : "text-ink font-medium"}`}>
+                  {item.title}
+                </p>
                 {item.body && (
-                  <p className="text-xs text-ink-muted line-clamp-2">
+                  <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">
                     {item.body}
                   </p>
                 )}
               </Link>
             ))}
             {!data.length && (
-              <p className="p-3 text-center text-xs text-ink-muted">
-                No notifications
+              <p className="p-4 text-center text-xs text-ink-muted">
+                No notifications yet
               </p>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        className="relative p-2 text-ink-muted hover:text-ink transition-colors"
+        onClick={openBell}
+        aria-label={open ? "Close notifications" : "Open notifications"}
+      >
+        {open ? <BellRing size={17} /> : <Bell size={17} />}
+        {!open && unread > 0 && (
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+        )}
+      </button>
+      {dropdown}
+    </>
   );
 }
