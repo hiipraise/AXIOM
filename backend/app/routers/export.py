@@ -8,6 +8,7 @@ from app.services.html_pdf import html_to_pdf
 from app.models.schemas import CVData
 from app.config import settings
 from bson import ObjectId
+from datetime import datetime, timezone
 import io
 import re
 
@@ -20,7 +21,7 @@ def safe_filename(name: str) -> str:
 
 
 @router.post("/html-pdf")
-async def export_html_pdf(body: dict):
+async def export_html_pdf(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
     html = body.get("html", "").strip()
     if not html:
         raise HTTPException(400, "html field is required")
@@ -28,9 +29,17 @@ async def export_html_pdf(body: dict):
         raise HTTPException(413, "HTML payload too large")
     try:
         pdf_bytes = await html_to_pdf(html)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except Exception as e:
         logger.exception("html-pdf generation failed")
         raise HTTPException(500, f"PDF generation failed: {e}")
+    await db.export_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "type": "html-pdf",
+        "size_bytes": len(pdf_bytes),
+        "ts": datetime.now(timezone.utc),
+    })
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -94,9 +103,9 @@ async def export_public_pdf(username: str, slug: str, db=Depends(get_db)):
 
 
 @router.post("/pdf-preview")
-async def export_pdf_preview(body: dict):
+async def export_pdf_preview(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
     if body.get("html"):
-        return await export_html_pdf(body)
+        return await export_html_pdf(body, current_user, db)
     try:
         cv_data = CVData(**body.get("data", {}))
     except Exception as e:
@@ -120,3 +129,8 @@ async def export_pdf_preview(body: dict):
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"',
                  "Content-Length": str(len(pdf_bytes))},
     )
+
+
+@router.post("/preview", include_in_schema=False)
+async def export_preview_alias(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
+    return await export_pdf_preview(body, current_user, db)

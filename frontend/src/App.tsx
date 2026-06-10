@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/auth";
-import FeedbackWidget from "./components/FeedbackWidget";
 import Layout from "./components/layout/Layout";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -15,6 +14,10 @@ import PublicCVPage from "./pages/public/PublicCVPage";
 import PublicProfilePage from "./pages/public/PublicProfilePage";
 import PublicFeedPage from "./pages/public/PublicFeedPage";
 import CompanyPublicPage from "./pages/public/CompanyPublicPage";
+import AboutPage from "./pages/public/AboutPage";
+import WhyAxiomPage from "./pages/public/WhyAxiomPage";
+import LegalPage from "./pages/public/LegalPage";
+import RecruiterHelpPage from "./pages/public/RecruiterHelpPage";
 import AccountPage from "./pages/dashboard/AccountPage";
 import JobBoardPage from "./pages/jobs/JobBoardPage";
 import JobDetailPage from "./pages/jobs/JobDetailPage";
@@ -50,8 +53,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   if (isLoading) return <AppLoading fullScreen />;
   if (!user) {
-    const next = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?next=${next}`} replace />;
+    return (
+      <Navigate
+        to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`}
+        replace
+      />
+    );
   }
   return <>{children}</>;
 }
@@ -95,6 +102,11 @@ export default function App() {
         <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
         <Route path="/profile/:username" element={<PublicProfilePage />} />
         <Route path="/company/:slug" element={<CompanyPublicPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/why-axiom" element={<WhyAxiomPage />} />
+        <Route path="/terms" element={<LegalPage />} />
+        <Route path="/privacy" element={<LegalPage />} />
+        <Route path="/recruiter/help" element={<RecruiterHelpPage />} />
 
         {/* Print route — bare page, no layout, no auth required for public CVs */}
         <Route path="/cv/print/:id" element={<CVPrintPage />} />
@@ -163,8 +175,6 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-
-      <FeedbackWidget />
     </>
   );
 }

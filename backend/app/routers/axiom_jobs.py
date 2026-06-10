@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import datetime, timezone
 
@@ -22,6 +23,10 @@ def _oid(value: str) -> ObjectId:
     if not ObjectId.is_valid(value):
         raise HTTPException(status_code=400, detail="Invalid id")
     return ObjectId(value)
+
+
+def escape_mongo_regex(value: str) -> str:
+    return re.escape(value)
 
 
 def _job_out(doc: dict) -> AxiomJobOut:
@@ -62,11 +67,12 @@ async def _require_recruiter(current_user):
 async def list_axiom_jobs(q: str = "", region: str = "", source: str = "", mine: bool = False, current_user=Depends(get_optional_user), db=Depends(get_db)):
     query: dict = {"is_active": True, "is_approved": True}
     if q:
+        safe_q = escape_mongo_regex(q)
         query["$or"] = [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"description": {"$regex": q, "$options": "i"}},
-            {"company_name": {"$regex": q, "$options": "i"}},
-            {"skills_required": {"$regex": q, "$options": "i"}},
+            {"title": {"$regex": safe_q, "$options": "i"}},
+            {"description": {"$regex": safe_q, "$options": "i"}},
+            {"company_name": {"$regex": safe_q, "$options": "i"}},
+            {"skills_required": {"$regex": safe_q, "$options": "i"}},
         ]
     if mine:
         if not current_user:

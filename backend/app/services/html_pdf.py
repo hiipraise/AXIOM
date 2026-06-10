@@ -14,9 +14,29 @@ import tempfile
 import os
 import json
 import base64
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pw_pdf")
+
+_DISALLOWED_HTML_PATTERNS = [
+    r"<\s*script\b",
+    r"<\s*iframe\b",
+    r"<\s*object\b",
+    r"<\s*embed\b",
+    r"<\s*link\b[^>]+href\s*=\s*['\"]https?://",
+    r"\b(?:src|href|data)\s*=\s*['\"]\s*(?:https?:|file:|ftp:|//)",
+    r"javascript\s*:",
+    r"@import\s+url\(\s*['\"]?\s*(?:https?:|//)",
+    r"url\(\s*['\"]?\s*(?:https?:|file:|//)",
+]
+
+
+def sanitize_html(html: str) -> str:
+    for pattern in _DISALLOWED_HTML_PATTERNS:
+        if re.search(pattern, html, re.IGNORECASE):
+            raise ValueError("HTML contains external or executable content that cannot be rendered")
+    return html
 
 # The worker script — written to a temp file and executed as a subprocess
 _WORKER_SCRIPT = r"""
@@ -76,5 +96,6 @@ def _run_in_subprocess(html: str) -> bytes:
 
 async def html_to_pdf(html: str) -> bytes:
     """Async entry point — offloads blocking subprocess to thread pool."""
+    html = sanitize_html(html)
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(_executor, _run_in_subprocess, html)

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { FileSignature, Send, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, jobsApi } from "../../api";
@@ -25,7 +26,10 @@ export default function ApplyModal({ open, job, cvs, onClose }: ApplyModalProps)
       await qc.invalidateQueries({ queryKey: ["axiom-applications"] });
       onClose();
     },
-    onError: () => toast.error("Could not submit application"),
+    onError: (error) => {
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
+      toast.error(typeof detail === "string" ? detail : "Could not submit application");
+    },
   });
 
   const coverMutation = useMutation({

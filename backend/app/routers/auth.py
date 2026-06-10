@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from app.database import get_db
+from app.limiter import limiter
 from app.middleware.auth import get_current_user
 from app.services.auth_service import hash_password, verify_password, create_access_token
 from app.models.schemas import UserCreate, UserLogin, PasswordChange, RecoverAccount
@@ -9,9 +10,13 @@ import os, re
 
 router = APIRouter()
 
-COOKIE_NAME    = "axiom_token"
-COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60
-IS_PROD        = os.getenv("ENV", "development").lower() == "production"
+COOKIE_NAME      = "axiom_token"
+COOKIE_MAX_AGE   = settings.jwt_expire_minutes * 60
+IS_PROD          = os.getenv("ENV", "development").lower() == "production"
+
+# Mobile clients send this header to receive the token in the response body.
+# Browser clients omit it — the HttpOnly cookie is their only transport.
+_BEARER_REQUEST_HEADER = "X-Return-Token"
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
@@ -44,8 +49,23 @@ def serialize_user(u: dict) -> dict:
     }
 
 
+def _auth_response(request: Request, user: dict, token: str) -> dict:
+    """Build the login/register response body.
+
+    The token is included only when the caller sends `X-Return-Token: true`,
+    signalling a mobile / non-cookie client. Browser clients rely solely on
+    the HttpOnly cookie set before this is called and never see the raw JWT.
+    """
+    wants_bearer = request.headers.get(_BEARER_REQUEST_HEADER, "").lower() == "true"
+    payload: dict = {"user": serialize_user(user)}
+    if wants_bearer:
+        payload["token"] = token
+    return payload
+
+
 @router.post("/register")
-async def register(body: UserCreate, response: Response, db=Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, body: UserCreate, response: Response, db=Depends(get_db)):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", body.username):
         raise HTTPException(400, "Username may only contain letters, numbers, underscores, and hyphens")
     if await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}}):
@@ -54,24 +74,26 @@ async def register(body: UserCreate, response: Response, db=Depends(get_db)):
         raise HTTPException(400, "Email already registered")
 
     user_doc = {
-        "username": body.username, "email": body.email,
-        "password_hash": hash_password(body.password),
-        "role": "user", "must_change_password": False,
-        "created_at": datetime.now(timezone.utc),
-        "secret_question": body.secret_question,
+        "username":           body.username,
+        "email":              body.email,
+        "password_hash":      hash_password(body.password),
+        "role":               "user",
+        "must_change_password": False,
+        "created_at":         datetime.now(timezone.utc),
+        "secret_question":    body.secret_question,
         "secret_answer_hash": hash_password(body.secret_answer) if body.secret_answer else None,
-        "is_active": True,
+        "is_active":          True,
     }
     result = await db.users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
     token = create_access_token({"sub": str(result.inserted_id)})
     set_auth_cookie(response, token)
-    # Return token in body — mobile Bearer fallback
-    return {"user": serialize_user(user_doc), "token": token}
+    return _auth_response(request, user_doc, token)
 
 
 @router.post("/login")
-async def login(body: UserLogin, response: Response, db=Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: UserLogin, response: Response, db=Depends(get_db)):
     user = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Invalid credentials")
@@ -79,8 +101,7 @@ async def login(body: UserLogin, response: Response, db=Depends(get_db)):
         raise HTTPException(403, "Account deactivated")
     token = create_access_token({"sub": str(user["_id"])})
     set_auth_cookie(response, token)
-    # Return token in body — mobile Bearer fallback
-    return {"user": serialize_user(user), "token": token}
+    return _auth_response(request, user, token)
 
 
 @router.post("/logout")
@@ -119,7 +140,8 @@ async def update_profile(body: dict, current_user=Depends(get_current_user), db=
 
 
 @router.post("/forgot-username")
-async def forgot_username(body: dict, db=Depends(get_db)):
+@limiter.limit("5/minute")
+async def forgot_username(request: Request, body: dict, db=Depends(get_db)):
     email = body.get("email")
     if not email:
         raise HTTPException(400, "Email required")
@@ -130,7 +152,8 @@ async def forgot_username(body: dict, db=Depends(get_db)):
 
 
 @router.post("/recover-account")
-async def recover_account(body: RecoverAccount, db=Depends(get_db)):
+@limiter.limit("5/minute")
+async def recover_account(request: Request, body: RecoverAccount, db=Depends(get_db)):
     user = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if not user:
         raise HTTPException(404, "User not found")
@@ -145,12 +168,26 @@ async def recover_account(body: RecoverAccount, db=Depends(get_db)):
 @router.delete("/delete-account")
 async def delete_account(response: Response, current_user=Depends(get_current_user), db=Depends(get_db)):
     user_id = current_user["_id"]
-    cvs     = await db.cvs.find({"owner_id": str(user_id)}).to_list(None)
-    cv_ids  = [str(c["_id"]) for c in cvs]
+    uid_str = str(user_id)
+
+    # CV history must be deleted before CVs (references cv_id)
+    cvs    = await db.cvs.find({"owner_id": uid_str}, {"_id": 1}).to_list(None)
+    cv_ids = [str(c["_id"]) for c in cvs]
     if cv_ids:
         await db.cv_history.delete_many({"cv_id": {"$in": cv_ids}})
-    await db.cvs.delete_many({"owner_id": str(user_id)})
-    await db.ratings.delete_many({"owner_id": str(user_id)})
+    await db.cvs.delete_many({"owner_id": uid_str})
+
+    # All other user-scoped collections
+    await db.saved_jobs.delete_many({"user_id": uid_str})
+    await db.applications.delete_many({"user_id": uid_str})
+    await db.axiom_applications.delete_many({"candidate_id": uid_str})
+    await db.notifications.delete_many({"user_id": uid_str})
+    await db.ratings.delete_many({"owner_id": uid_str})
+    await db.interview_sessions.delete_many({"user_id": uid_str})
+    await db.interview_messages.delete_many({"user_id": uid_str})
+    await db.feedback.delete_many({"user_id": uid_str})
+    await db.page_events.delete_many({"user_id": uid_str})
+
     await db.users.delete_one({"_id": user_id})
     clear_auth_cookie(response)
     return {"message": "Account and all data permanently deleted"}

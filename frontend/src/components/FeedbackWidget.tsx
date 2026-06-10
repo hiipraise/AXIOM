@@ -114,11 +114,11 @@ function TypewriterCallout({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
-export default function FeedbackWidget() {
+export default function FeedbackWidget({ inline = false }: { inline?: boolean }) {
   const location = useLocation()
   const { user } = useAuthStore()
 
-  const [callout, setCallout]       = useState(true)
+  const [callout, setCallout]       = useState(!inline)
   const [panel, setPanel]           = useState(false)
   const [step, setStep]             = useState<Step>('type')
   const [type, setType]             = useState('')
@@ -158,7 +158,7 @@ export default function FeedbackWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
+    <div className={inline ? "relative flex flex-col items-end gap-1.5" : "fixed bottom-5 right-5 z-50 flex flex-col items-end gap-1.5 pointer-events-none"}>
 
       <AnimatePresence>
         {callout && !panel && (
@@ -173,7 +173,7 @@ export default function FeedbackWidget() {
             animate={{ opacity: 1, y: 0,  scale: 1 }}
             exit={{   opacity: 0, y: 10,  scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-            className="pointer-events-auto mb-1 w-72 bg-white rounded-2xl border border-ash-border shadow-2xl overflow-hidden"
+            className={inline ? "absolute bottom-full right-0 mb-2 w-72 bg-white rounded-2xl border border-ash-border shadow-2xl overflow-hidden" : "pointer-events-auto mb-1 w-72 bg-white rounded-2xl border border-ash-border shadow-2xl overflow-hidden"}
           >
             <div className="flex items-center justify-between px-4 py-3 bg-ink">
               <div className="flex items-center gap-2">
@@ -266,6 +266,7 @@ export default function FeedbackWidget() {
         whileTap={{ scale: 0.90 }}
         whileHover={{ scale: 1.1 }}
         className="pointer-events-auto w-10 h-10 rounded-full bg-ink text-white flex items-center justify-center shadow-lg hover:bg-ink-light transition-colors"
+        aria-label="Send feedback"
       >
         <Star size={16} className={panel ? 'fill-white' : ''} />
       </motion.button>

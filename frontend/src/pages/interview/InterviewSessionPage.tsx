@@ -74,6 +74,9 @@ export default function InterviewSessionPage() {
   };
 
   if (isLoading || !session) return <div className="p-8">Loading interview...</div>;
+  const progressPct = session.question_count
+    ? Math.round((session.answered_count / session.question_count) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-ash">
@@ -87,6 +90,17 @@ export default function InterviewSessionPage() {
               <p className="mt-1 text-sm text-ink-muted">{session.company || "Pasted role"} · {session.mode} · {session.answered_count}/{session.question_count} answered</p>
             </div>
             {session.status === "completed" && <Link className="btn-primary" to={`/interview/${session.id}/review`}><CheckCircle2 size={15} /> Review</Link>}
+          </div>
+          <div className="mt-5">
+            <div className="h-1.5 overflow-hidden rounded-full bg-ash">
+              <div
+                className="h-full rounded-full bg-ink transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-ink-muted">
+              {session.answered_count}/{session.question_count} questions answered
+            </p>
           </div>
         </div>
 

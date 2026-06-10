@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,6 +25,16 @@ def _oid(value: str) -> ObjectId:
     return ObjectId(value)
 
 
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    return value
+
+
 def _app_out(doc: dict, job: AxiomJobOut | None = None) -> AxiomApplicationOut:
     return AxiomApplicationOut(
         id=str(doc["_id"]),
@@ -31,7 +42,7 @@ def _app_out(doc: dict, job: AxiomJobOut | None = None) -> AxiomApplicationOut:
         candidate_id=doc["candidate_id"],
         employer_id=doc["employer_id"],
         cv_id=doc["cv_id"],
-        cv_snapshot=doc.get("cv_snapshot"),
+        cv_snapshot=_json_safe(doc.get("cv_snapshot")),
         cover_letter=doc.get("cover_letter", ""),
         status=AxiomApplicationStatus(doc.get("status", "applied")),
         employer_notes=doc.get("employer_notes", ""),
@@ -55,7 +66,7 @@ async def list_candidate_applications(current_user=Depends(get_current_user), db
         result.append(_app_out(doc, _job_out(job_doc) if job_doc else None))
     return result
 
-
+@router.post("", response_model=AxiomApplicationOut, include_in_schema=False)
 @router.post("/", response_model=AxiomApplicationOut)
 async def apply_to_axiom_job(body: AxiomApplicationCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
     job = await db.axiom_jobs.find_one({"_id": _oid(body.job_id), "is_active": True, "is_approved": True})

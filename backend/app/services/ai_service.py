@@ -1,8 +1,10 @@
 # app/services/ai_service.py
 import json
+from functools import lru_cache
 from typing import Optional
 
-from groq import Groq
+from groq import Groq, APIError, AuthenticationError, APIConnectionError, RateLimitError
+from fastapi import HTTPException
 
 from app.config import settings
 from app.services.ai_prompts import (
@@ -15,19 +17,31 @@ from app.services.ai_prompts import (
 MODEL_NAME = "llama-3.1-8b-instant"
 
 
-def get_client():
+@lru_cache(maxsize=1)
+def get_client() -> Groq:
     return Groq(api_key=settings.groq_api_key)
 
 
 def _create_completion(system_prompt: str, messages: list, max_tokens: int) -> str:
     client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "system", "content": system_prompt}, *messages],
-        max_tokens=max_tokens,
-        temperature=0.2,
-    )
-    return (response.choices[0].message.content or "").strip()
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "system", "content": system_prompt}, *messages],
+            max_tokens=max_tokens,
+            temperature=0.2,
+        )
+        return (response.choices[0].message.content or "").strip()
+    except AuthenticationError:
+        # Key is missing or revoked — never surface the key value itself
+        raise HTTPException(503, "AI service configuration error. Contact support.")
+    except RateLimitError:
+        raise HTTPException(429, "AI service rate limit reached. Try again shortly.")
+    except APIConnectionError:
+        raise HTTPException(503, "AI service unreachable. Try again shortly.")
+    except APIError:
+        # Catch-all for remaining Groq API errors (5xx, malformed responses, etc.)
+        raise HTTPException(503, "AI service temporarily unavailable.")
 
 
 def _strip_fences(text: str) -> str:
@@ -243,9 +257,9 @@ async def review_cv(
     job_description: str = "",
 ) -> str:
     ctx = _cv_context(cv_data)
-    target_line = f"\nTarget role: {ctx['target_role']}" if ctx.get("target_role") else ""
-    career_line = f"\nCareer level: {ctx['career_level']}" if ctx.get("career_level") else ""
-    industry_line = f"\nIndustry: {ctx['industry']}" if ctx.get("industry") else ""
+    target_line   = f"\nTarget role: {ctx['target_role']}"   if ctx.get("target_role")   else ""
+    career_line   = f"\nCareer level: {ctx['career_level']}" if ctx.get("career_level")  else ""
+    industry_line = f"\nIndustry: {ctx['industry']}"         if ctx.get("industry")       else ""
     jd_block = (
         f"\n\nJob Description (treat as ground truth for ATS keywords):\n{job_description}"
         if job_description else ""
@@ -270,10 +284,6 @@ Do not soften criticism. Prioritise optimisation, relevance, ATS alignment, and 
 # ─── Targeted optimisation pass ───────────────────────────────────────────────
 
 async def optimize_bullets(cv_data: dict, experience_index: int) -> dict:
-    """
-    Focused optimisation of a single experience entry's bullets.
-    Stronger verbs, metrics placeholders, ATS alignment.
-    """
     ctx = _cv_context(cv_data)
     target_hint = (
         f"Target role: {ctx['target_role']}\n" if ctx.get("target_role") else ""
@@ -310,10 +320,6 @@ Return the updated experience entry as JSON only. Same schema, no extra keys."""
 
 
 async def keyword_gap_analysis(cv_data: dict, job_description: str) -> dict:
-    """
-    Returns a structured gap report: present keywords, missing keywords,
-    and suggested placements — without modifying the CV.
-    """
     ctx = _cv_context(cv_data)
     prompt = f"""Perform a keyword gap analysis between this CV and job description.
 
@@ -385,6 +391,7 @@ Return only the cover letter text."""
         max_tokens=900,
     )
 
+
 # ─── Interview preparation sessions ───────────────────────────────────────────
 
 def _safe_json_object(text: str) -> dict:
@@ -394,7 +401,7 @@ def _safe_json_object(text: str) -> dict:
         return json.loads(stripped)
     except json.JSONDecodeError:
         start = stripped.find("{")
-        end = stripped.rfind("}")
+        end   = stripped.rfind("}")
         if start >= 0 and end > start:
             return json.loads(stripped[start : end + 1])
         raise
@@ -402,13 +409,13 @@ def _safe_json_object(text: str) -> dict:
 
 def _interview_context(cv_data: dict, job_description: str, mode: str, use_star: bool) -> str:
     cv_bits = {
-        "target_role": cv_data.get("target_role", ""),
-        "summary": cv_data.get("summary", ""),
-        "skills": cv_data.get("skills", []),
-        "experience": cv_data.get("experience", []),
-        "projects": cv_data.get("projects", []),
+        "target_role":  cv_data.get("target_role", ""),
+        "summary":      cv_data.get("summary", ""),
+        "skills":       cv_data.get("skills", []),
+        "experience":   cv_data.get("experience", []),
+        "projects":     cv_data.get("projects", []),
         "career_level": cv_data.get("career_level", ""),
-        "industry": cv_data.get("industry", ""),
+        "industry":     cv_data.get("industry", ""),
     }
     star_line = "Prompt for STAR structure where useful." if use_star else "Do not force STAR structure."
     return f"""You are AXIOM Interview Prep, a practical recruiter-style mock interviewer.
@@ -488,10 +495,10 @@ Return JSON only in this exact shape:
     data = _safe_json_object(text)
     score = data.get("score") or {}
     data["score"] = {
-        "clarity": int(score.get("clarity", 0) or 0),
+        "clarity":     int(score.get("clarity",     0) or 0),
         "specificity": int(score.get("specificity", 0) or 0),
-        "evidence": int(score.get("evidence", 0) or 0),
-        "length": int(score.get("length", 0) or 0),
+        "evidence":    int(score.get("evidence",    0) or 0),
+        "length":      int(score.get("length",      0) or 0),
     }
     data["overall_score"] = int(data.get("overall_score", 0) or 0)
     return data
@@ -522,6 +529,6 @@ Return JSON only in this exact shape:
         max_tokens=800,
     )
     data = _safe_json_object(text)
-    data["overall_score"] = int(data.get("overall_score", 0) or 0)
+    data["overall_score"]      = int(data.get("overall_score", 0) or 0)
     data["top_3_improvements"] = list(data.get("top_3_improvements") or [])[:3]
     return data

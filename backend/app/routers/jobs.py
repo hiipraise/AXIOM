@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -44,6 +45,10 @@ def _application_doc(doc: dict) -> ApplicationEntry:
     )
 
 
+def escape_mongo_regex(value: str) -> str:
+    return re.escape(value)
+
+
 @router.get("/search", response_model=JobSearchResponse)
 async def search_jobs(
     q: str = "",
@@ -70,11 +75,12 @@ async def search_jobs(
     axiom_jobs = []
     axiom_filter = {"is_active": True, "is_approved": True}
     if q:
+        safe_q = escape_mongo_regex(q)
         axiom_filter["$or"] = [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"description": {"$regex": q, "$options": "i"}},
-            {"skills_required": {"$regex": q, "$options": "i"}},
-            {"company_name": {"$regex": q, "$options": "i"}},
+            {"title": {"$regex": safe_q, "$options": "i"}},
+            {"description": {"$regex": safe_q, "$options": "i"}},
+            {"skills_required": {"$regex": safe_q, "$options": "i"}},
+            {"company_name": {"$regex": safe_q, "$options": "i"}},
         ]
     cursor = db.axiom_jobs.find(axiom_filter).sort("created_at", -1).limit(50)
     async for item in cursor:
@@ -167,6 +173,26 @@ async def save_job(job_id: str, current_user=Depends(get_current_user), db=Depen
                 "job": job_doc.get("payload"),
                 "saved_at": _utcnow(),
             }
+        },
+        upsert=True,
+    )
+    now = _utcnow()
+    await db.applications.update_one(
+        {"user_id": str(current_user["_id"]), "job_id": job_id},
+        {
+            "$set": {
+                "user_id": str(current_user["_id"]),
+                "job_id": job_id,
+                "status": "saved",
+                "cv_id": None,
+                "job": job_doc.get("payload"),
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "notes": "",
+                "applied_url": None,
+                "created_at": now,
+            },
         },
         upsert=True,
     )

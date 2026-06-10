@@ -13,25 +13,37 @@ import {
   Briefcase,
   Brain,
   Building2,
+  ClipboardList,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
 import { authApi } from "../../api";
 import { useAnnouncement } from "../../context/announcement";
 import NotificationBell from "../notifications/NotificationBell";
+import ConfirmDialog from "../UI/ConfirmDialog";
 import clsx from "clsx";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/interview", label: "Interview Prep", icon: Brain },
+  { to: "/tracker", label: "Tracker", icon: ClipboardList },
   { to: "/explore", label: "Explore", icon: Compass },
+  { to: "/account", label: "Account", icon: Settings },
+];
+
+const MOBILE_NAV = [
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { to: "/jobs", label: "Jobs", icon: Briefcase },
+  { to: "/interview", label: "Prep", icon: Brain },
+  { to: "/tracker", label: "Tracker", icon: ClipboardList },
   { to: "/account", label: "Account", icon: Settings },
 ];
 
 function SidebarContent({ onNav }: { onNav?: () => void }) {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const isAdmin = user && ["admin", "superadmin", "staff"].includes(user.role);
   const canRecruit = user && ["recruiter", "admin", "superadmin", "staff"].includes(user.role);
 
@@ -133,12 +145,21 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
           <NotificationBell />
         </div>
         <button
-          onClick={handleLogout}
+          onClick={() => setConfirmSignOut(true)}
           className="w-full flex items-center gap-2 text-xs text-ink-muted hover:text-red-600 transition-colors py-1"
         >
           <LogOut size={12} /> Sign out
         </button>
       </div>
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out?"
+        description="You will need to sign in again to access your workspace."
+        confirmLabel="Sign out"
+        variant="danger"
+        onClose={() => setConfirmSignOut(false)}
+        onConfirm={handleLogout}
+      />
     </>
   );
 }
@@ -224,7 +245,7 @@ export default function Layout() {
 
       {/* Main — top padding follows bannerH + mobile bar */}
       <main
-        className="flex-1 md:ml-56 min-h-screen"
+        className="flex-1 md:ml-56 min-h-screen pb-20 md:pb-0"
         style={{
           paddingTop: bannerH + 56,
           transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
@@ -234,6 +255,26 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-ash-border bg-white/95 backdrop-blur">
+        <div className="grid h-16 grid-cols-5">
+          {MOBILE_NAV.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                clsx(
+                  "flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[10px] transition-colors",
+                  isActive ? "text-ink" : "text-ink-muted",
+                )
+              }
+            >
+              <Icon size={18} />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
