@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Mail } from "lucide-react"; // <-- add this
 import FeedbackWidget from "../FeedbackWidget";
 
 const SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
@@ -14,7 +15,7 @@ function SpellingWord() {
     const isLast = index === SEQUENCE.length - 1;
     const t = setTimeout(
       () => setIndex((i) => (i + 1) % SEQUENCE.length),
-      isLast ? FULL_MS : LETTER_MS,
+      isLast? FULL_MS : LETTER_MS,
     );
     return () => clearTimeout(t);
   }, [index]);
@@ -47,11 +48,14 @@ export default function Footer() {
             <SpellingWord />
             <span>.</span>
           </p>
+
+          {/* Mail icon link - no email text showing */}
           <a
-            className="mt-2 block text-xs text-ink-muted hover:text-ink"
+            className="mt-2 inline-flex items-center text-ink-muted hover:text-ink transition-colors"
             href="mailto:hello@axiomcv.site"
+            aria-label="Email us"
           >
-            hello@axiomcv.site
+            <Mail size={18} strokeWidth={1.5} />
           </a>
         </div>
 
@@ -59,8 +63,7 @@ export default function Footer() {
           <Link to="/about" className="hover:text-ink">About</Link>
           <Link to="/why-axiom" className="hover:text-ink">Why AXIOM</Link>
           <Link to="/recruiter/help" className="hover:text-ink">Recruiter help</Link>
-          <Link to="/terms" className="hover:text-ink">Terms</Link>
-          <Link to="/privacy" className="hover:text-ink">Privacy</Link>
+          <Link to="/terms-privacy" className="hover:text-ink">Terms & Privacy</Link>
           <FeedbackWidget inline />
         </nav>
       </div>
