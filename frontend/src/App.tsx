@@ -46,6 +46,7 @@ import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AppLoading from "./components/AppLoading";
 import NotFoundPage from "./pages/NotFoundPage";
+import NotificationsPage from "./pages/dashboard/NotificationsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -120,6 +121,7 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="cv/new" element={<CVNewPage />} />
           <Route path="cv/:id" element={<CVEditorPage />} />
           <Route path="tracker" element={<ApplicationTrackerPage />} />

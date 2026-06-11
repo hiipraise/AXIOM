@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Send, Target } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Send, Star, Target } from "lucide-react";
 import toast from "react-hot-toast";
 import { interviewApi } from "../../api";
 import { InterviewFeedback, InterviewSessionDetail } from "../../types";
@@ -74,12 +74,32 @@ export default function InterviewSessionPage() {
   };
 
   if (isLoading || !session) return <div className="p-8">Loading interview...</div>;
+
   const progressPct = session.question_count
     ? Math.round((session.answered_count / session.question_count) * 100)
     : 0;
 
+  // use_star comes from the backend — typed as optional on InterviewSessionDetail
+  const useStar = (session as InterviewSessionDetail & { use_star?: boolean }).use_star;
+
   return (
     <div className="min-h-screen bg-ash">
+      {/* 9b: Floating progress pill — always visible at the top */}
+      <div className="sticky top-0 z-10 border-b border-ash-border bg-white/90 px-4 py-2 backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
+          <span className="text-xs text-ink-muted">
+            Question {session.answered_count + 1} of {session.question_count}
+          </span>
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-ash">
+            <div
+              className="h-full rounded-full bg-ink transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-xs text-ink-muted">{progressPct}%</span>
+        </div>
+      </div>
+
       <div className="mx-auto max-w-4xl px-4 py-6 lg:py-10">
         <button className="btn-ghost mb-4" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Back</button>
         <div className="mb-6 rounded-3xl bg-white p-6 shadow-sm">
@@ -91,6 +111,7 @@ export default function InterviewSessionPage() {
             </div>
             {session.status === "completed" && <Link className="btn-primary" to={`/interview/${session.id}/review`}><CheckCircle2 size={15} /> Review</Link>}
           </div>
+          {/* Inline progress bar kept for context — the sticky pill above is the primary indicator */}
           <div className="mt-5">
             <div className="h-1.5 overflow-hidden rounded-full bg-ash">
               <div
@@ -129,11 +150,24 @@ export default function InterviewSessionPage() {
             {voiceMode ? (
               <VoiceCapturePanel value={answer} onChange={setAnswer} />
             ) : (
-              <textarea className="input min-h-[140px]" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Answer out loud, then paste or type your best version here. Aim for Situation, Task, Action, Result." />
+              <textarea
+                className="input min-h-[140px]"
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder="Answer out loud, then paste or type your best version here. Aim for Situation, Task, Action, Result."
+              />
+            )}
+            {/* 9c: STAR mode reminder — only shown when the session was started with use_star on */}
+            {useStar && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
+                <Star size={11} /> STAR mode: Situation → Task → Action → Result
+              </p>
             )}
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-ink-muted">You’ll get feedback before the next question.</p>
-              <button className="btn-primary" disabled={answerMutation.isPending || !answer.trim()}><Send size={15} /> {answerMutation.isPending ? "Scoring..." : "Submit answer"}</button>
+              <p className="text-xs text-ink-muted">You'll get feedback before the next question.</p>
+              <button className="btn-primary" disabled={answerMutation.isPending || !answer.trim()}>
+                <Send size={15} /> {answerMutation.isPending ? "Scoring..." : "Submit answer"}
+              </button>
             </div>
           </form>
         )}

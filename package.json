@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "framer-motion": "^12.36.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3"
   }
 }

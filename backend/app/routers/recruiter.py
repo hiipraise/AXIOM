@@ -78,7 +78,10 @@ async def register_recruiter(body: RecruiterRegisterRequest, current_user=Depend
         profile["created_at"] = now
         result = await db.company_profiles.insert_one(profile)
         doc = await db.company_profiles.find_one({"_id": result.inserted_id})
-    if settings.axiom_auto_approve_recruiters:
+    if (
+        settings.axiom_auto_approve_recruiters
+        and current_user.get("role", "user") not in ("admin", "superadmin", "staff")
+    ):
         await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"role": "recruiter"}})
     return _profile_out(doc)
 

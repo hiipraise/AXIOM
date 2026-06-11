@@ -44,12 +44,8 @@ export default function CoverLetterModal({
       <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-ash-border overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">
-              Cover letter
-            </p>
-            <h3 className="font-display text-lg font-bold text-ink tracking-tight">
-              {title}
-            </h3>
+            <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">Cover letter</p>
+            <h3 className="font-display text-lg font-bold text-ink tracking-tight">{title}</h3>
           </div>
           <button className="btn-ghost" onClick={onClose}>
             <X size={16} />

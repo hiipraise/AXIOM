@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 export default function NotificationBell() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const { data = [] } = useQuery({
@@ -25,20 +25,24 @@ export default function NotificationBell() {
   });
 
   const openBell = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+    if (open) { setOpen(false); return; }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setDropPos({
-      top: rect.bottom + 6,
-      right: window.innerWidth - rect.right,
-    });
+
+    const dropW = 288;
+    // Prefer right-aligned to the button; if that overflows viewport, flip left
+    let left = rect.right - dropW;
+    if (left < 8) left = rect.left;
+    // On mobile top-bar the bell is top-right so open downward; 
+    // in sidebar footer open upward so it doesn't clip
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropH = 360; // approximate max height
+    const top = spaceBelow < dropH ? rect.top - dropH - 6 : rect.bottom + 6;
+
+    setDropPos({ top, left });
     setOpen(true);
   };
 
-  // Close on outside click or scroll
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -55,57 +59,54 @@ export default function NotificationBell() {
     };
   }, [open]);
 
-  const dropdown = open && dropPos
-    ? createPortal(
-        <div
-          style={{
-            position: "fixed",
-            top: dropPos.top,
-            right: dropPos.right,
-            zIndex: 9999,
-            width: 288,
-          }}
-          className="rounded-xl border border-ash-border bg-white shadow-xl p-3"
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-ink">Notifications</p>
-            <button
-              className="text-xs text-ink-muted underline"
-              onClick={() => readAll.mutate()}
-            >
-              Mark all read
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto space-y-0.5">
-            {data.slice(0, 8).map((item) => (
-              <Link
-                key={item.id}
-                to={item.link || "#"}
-                onClick={() => setOpen(false)}
-                className={`block rounded-lg p-2.5 transition-colors ${
-                  item.read ? "hover:bg-ash" : "bg-ash hover:bg-ash-dark"
-                }`}
+  const dropdown =
+    open && dropPos
+      ? createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: dropPos.top,
+              left: dropPos.left,
+              zIndex: 9999,
+              width: 288,
+            }}
+            className="rounded-xl border border-ash-border bg-white shadow-xl p-3"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold text-ink">Notifications</p>
+              <button
+                className="text-xs text-ink-muted underline"
+                onClick={() => readAll.mutate()}
               >
-                <p className={`text-sm ${item.read ? "text-ink-muted" : "text-ink font-medium"}`}>
-                  {item.title}
-                </p>
-                {item.body && (
-                  <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">
-                    {item.body}
+                Mark all read
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto space-y-0.5">
+              {data.slice(0, 8).map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.link || "#"}
+                  onClick={() => setOpen(false)}
+                  className={`block rounded-lg p-2.5 transition-colors ${
+                    item.read ? "hover:bg-ash" : "bg-ash hover:bg-ash-dark"
+                  }`}
+                >
+                  <p className={`text-sm ${item.read ? "text-ink-muted" : "text-ink font-medium"}`}>
+                    {item.title}
                   </p>
-                )}
-              </Link>
-            ))}
-            {!data.length && (
-              <p className="p-4 text-center text-xs text-ink-muted">
-                No notifications yet
-              </p>
-            )}
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+                  {item.body && (
+                    <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">{item.body}</p>
+                  )}
+                </Link>
+              ))}
+              {!data.length && (
+                <p className="p-4 text-center text-xs text-ink-muted">No notifications yet</p>
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>

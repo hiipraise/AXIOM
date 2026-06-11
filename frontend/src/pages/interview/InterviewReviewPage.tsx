@@ -63,6 +63,15 @@ export default function InterviewReviewPage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link to="/interview" className="btn-primary"><RotateCcw size={15} /> Practise another role</Link>
+          {/* 9a: Retry the exact same role — pre-fills cv + job on the start page */}
+          <button
+            className="btn-secondary"
+            onClick={() =>
+              navigate(`/interview/start?cv=${session.cv_id}&job=${session.job_id || ""}`)
+            }
+          >
+            <RotateCcw size={15} /> Retry this role
+          </button>
           <Link to={`/interview/${session.id}`} className="btn-ghost">View transcript</Link>
         </div>
       </div>

@@ -60,6 +60,10 @@ async def schedule_interview(body: LiveInterviewStart, current_user=Depends(get_
         raise HTTPException(status_code=404, detail="Application not found")
     if app["employer_id"] != str(current_user["_id"]) and current_user.get("role") not in ("staff", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Not your application")
+
+    job_doc = await db.axiom_jobs.find_one({"_id": ObjectId(app["job_id"])}) if app.get("job_id") else None
+    job_title = (job_doc or {}).get("title", "your role")
+
     now = _utcnow()
     doc = {
         "session_type": body.session_type,
@@ -84,7 +88,20 @@ async def schedule_interview(body: LiveInterviewStart, current_user=Depends(get_
     }
     result = await db.interview_sessions.insert_one(doc)
     await db.axiom_applications.update_one({"_id": app["_id"]}, {"$set": {"status": "interview_scheduled", "updated_at": now}})
-    await create_notification(db, app["candidate_id"], "Interview scheduled", "Your AXIOM interview invite is ready.", "interview", f"/interview/live/{str(result.inserted_id)}")
+
+    scheduled_str = ""
+    if body.scheduled_at:
+        scheduled_str = body.scheduled_at.strftime(" on %d %b %Y at %H:%M UTC")
+
+    await create_notification(
+        db,
+        app["candidate_id"],
+        "Interview scheduled",
+        f"Your interview for {job_title}{scheduled_str} is confirmed. Duration: {body.duration_minutes} minutes.",
+        "interview",
+        f"/interview/live/{str(result.inserted_id)}/lobby",
+    )
+
     created = await db.interview_sessions.find_one({"_id": result.inserted_id})
     return _session_out(created)
 

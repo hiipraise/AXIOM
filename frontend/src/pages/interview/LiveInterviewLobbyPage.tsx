@@ -13,58 +13,53 @@ export default function LiveInterviewLobbyPage() {
 
   useEffect(() => {
     let active = true;
-    let previewStream: MediaStream | null = null;
 
-    async function startPreview() {
+    async function init() {
       if (!navigator.mediaDevices?.getUserMedia) {
         setError("Camera preview is not available in this browser.");
         return;
       }
-
       try {
-        const media = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        if (!active) {
-          media.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        previewStream = media;
+        const media = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (!active) { media.getTracks().forEach((t) => t.stop()); return; }
         setStream(media);
-        if (videoRef.current) videoRef.current.srcObject = media;
+        // Sync directly — don't rely on a separate effect reacting to stream state
+        if (videoRef.current) {
+          videoRef.current.srcObject = media;
+          videoRef.current.play().catch(() => {});
+        }
       } catch {
         setError("Allow camera and microphone access to preview before joining.");
       }
     }
 
-    startPreview();
-    return () => {
-      active = false;
-      previewStream?.getTracks().forEach((track) => track.stop());
-    };
+    init();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (videoRef.current && stream) videoRef.current.srcObject = stream;
-  }, [stream]);
+  // Ref callback: fires when React mounts the <video> element.
+  // Handles the case where stream resolves before the element is in the DOM.
+  const setVideoRef = (el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (el && stream) {
+      el.srcObject = stream;
+      el.play().catch(() => {});
+    }
+  };
 
   const toggleCamera = () => {
-    stream?.getVideoTracks().forEach((track) => {
-      track.enabled = !cameraOn;
-    });
-    setCameraOn((value) => !value);
+    stream?.getVideoTracks().forEach((t) => { t.enabled = !cameraOn; });
+    setCameraOn((v) => !v);
   };
 
   const toggleMic = () => {
-    stream?.getAudioTracks().forEach((track) => {
-      track.enabled = !micOn;
-    });
-    setMicOn((value) => !value);
+    stream?.getAudioTracks().forEach((t) => { t.enabled = !micOn; });
+    setMicOn((v) => !v);
   };
 
   const join = () => {
-    stream?.getTracks().forEach((track) => track.stop());
+    stream?.getTracks().forEach((t) => t.stop());
     navigate(`/interview/live/${sessionId}`);
   };
 
@@ -73,15 +68,10 @@ export default function LiveInterviewLobbyPage() {
       <div className="card">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">
-              Live interview lobby
-            </p>
-            <h1 className="mt-1 font-display text-2xl font-bold text-ink">
-              Ready to join?
-            </h1>
+            <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">Live interview lobby</p>
+            <h1 className="mt-1 font-display text-2xl font-bold text-ink">Ready to join?</h1>
             <p className="mt-2 text-sm text-ink-muted">
-              Candidates and recruiters join the same room. Recruiters will see
-              interviewer controls after entering.
+              Candidates and recruiters join the same room. Recruiters will see interviewer controls after entering.
             </p>
           </div>
           <Video className="text-ink-muted" size={28} />
@@ -90,7 +80,7 @@ export default function LiveInterviewLobbyPage() {
         <div className="overflow-hidden rounded-lg border border-ash-border bg-ink">
           {stream && cameraOn ? (
             <video
-              ref={videoRef}
+              ref={setVideoRef}
               autoPlay
               playsInline
               muted
@@ -107,21 +97,11 @@ export default function LiveInterviewLobbyPage() {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={toggleCamera}
-              disabled={!stream}
-            >
+            <button type="button" className="btn-secondary" onClick={toggleCamera} disabled={!stream}>
               {cameraOn ? <Video size={15} /> : <VideoOff size={15} />}
               {cameraOn ? "Camera on" : "Camera off"}
             </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={toggleMic}
-              disabled={!stream}
-            >
+            <button type="button" className="btn-secondary" onClick={toggleMic} disabled={!stream}>
               {micOn ? <Mic size={15} /> : <MicOff size={15} />}
               {micOn ? "Mic on" : "Mic off"}
             </button>

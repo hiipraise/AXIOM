@@ -422,6 +422,8 @@ export interface InterviewSessionListItem {
   question_count: number;
   answered_count: number;
   overall_score?: number | null;
+  /** Whether the session was started with STAR coaching enabled */
+  use_star?: boolean;
 }
 
 export interface InterviewMessage {
