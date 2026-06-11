@@ -14,6 +14,7 @@ import {
   Brain,
   Building2,
   ClipboardList,
+  Bell,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
@@ -27,6 +28,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/interview", label: "Interview Prep", icon: Brain },
+  { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/tracker", label: "Tracker", icon: ClipboardList },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/account", label: "Account", icon: Settings },
@@ -36,6 +38,7 @@ const MOBILE_NAV = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/interview", label: "Prep", icon: Brain },
+  { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/tracker", label: "Tracker", icon: ClipboardList },
   { to: "/account", label: "Account", icon: Settings },
 ];
