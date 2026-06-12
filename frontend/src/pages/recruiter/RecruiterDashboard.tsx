@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Briefcase, CalendarClock, FileText, Plus, Star, Trash2, Users } from "lucide-react";
+import ConfirmDialog from "../../components/UI/ConfirmDialog";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, axiomJobsApi, recruiterApi } from "../../api";
 
@@ -77,6 +79,7 @@ export default function RecruiterDashboard() {
     },
     onError: () => toast.error("Could not close job"),
   });
+  const [jobToClose, setJobToClose] = useState<string | null>(null);
 
   if (profile.isLoading) return <RecruiterDashboardSkeleton />;
   if (profile.isError) {
@@ -195,14 +198,7 @@ export default function RecruiterDashboard() {
                 </Link>
                 <button
                   className="btn-ghost !py-1.5 !px-3 !text-xs text-red-600 hover:text-red-700"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        "Close this job? It will no longer be visible to candidates.",
-                      )
-                    )
-                      closeMutation.mutate(job.id);
-                  }}
+                  onClick={() => setJobToClose(job.id)}
                   disabled={closeMutation.isPending}
                 >
                   <Trash2 size={13} />
@@ -270,6 +266,19 @@ export default function RecruiterDashboard() {
           </div>
         </section>
       )}
+
+      <ConfirmDialog
+        open={!!jobToClose}
+        title="Close job listing?"
+        description="This will hide the job from candidates immediately."
+        confirmLabel="Close job"
+        variant="danger"
+        onClose={() => setJobToClose(null)}
+        onConfirm={() => {
+          closeMutation.mutate(jobToClose!);
+          setJobToClose(null);
+        }}
+      />
     </div>
   );
 }

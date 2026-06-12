@@ -100,7 +100,7 @@ export default function CVContextSelector({
             <Target size={13} className="text-ink-muted" />
             <span className="text-xs font-medium text-ink">CV Context</span>
             {isConfigured && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
             )}
           </div>
           {expanded ? (

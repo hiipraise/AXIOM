@@ -3,8 +3,8 @@ import {
   Hero,
   FeaturesSection,
   HowItWorksSection,
+JobsTeaserSection,
   ExploreTeaserSection,
-  JobsTeaserSection,
   CTASection,
   Footer,
 } from '../components/landing'
@@ -17,7 +17,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <HowItWorksSection />
       <ExploreTeaserSection />
-      <JobsTeaserSection />
+      <JobsTeaserSection/>
       <CTASection />
       <Footer />
     </div>

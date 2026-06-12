@@ -156,10 +156,10 @@ export default function FeedbackWidget({ inline = false }: { inline?: boolean })
           onClick={handleStarClick}
           whileTap={{ scale: 0.90 }}
           whileHover={{ scale: 1.1 }}
-          className="w-10 h-10 rounded-full bg-ink text-white flex items-center justify-center shadow-lg hover:bg-ink-light transition-colors"
+          className="w-5 h-5 rounded-full bg-ink text-white flex items-center justify-center shadow-lg hover:bg-ink-light transition-colors"
           aria-label="Send feedback"
         >
-          <Star size={16} className={panel ? 'fill-white' : ''} />
+          <Star size={9} className={panel ? 'fill-white' : ''} />
         </motion.button>
       </div>
     )

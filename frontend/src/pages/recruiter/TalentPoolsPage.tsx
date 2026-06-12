@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Trash2, Users } from "lucide-react";
+import { FileText, Plus, Search, Trash2, Users, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { recruiterApi } from "../../api";
+import { axiomApplicationsApi, recruiterApi } from "../../api";
 import CvSnapshotModal from "../../components/recruiter/CvSnapshotModal";
 
 export default function TalentPoolsPage() {
@@ -13,6 +13,7 @@ export default function TalentPoolsPage() {
     snapshot: Record<string, unknown>;
     jobTitle?: string;
   } | null>(null);
+  const [addMode, setAddMode] = useState(false);
 
   const pools = useQuery({
     queryKey: ["talent-pools"],
@@ -23,6 +24,21 @@ export default function TalentPoolsPage() {
     queryKey: ["saved-candidates", selectedPoolId],
     queryFn: () => recruiterApi.savedCandidates(selectedPoolId || undefined),
   });
+
+  // Get applications from AXIOM jobs for the current recruiter
+  const applications = useQuery({
+    queryKey: ["axiom-applications"],
+    queryFn: () => axiomApplicationsApi.list(),
+    enabled: addMode,
+  });
+
+  // Show only unsaved candidates when in add mode
+  const unsavedCandidates = useMemo(() => {
+    if (!applications.data) return [];
+    const saved = candidates.data || [];
+    const savedIds = new Set(saved.map((c) => c.application_id));
+    return applications.data.filter((app) => !savedIds.has(app.id));
+  }, [applications.data, candidates.data]);
 
   const createPool = useMutation({
     mutationFn: recruiterApi.createTalentPool,
@@ -54,6 +70,17 @@ export default function TalentPoolsPage() {
     onError: () => toast.error("Could not remove candidate"),
   });
 
+  const addToPool = useMutation({
+    mutationFn: ({ applicationId, poolId }: { applicationId: string; poolId?: string }) =>
+      recruiterApi.saveCandidate({ application_id: applicationId, pool_id: poolId }),
+    onSuccess: () => {
+      toast.success("Candidate added to pool");
+      qc.invalidateQueries({ queryKey: ["saved-candidates"] });
+      qc.invalidateQueries({ queryKey: ["talent-pools"] });
+    },
+    onError: () => toast.error("Could not add candidate"),
+  });
+
   const totalSaved = useMemo(
     () => (candidates.data || []).length,
     [candidates.data],
@@ -74,7 +101,65 @@ export default function TalentPoolsPage() {
           <Users size={16} />
           {totalSaved} saved profiles
         </div>
+        <button
+          className="btn-secondary !px-3 !py-1.5 !text-xs"
+          onClick={() => setAddMode(!addMode)}
+        >
+          <UserPlus size={13} />
+          {addMode ? "Done" : "Add candidates"}
+        </button>
       </div>
+
+      {addMode && (
+        <div className="card">
+          <h2 className="font-display text-lg font-bold text-ink mb-3">
+            Add candidates to pool
+          </h2>
+          <p className="text-sm text-ink-muted mb-3">
+            Select a pool on the left, then add candidates.
+          </p>
+          {selectedPoolId ? (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {unsavedCandidates.map((app) => (
+                <div
+                  key={app.id}
+                  className="flex items-center justify-between py-2 border-b border-ash-border last:border-0"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      Candidate {app.candidate_id.slice(-6)}
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {app.job?.title}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-ghost !px-2 !py-1 !text-xs"
+                    onClick={() =>
+                      addToPool.mutate({
+                        applicationId: app.id,
+                        poolId: selectedPoolId,
+                      })
+                    }
+                    disabled={addToPool.isPending}
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                </div>
+              ))}
+              {unsavedCandidates.length === 0 && (
+                <p className="text-sm text-ink-muted py-4 text-center">
+                  No new candidates to add. All applicants may already be saved.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">
+              Select a pool first to add candidates.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <aside className="space-y-4">

@@ -297,9 +297,21 @@ export default function JobDetailPage() {
 
             {/* Description */}
             <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">
-                Job Description
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                  Job Description
+                </p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(stripHtml(job.description));
+                    toast.success("Description copied");
+                  }}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-ink-muted hover:text-ink hover:bg-ash/50 rounded-lg transition-colors"
+                >
+                  <Copy size={12} />
+                  <span>Copy</span>
+                </button>
+              </div>
               <div className="bg-ash/50 rounded-xl border border-ash-border p-4">
                 <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-ink-muted">
                   {stripHtml(job.description)}

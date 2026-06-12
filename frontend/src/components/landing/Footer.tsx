@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail } from "lucide-react"; // <-- add this
+import { Mail } from "lucide-react";
 import FeedbackWidget from "../FeedbackWidget";
 
 const SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
@@ -15,7 +15,7 @@ function SpellingWord() {
     const isLast = index === SEQUENCE.length - 1;
     const t = setTimeout(
       () => setIndex((i) => (i + 1) % SEQUENCE.length),
-      isLast? FULL_MS : LETTER_MS,
+      isLast ? FULL_MS : LETTER_MS,
     );
     return () => clearTimeout(t);
   }, [index]);
@@ -40,32 +40,41 @@ function SpellingWord() {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-ash-border px-5 py-8">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <footer className="border-t border-ash-border">
+      <div className="px-5 py-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+
+          {/* ── left: copyright ── */}
           <p className="flex items-center gap-[1ch] text-xs text-ink-muted">
             <span>© {new Date().getFullYear()}</span>
             <SpellingWord />
             <span>.</span>
           </p>
 
-          {/* Mail icon link - no email text showing */}
-          <a
-            className="mt-2 inline-flex items-center text-ink-muted hover:text-ink transition-colors"
-            href="mailto:hello@axiomcv.site"
-            aria-label="Email us"
-          >
-            <Mail size={18} strokeWidth={1.5} />
-          </a>
-        </div>
+          {/* ── right: nav + action bar ── */}
+          <div className="flex items-center gap-4">
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted">
+              <Link to="/about" className="hover:text-ink">About</Link>
+              <Link to="/recruiter/help" className="hover:text-ink">Recruiter help</Link>
+              <Link to="/terms-privacy" className="hover:text-ink">Terms & Privacy</Link>
+            </nav>
 
-        <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted">
-          <Link to="/about" className="hover:text-ink">About</Link>
-          <Link to="/why-axiom" className="hover:text-ink">Why AXIOM</Link>
-          <Link to="/recruiter/help" className="hover:text-ink">Recruiter help</Link>
-          <Link to="/terms-privacy" className="hover:text-ink">Terms & Privacy</Link>
-          <FeedbackWidget inline />
-        </nav>
+            {/* divider */}
+            <div className="h-6 w-px bg-ash-border shrink-0" />
+
+            {/* action bar */}
+            <div className="flex items-center gap-3">
+              <a href="mailto:hello@axiomcv.site"
+                aria-label="Email us"
+                className="text-ink-muted hover:text-ink transition-colors"
+              >
+                <Mail size={16} strokeWidth={1.5} />
+              </a>
+              <FeedbackWidget inline />
+            </div>
+          </div>
+
+        </div>
       </div>
     </footer>
   );

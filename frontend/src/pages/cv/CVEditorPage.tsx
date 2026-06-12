@@ -610,7 +610,7 @@ export default function CVEditorPage() {
               {/* Mobile-only action buttons */}
               <button
                 onClick={() => setShowSkillGap(!showSkillGap)}
-                className="md:hidden p-1.5 text-blue-600 hover:text-blue-700"
+                className="md:hidden p-1.5 text-[#a0449f] hover:text-[#8d3f8c]"
                 title="Skill Gap"
               >
                 <Target size={15} />
