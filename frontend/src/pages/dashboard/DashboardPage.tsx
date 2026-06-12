@@ -78,9 +78,10 @@ function KebabMenu({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Horizontal: align right edge of menu to right edge of button, clamped to viewport
-    const idealRight = vw - btn.right;
-    const right = Math.max(VIEWPORT_MARGIN, idealRight);
+    // Horizontal: align right edge of menu with button's right edge
+    let right = vw - btn.right;
+    // Clamp to keep menu within viewport (right edge at most MENU_WIDTH from right)
+    right = Math.max(VIEWPORT_MARGIN, Math.min(right, vw - MENU_WIDTH - VIEWPORT_MARGIN));
 
     // Vertical: decide direction
     const spaceBelow = vh - btn.bottom - VIEWPORT_MARGIN;
@@ -91,7 +92,7 @@ function KebabMenu({
     if (fitsBelow) {
       // Open downward — plenty of room
       return {
-        top: btn.bottom + window.scrollY + 4,
+        top: btn.bottom + 4,
         right,
         maxHeight: spaceBelow,
         openUpward: false,
@@ -99,11 +100,7 @@ function KebabMenu({
     } else if (fitsAbove) {
       // Open upward — not enough room below
       return {
-        bottom:
-          vh -
-          btn.top +
-          (document.documentElement.scrollHeight - vh - window.scrollY) +
-          4,
+        bottom: vh - btn.top + 4,
         right,
         maxHeight: spaceAbove,
         openUpward: true,
@@ -113,18 +110,14 @@ function KebabMenu({
       const useBelow = spaceBelow >= spaceAbove;
       if (useBelow) {
         return {
-          top: btn.bottom + window.scrollY + 4,
+          top: btn.bottom + 4,
           right,
           maxHeight: spaceBelow,
           openUpward: false,
         };
       } else {
         return {
-          bottom:
-            vh -
-            btn.top +
-            (document.documentElement.scrollHeight - vh - window.scrollY) +
-            4,
+          bottom: vh - btn.top + 4,
           right,
           maxHeight: spaceAbove,
           openUpward: true,
@@ -149,7 +142,7 @@ function KebabMenu({
   useEffect(() => {
     if (!open) return;
 
-    const handleOutside = (e: MouseEvent) => {
+    const handleOutside = (e: Event) => {
       if (
         menuRef.current &&
         !menuRef.current.contains(e.target as Node) &&
@@ -162,11 +155,13 @@ function KebabMenu({
     const handleScrollResize = () => closeMenu();
 
     document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside, { passive: true });
     window.addEventListener("scroll", handleScrollResize, { passive: true });
     window.addEventListener("resize", handleScrollResize, { passive: true });
 
     return () => {
       document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
       window.removeEventListener("scroll", handleScrollResize);
       window.removeEventListener("resize", handleScrollResize);
     };
@@ -201,6 +196,7 @@ function KebabMenu({
   return (
     <>
       <button
+        type="button"
         ref={triggerRef}
         className="btn-ghost p-1.5"
         title="More options"
