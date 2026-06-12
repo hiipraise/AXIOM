@@ -325,9 +325,7 @@ export default function Layout() {
         </div>
         {/* Mobile: no sidebar offset */}
         <div className="md:hidden">
-          <div className="-mt-14">
-            <Outlet />
-          </div>
+          <Outlet />
         </div>
       </main>
     </div>
