@@ -466,22 +466,48 @@ export default function JobBoardPage() {
                   <ChevronLeft size={16} />
                 </button>
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setPage(i);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className={`w-8 h-8 text-xs rounded-lg transition-colors ${
-                        i === page
-                          ? "bg-ink text-white font-medium"
-                          : "text-ink-muted hover:bg-ash hover:text-ink"
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {(() => {
+                    const delta = 2;
+                    const range: (number | "...")[] = [];
+                    const left = Math.max(0, page - delta);
+                    const right = Math.min(totalPages - 1, page + delta);
+
+                    if (left > 0) {
+                      range.push(0);
+                      if (left > 1) range.push("...");
+                    }
+                    for (let i = left; i <= right; i++) range.push(i);
+                    if (right < totalPages - 1) {
+                      if (right < totalPages - 2) range.push("...");
+                      range.push(totalPages - 1);
+                    }
+
+                    return range.map((item, idx) =>
+                      item === "..." ? (
+                        <span
+                          key={`ellipsis-${idx}`}
+                          className="w-8 h-8 flex items-center justify-center text-xs text-ink-muted"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => {
+                            setPage(item as number);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className={`w-8 h-8 text-xs rounded-lg transition-colors ${
+                            item === page
+                              ? "bg-ink text-white font-medium"
+                              : "text-ink-muted hover:bg-ash hover:text-ink"
+                          }`}
+                        >
+                          {(item as number) + 1}
+                        </button>
+                      ),
+                    );
+                  })()}
                 </div>
                 <button
                   className="btn-ghost p-2"
