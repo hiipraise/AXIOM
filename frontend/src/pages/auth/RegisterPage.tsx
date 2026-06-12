@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { authApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
+import { useAnnouncement } from "../../context/announcement";
 import toast from "react-hot-toast";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 
@@ -15,6 +16,7 @@ const QUESTIONS = [
 ];
 
 export default function RegisterPage() {
+  const { bannerH } = useAnnouncement();
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -60,7 +62,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ash flex items-center justify-center px-4 py-8">
+    <div
+      className="min-h-screen bg-ash flex items-center justify-center px-4 py-8"
+      style={{ paddingTop: bannerH }}
+    >
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Link

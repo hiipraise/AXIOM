@@ -8,7 +8,7 @@ import { authApi } from './api'
 import { useAuthStore } from './store/auth'
 import { usePageTracking } from './components/admin/useAnalytics'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
-import { AnnouncementProvider } from './context/announcement'
+import { AnnouncementProvider, announceReady } from './context/announcement'
 import AnnouncementBanner from './components/AnnouncementBanner'
 import './index.css'
 
@@ -52,6 +52,7 @@ async function waitForBackend(): Promise<void> {
 
 async function bootstrap() {
   await waitForBackend()
+  announceReady(true) // enable announcement fetching after backend is confirmed ready
   emitProgress(94)
   try {
     const user = await authApi.me()
@@ -62,30 +63,32 @@ async function bootstrap() {
   emitProgress(100)
 }
 
-bootstrap().then(() => {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <QueryClientProvider client={qc}>
-        <BrowserRouter>
-          <AnnouncementProvider>
-            <AnnouncementBanner />
-            <AppWithTracking />
-          </AnnouncementProvider>
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                fontSize: '13px',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
-                color: '#0F172A',
-                boxShadow: '0 1px 8px rgba(0,0,0,0.08)',
-              },
-            }}
-          />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </React.StrictMode>
-  )
-})
+// Render immediately without waiting for backend - show content first
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={qc}>
+      <BrowserRouter>
+        <AnnouncementProvider>
+          <AnnouncementBanner />
+          <AppWithTracking />
+        </AnnouncementProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+              fontSize: '13px',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+              color: '#0F172A',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.08)',
+            },
+          }}
+        />
+      </BrowserRouter>
+    </QueryClientProvider>
+  </React.StrictMode>
+)
+
+// Bootstrap auth check in background - doesn't block rendering
+bootstrap()

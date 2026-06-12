@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
+import { useAnnouncement } from "../../context/announcement";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
+  const { bannerH } = useAnnouncement();
   const [form, setForm] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +38,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ash flex items-center justify-center px-4">
+    <div
+      className="min-h-screen bg-ash flex items-center justify-center px-4"
+      style={{ paddingTop: bannerH }}
+    >
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Link

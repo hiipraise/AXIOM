@@ -20,6 +20,7 @@ interface AnnouncementCtx {
   visible: boolean; // controls whether the DOM node exists
   bannerH: number; // 0 or 32 — transitions between them, use for all offsets
   dismiss: () => void;
+  ready: boolean; // whether backend is ready — controls fetching
 }
 
 export const BANNER_H = 32;
@@ -29,20 +30,37 @@ const Ctx = createContext<AnnouncementCtx>({
   visible: false,
   bannerH: 0,
   dismiss: () => {},
+  ready: true, // default to true for backwards compatibility
 });
 
 // Persists across re-renders without any storage API
 const dismissed = new Set<string>();
 
+// Exported function to signal backend is ready — call after health check passes
+let setReadyFn: ((ready: boolean) => void) | null = null;
+export function announceReady(isReady: boolean) {
+  if (setReadyFn) setReadyFn(isReady);
+}
+
 export function AnnouncementProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [bannerH, setBannerH] = useState(0);
+  const [ready, setReady] = useState(false); // start false, enabled when backend is ready
+
+  // Register the setReady function for external callers
+  useEffect(() => {
+    setReadyFn = setReady;
+    return () => {
+      setReadyFn = null;
+    };
+  }, []);
 
   const { data: ann } = useQuery<Announcement | null>({
     queryKey: ["announcement-active"],
     queryFn: () => api.get("/announcements/active").then((r) => r.data),
     staleTime: 60_000,
     refetchInterval: 60_000,
+    enabled: ready, // only fetch when backend is confirmed ready
   });
 
   useEffect(() => {
@@ -68,7 +86,7 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ ann: ann ?? null, visible, bannerH, dismiss }}>
+    <Ctx.Provider value={{ ann: ann ?? null, visible, bannerH, dismiss, ready }}>
       {children}
     </Ctx.Provider>
   );

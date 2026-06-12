@@ -368,56 +368,17 @@
 
   <script type="module" src="/src/main.tsx"></script>
 
-  <!-- ── App-loading state manager (hides boot-loader once React mounts) ── -->
+  <!-- ── Hide boot-loader once React content appears ── -->
   <script>
     (function () {
-      var ready = false;
       var root = document.getElementById("root");
-
-      function findLoader() {
-        return (
-          document.getElementById("app-loader") ||
-          document.getElementById("initial-loader") ||
-          document.getElementById("splash-screen") ||
-          document.getElementById("loading-screen") ||
-          document.querySelector("[data-app-loader]") ||
-          document.querySelector("[data-loading-screen]") ||
-          document.querySelector(".app-loading") ||
-          document.querySelector(".initial-loader") ||
-          document.querySelector(".splash-screen") ||
-          document.querySelector(".loading-screen") ||
-          document.querySelector(".loader")
-        );
-      }
-
-      function finishLoader() {
-        if (ready) return;
-        ready = true;
-        window.__AXIOM_APP_READY__ = true;
-
-        window.setTimeout(function () {
-          var loader = findLoader();
-          if (!loader) return;
-          loader.style.opacity = "0";
-          loader.style.pointerEvents = "none";
-          loader.setAttribute("aria-busy", "false");
-          window.setTimeout(function () {
-            loader.style.display = "none";
-            loader.setAttribute("hidden", "");
-          }, 350);
-        }, 250);
-      }
-
-      window.__AXIOM_APP_READY__ = false;
-      window.addEventListener("axiom:app-ready", finishLoader);
-
-      if (root) {
-        if (root.children.length > 0) finishLoader();
-
-        new MutationObserver(function () {
-          if (root.children.length > 0) finishLoader();
-        }).observe(root, { childList: true });
-      }
+      var boot = document.querySelector(".boot-loader");
+      var n = 0, int = setInterval(function () {
+        if (root.innerHTML.trim() || ++n > 40) {
+          clearInterval(int);
+          if (boot) boot.style.display = "none";
+        }
+      }, 20);
     })();
   </script>
 </body>

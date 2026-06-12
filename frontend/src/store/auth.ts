@@ -34,7 +34,7 @@ function writeSession(t: string | null) {
 export const useAuthStore = create<AuthState>(() => ({
   user:      null,
   token:     readSession(),
-  isLoading: true,
+  isLoading: false, // start false to show content immediately
 
   setAuth: (user, token) => {
     if (token) writeSession(token)

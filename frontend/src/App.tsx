@@ -82,9 +82,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 function RootRedirect() {
   const user = useAuthStore((s) => s.user);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  if (isLoading) return <AppLoading fullScreen />;
-  return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+  // Show landing page immediately - don't wait for auth check
+  // If user is logged in, they'll be redirected to dashboard after auth loads
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <LandingPage />;
 }
 
 export default function App() {
