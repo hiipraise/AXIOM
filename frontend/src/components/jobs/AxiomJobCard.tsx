@@ -2,7 +2,15 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, Building2, MapPin, Share2 } from "lucide-react";
 import { AxiomJob } from "../../types";
 
-export default function AxiomJobCard({ job, onShare }: { job: AxiomJob; onShare?: () => void }) {
+export default function AxiomJobCard({
+  job,
+  matchPercentage,
+  onShare,
+}: {
+  job: AxiomJob;
+  matchPercentage?: number | null;
+  onShare?: () => void;
+}) {
   return (
     <article className="card p-4 h-full flex flex-col justify-between gap-4">
       <div>
@@ -29,7 +37,22 @@ export default function AxiomJobCard({ job, onShare }: { job: AxiomJob; onShare?
         <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-ink-muted">{job.description.replace(/<[^>]+>/g, " ")}</p>
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-ash-border pt-3">
-        <button className="btn-ghost !py-1.5 !px-2" onClick={onShare} aria-label="Share job"><Share2 size={14} /></button>
+        <div className="flex min-w-0 items-center gap-2">
+          <button className="btn-ghost !py-1.5 !px-2" onClick={onShare} aria-label="Share job"><Share2 size={14} /></button>
+          {typeof matchPercentage === "number" && (
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                matchPercentage >= 75
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : matchPercentage >= 50
+                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                    : "bg-ash-dark text-ink-muted border border-ash-border"
+              }`}
+            >
+              {Math.round(matchPercentage)}% match
+            </span>
+          )}
+        </div>
         <Link to={`/jobs/axiom/${job.id}`} className="btn-secondary !py-1.5 !px-3 !text-xs">
           View <ArrowUpRight size={13} />
         </Link>

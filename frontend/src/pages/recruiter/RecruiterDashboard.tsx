@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { Briefcase, CalendarClock, FileText, Plus, Star, Trash2 } from "lucide-react";
+import { Briefcase, CalendarClock, FileText, Plus, Star, Trash2, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, axiomJobsApi, recruiterApi } from "../../api";
 
@@ -63,6 +63,12 @@ export default function RecruiterDashboard() {
     enabled: !profile.isError,
   });
 
+  const savedCandidates = useQuery({
+    queryKey: ["saved-candidates"],
+    queryFn: () => recruiterApi.savedCandidates(),
+    enabled: !profile.isError,
+  });
+
   const closeMutation = useMutation({
     mutationFn: (id: string) => axiomJobsApi.close(id),
     onSuccess: () => {
@@ -115,7 +121,7 @@ export default function RecruiterDashboard() {
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <div className="card">
           <Briefcase size={18} />
           <p className="mt-3 text-2xl font-bold text-ink">
@@ -139,6 +145,13 @@ export default function RecruiterDashboard() {
           </p>
           <p className="text-sm text-ink-muted">Active slots left</p>
         </div>
+        <Link className="card hover:bg-ash/40" to="/recruiter/talent-pools">
+          <Users size={18} />
+          <p className="mt-3 text-2xl font-bold text-ink">
+            {savedCandidates.data?.length || 0}
+          </p>
+          <p className="text-sm text-ink-muted">Saved profiles</p>
+        </Link>
       </div>
 
       <section className="mt-6 card">
@@ -146,12 +159,20 @@ export default function RecruiterDashboard() {
           <h2 className="font-display text-xl font-bold text-ink">
             Active jobs
           </h2>
-          <Link
-            className="text-sm text-ink-muted underline"
-            to="/recruiter/applications"
-          >
-            Applications
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              className="text-sm text-ink-muted underline"
+              to="/recruiter/talent-pools"
+            >
+              Talent pools
+            </Link>
+            <Link
+              className="text-sm text-ink-muted underline"
+              to="/recruiter/applications"
+            >
+              Applications
+            </Link>
+          </div>
         </div>
         <div className="divide-y divide-ash-border">
           {activeJobs.map((job) => (

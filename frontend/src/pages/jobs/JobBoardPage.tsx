@@ -173,8 +173,7 @@ export default function JobBoardPage() {
   const processed = useMemo(() => {
     let result = rawJobs.map((job) => ({
       job,
-      score:
-        user && primaryCv && useCvMatch ? quickMatchScore(job, tokens) : null,
+      score: user && primaryCv ? quickMatchScore(job, tokens) : null,
     }));
 
     if (sourceMode === "axiom")

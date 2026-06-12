@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, FileText } from "lucide-react";
+import { BookmarkPlus, CalendarClock, FileText } from "lucide-react";
 import toast from "react-hot-toast";
-import { axiomApplicationsApi, liveInterviewApi } from "../../api";
+import { axiomApplicationsApi, liveInterviewApi, recruiterApi } from "../../api";
 import InterviewStageSelector from "../../components/interview/InterviewStageSelector";
 import CoverLetterModal from "../../components/jobs/CoverLetterModal";
 import CvSnapshotModal from "../../components/recruiter/CvSnapshotModal";
@@ -26,6 +26,11 @@ export default function RecruiterApplicationsPage() {
   const { data = [] } = useQuery({
     queryKey: ["employer-applications"],
     queryFn: axiomApplicationsApi.employer,
+  });
+
+  const { data: pools = [] } = useQuery({
+    queryKey: ["talent-pools"],
+    queryFn: recruiterApi.talentPools,
   });
 
   const statusMutation = useMutation({
@@ -58,6 +63,17 @@ export default function RecruiterApplicationsPage() {
       qc.invalidateQueries({ queryKey: ["employer-applications"] });
     },
     onError: () => toast.error("Could not schedule interview"),
+  });
+
+  const saveCandidateMutation = useMutation({
+    mutationFn: ({ applicationId, poolId }: { applicationId: string; poolId?: string }) =>
+      recruiterApi.saveCandidate({ application_id: applicationId, pool_id: poolId || null }),
+    onSuccess: () => {
+      toast.success("Candidate saved");
+      qc.invalidateQueries({ queryKey: ["saved-candidates"] });
+      qc.invalidateQueries({ queryKey: ["talent-pools"] });
+    },
+    onError: () => toast.error("Could not save candidate"),
   });
 
   return (
@@ -147,20 +163,52 @@ export default function RecruiterApplicationsPage() {
 
                   {/* CV snapshot button */}
                   {app.cv_snapshot?.data && (
-                    <button
-                      className="btn-secondary mt-2 !px-3 !py-1.5 !text-xs"
-                      onClick={() =>
-                        setViewingCv({
-                          snapshot: app.cv_snapshot!.data as Record<
-                            string,
-                            unknown
-                          >,
-                          jobTitle: app.job?.title,
-                        })
-                      }
-                    >
-                      <FileText size={13} /> View CV snapshot
-                    </button>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        className="btn-secondary !px-3 !py-1.5 !text-xs"
+                        onClick={() =>
+                          setViewingCv({
+                            snapshot: app.cv_snapshot!.data as Record<
+                              string,
+                              unknown
+                            >,
+                            jobTitle: app.job?.title,
+                          })
+                        }
+                      >
+                        <FileText size={13} /> View CV snapshot
+                      </button>
+                      <select
+                        className="input max-w-[220px] !py-1.5 !text-xs"
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            saveCandidateMutation.mutate({
+                              applicationId: app.id,
+                              poolId: e.target.value === "none" ? undefined : e.target.value,
+                            });
+                            e.currentTarget.value = "";
+                          }
+                        }}
+                      >
+                        <option value="">Save to pool...</option>
+                        <option value="none">Saved candidates</option>
+                        {pools.map((pool) => (
+                          <option key={pool.id} value={pool.id}>
+                            {pool.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn-ghost !px-3 !py-1.5 !text-xs"
+                        onClick={() =>
+                          saveCandidateMutation.mutate({ applicationId: app.id })
+                        }
+                        disabled={saveCandidateMutation.isPending}
+                      >
+                        <BookmarkPlus size={13} /> Save profile
+                      </button>
+                    </div>
                   )}
 
                   {/* Interview scheduling */}

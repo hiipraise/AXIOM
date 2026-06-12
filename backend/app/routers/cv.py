@@ -13,6 +13,10 @@ from app.models.schemas import (
     OptimizeBulletsRequest,
     KeywordGapRequest,
     AIInterviewRequest,
+    CVAnalyticsCreate,
+    CVAnalyticsEventOut,
+    CVAnalyticsOut,
+    CVKeywordTrendOut,
 )
 from app.services import ai_service
 from datetime import datetime, timezone
@@ -46,6 +50,63 @@ def serialize_cv(cv: dict) -> dict:
         "updated_at": cv["updated_at"],
         "rating": cv.get("rating"),
     }
+
+
+def serialize_analytics_event(doc: dict) -> CVAnalyticsEventOut:
+    return CVAnalyticsEventOut(
+        id=str(doc["_id"]),
+        cv_id=doc["cv_id"],
+        owner_id=doc["owner_id"],
+        ats_score=doc.get("ats_score", 0),
+        present_keywords=doc.get("present_keywords", []),
+        missing_keywords=doc.get("missing_keywords", []),
+        job_description=doc.get("job_description", ""),
+        source=doc.get("source", "keyword_gap"),
+        created_at=doc["created_at"],
+    )
+
+
+def keyword_trends(events: list[dict], field: str) -> list[CVKeywordTrendOut]:
+    trends: dict[str, dict] = {}
+    for event in events:
+        created_at = event["created_at"]
+        values = event.get(field, [])
+        for value in values:
+            if isinstance(value, str):
+                keyword = value.strip()
+                priority = "present"
+                placement = ""
+            else:
+                keyword = str(value.get("keyword", "")).strip()
+                priority = value.get("priority", "medium")
+                placement = value.get("suggested_placement", "")
+            if not keyword:
+                continue
+            key = keyword.lower()
+            current = trends.setdefault(
+                key,
+                {
+                    "keyword": keyword,
+                    "count": 0,
+                    "priority": priority,
+                    "suggested_placement": placement,
+                    "last_seen_at": created_at,
+                },
+            )
+            current["count"] += 1
+            if created_at > current["last_seen_at"]:
+                current["keyword"] = keyword
+                current["priority"] = priority
+                current["suggested_placement"] = placement
+                current["last_seen_at"] = created_at
+    return [
+        CVKeywordTrendOut(**item)
+        for item in sorted(
+            trends.values(),
+            key=lambda item: (item["count"], item["last_seen_at"]),
+            reverse=True,
+        )
+    ]
 
 
 @router.post("")
@@ -142,6 +203,7 @@ async def delete_cv(cv_id: str, current_user=Depends(get_current_user), db=Depen
     if cv["owner_id"] != str(current_user["_id"]) and current_user.get("role") not in ("admin", "superadmin"):
         raise HTTPException(403, "Access denied")
     await db.cv_history.delete_many({"cv_id": cv_id})
+    await db.cv_analytics.delete_many({"cv_id": cv_id})
     await db.cvs.delete_one({"_id": ObjectId(cv_id)})
     return {"message": "CV deleted"}
 
@@ -181,6 +243,41 @@ async def get_cv_history(cv_id: str, current_user=Depends(get_current_user), db=
     cursor = db.cv_history.find({"cv_id": cv_id}).sort("saved_at", -1).limit(20)
     history = await cursor.to_list(20)
     return [{"id": str(h["_id"]), "title": h.get("title"), "saved_at": h["saved_at"], "snapshot": h["snapshot"]} for h in history]
+
+
+@router.get("/{cv_id}/analytics", response_model=CVAnalyticsOut)
+async def get_cv_analytics(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
+    if not cv or cv["owner_id"] != str(current_user["_id"]):
+        raise HTTPException(403, "Access denied")
+    events = await db.cv_analytics.find({"cv_id": cv_id, "owner_id": str(current_user["_id"])}).sort("created_at", -1).limit(50).to_list(50)
+    return CVAnalyticsOut(
+        cv_id=cv_id,
+        events=[serialize_analytics_event(event) for event in events],
+        missing_keyword_trends=keyword_trends(events, "missing_keywords"),
+        present_keyword_trends=keyword_trends(events, "present_keywords"),
+    )
+
+
+@router.post("/{cv_id}/analytics", response_model=CVAnalyticsEventOut)
+async def create_cv_analytics_event(cv_id: str, body: CVAnalyticsCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
+    if not cv or cv["owner_id"] != str(current_user["_id"]):
+        raise HTTPException(403, "Access denied")
+    now = datetime.now(timezone.utc)
+    doc = {
+        "cv_id": cv_id,
+        "owner_id": str(current_user["_id"]),
+        "ats_score": body.ats_score,
+        "present_keywords": body.present_keywords,
+        "missing_keywords": [item.model_dump() for item in body.missing_keywords],
+        "job_description": body.job_description,
+        "source": body.source,
+        "created_at": now,
+    }
+    result = await db.cv_analytics.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return serialize_analytics_event(doc)
 
 
 # AI Endpoints

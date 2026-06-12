@@ -65,6 +65,9 @@ export const cvApi = {
   duplicate: (id: string) =>
     api.post(`/cv/${id}/duplicate`).then((r) => r.data),
   history: (id: string) => api.get(`/cv/${id}/history`).then((r) => r.data),
+  analytics: (id: string) => api.get(`/cv/${id}/analytics`).then((r) => r.data as import("../types").CVAnalytics),
+  createAnalyticsEvent: (id: string, body: object) =>
+    api.post(`/cv/${id}/analytics`, body).then((r) => r.data as import("../types").CVAnalyticsEvent),
   rate: (id: string, score: number, comment?: string) =>
     api
       .post(`/cv/${id}/rate`, { cv_id: id, score, comment })
@@ -243,6 +246,13 @@ export const recruiterApi = {
   profile: () => api.get("/recruiter/profile").then((r) => r.data as import("../types").RecruiterProfile),
   updateProfile: (body: object) => api.put("/recruiter/profile", body).then((r) => r.data as import("../types").RecruiterProfile),
   deleteProfile: () => api.delete("/recruiter/profile").then((r) => r.data),
+  talentPools: () => api.get("/recruiter/talent-pools").then((r) => r.data as import("../types").TalentPool[]),
+  createTalentPool: (body: object) => api.post("/recruiter/talent-pools", body).then((r) => r.data as import("../types").TalentPool),
+  savedCandidates: (poolId?: string) =>
+    api.get("/recruiter/saved-candidates", { params: poolId ? { pool_id: poolId } : undefined }).then((r) => r.data as import("../types").SavedCandidate[]),
+  saveCandidate: (body: object) => api.post("/recruiter/saved-candidates", body).then((r) => r.data as import("../types").SavedCandidate),
+  updateSavedCandidate: (id: string, body: object) => api.put(`/recruiter/saved-candidates/${id}`, body).then((r) => r.data as import("../types").SavedCandidate),
+  deleteSavedCandidate: (id: string) => api.delete(`/recruiter/saved-candidates/${id}`).then((r) => r.data),
 };
 
 export const axiomJobsApi = {

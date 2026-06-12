@@ -35,6 +35,7 @@ import LiveInterviewPage from "./pages/interview/LiveInterviewPage";
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 import RecruiterRegisterPage from "./pages/recruiter/RecruiterRegisterPage";
 import RecruiterApplicationsPage from "./pages/recruiter/RecruiterApplicationsPage";
+import TalentPoolsPage from "./pages/recruiter/TalentPoolsPage";
 import CompanyProfilePage from "./pages/recruiter/CompanyProfilePage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -136,6 +137,7 @@ export default function App() {
             path="recruiter/applications"
             element={<RecruiterApplicationsPage />}
           />
+          <Route path="recruiter/talent-pools" element={<TalentPoolsPage />} />
           <Route path="jobs/axiom/new" element={<CreateJobPage />} />
           <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
           <Route path="interview" element={<InterviewStartPage />} />

@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { cvApi } from "../../api";
-import { CV } from "../../types";
+import { axiomApplicationsApi, cvApi, interviewApi, jobsApi } from "../../api";
+import { ApplicationEntry, AxiomApplication, CV, InterviewSessionListItem, JobResult } from "../../types";
 import {
   Plus,
   FileText,
@@ -18,13 +18,17 @@ import {
   X,
   PencilLine,
   MoreVertical,
+  Target,
+  TrendingUp,
+  CalendarClock,
+  Briefcase,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/auth";
 import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
-import { jobsApi } from "../../api";
-import { JobResult } from "../../types";
+
+const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -289,6 +293,14 @@ export default function DashboardPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
+  const goalStorageKey = user ? `weekly-goals:${user.id}` : "weekly-goals:guest";
+  const [weeklyGoals, setWeeklyGoals] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(goalStorageKey) || "{}");
+    } catch {
+      return {};
+    }
+  });
 
   const { data: cvs = [], isLoading } = useQuery<CV[]>({
     queryKey: ["cvs"],
@@ -315,6 +327,87 @@ export default function DashboardPage() {
     },
     enabled: !!user && !!primaryCv && !!matchSeed,
   });
+
+  const { data: applications = [] } = useQuery<ApplicationEntry[]>({
+    queryKey: ["applications"],
+    queryFn: jobsApi.applications,
+    enabled: !!user,
+  });
+
+  const { data: axiomApplications = [] } = useQuery<AxiomApplication[]>({
+    queryKey: ["axiom-applications"],
+    queryFn: axiomApplicationsApi.list,
+    enabled: !!user,
+  });
+
+  const { data: interviewSessions = [] } = useQuery<InterviewSessionListItem[]>({
+    queryKey: ["interview-sessions"],
+    queryFn: interviewApi.sessions,
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    try {
+      setWeeklyGoals(JSON.parse(localStorage.getItem(goalStorageKey) || "{}"));
+    } catch {
+      setWeeklyGoals({});
+    }
+  }, [goalStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(goalStorageKey, JSON.stringify(weeklyGoals));
+  }, [goalStorageKey, weeklyGoals]);
+
+  const commandCenter = useMemo(() => {
+    const cv = primaryCv;
+    const data = cv?.data;
+    const profileChecks = [
+      !!data?.personal_info.full_name,
+      !!data?.personal_info.email,
+      !!data?.personal_info.job_title,
+      !!data?.summary && data.summary.length > 80,
+      (data?.skills?.length || 0) >= 6,
+      (data?.experience?.length || 0) > 0,
+      (data?.education?.length || 0) > 0,
+      !!data?.target_role,
+      !!cv?.is_public,
+      !!cv?.rating && cv.rating >= 4,
+    ];
+    const profileStrength = Math.round(
+      (profileChecks.filter(Boolean).length / profileChecks.length) * 100,
+    );
+    const completedSessions = interviewSessions.filter(
+      (session) => session.status === "completed",
+    );
+    const rawLatestScore =
+      completedSessions.find((session) => session.overall_score != null)
+        ?.overall_score || 0;
+    const latestScore = rawLatestScore <= 10 ? rawLatestScore * 10 : rawLatestScore;
+    const interviewReadiness = Math.min(
+      100,
+      Math.round(
+        latestScore +
+          Math.min(completedSessions.length, 5) * 8 +
+          (applications.some((app) => app.status === "interview") ? 15 : 0) +
+          (axiomApplications.some((app) => app.status === "interview_scheduled") ? 15 : 0),
+      ),
+    );
+    const weeklyCompleted = WEEKLY_GOAL_KEYS.filter((key) => weeklyGoals[key]).length;
+    return {
+      profileStrength,
+      interviewReadiness,
+      weeklyCompleted,
+      activeApplications: applications.filter(
+        (app) => !["offer", "rejected"].includes(app.status),
+      ).length + axiomApplications.filter(
+        (app) => !["offered", "rejected", "accepted", "declined"].includes(app.status),
+      ).length,
+    };
+  }, [applications, axiomApplications, interviewSessions, primaryCv, weeklyGoals]);
+
+  const toggleGoal = (goal: string) => {
+    setWeeklyGoals((current) => ({ ...current, [goal]: !current[goal] }));
+  };
 
   const handleDuplicate = async (id: string) => {
     try {
@@ -380,7 +473,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <div>
           <h1 className="font-display text-xl sm:text-2xl font-bold text-ink tracking-tight">
-            Your CVs
+            Career Command Center
           </h1>
           <p className="text-sm text-ink-muted mt-0.5">
             {cvs.length} {cvs.length === 1 ? "resume" : "resumes"} saved
@@ -390,6 +483,85 @@ export default function DashboardPage() {
           <Plus size={14} /> New CV
         </button>
       </div>
+
+      <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-ink">Profile strength</p>
+            <Target size={17} />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-ink">
+            {commandCenter.profileStrength}%
+          </p>
+          <div className="mt-3 h-2 rounded-full bg-ash-dark">
+            <div
+              className="h-2 rounded-full bg-emerald-500"
+              style={{ width: `${commandCenter.profileStrength}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            Based on CV completeness, public profile, targeting, and ratings.
+          </p>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-ink">Interview readiness</p>
+            <TrendingUp size={17} />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-ink">
+            {commandCenter.interviewReadiness}%
+          </p>
+          <div className="mt-3 h-2 rounded-full bg-ash-dark">
+            <div
+              className="h-2 rounded-full bg-indigo-500"
+              style={{ width: `${commandCenter.interviewReadiness}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            Practice sessions and interview-stage applications raise this score.
+          </p>
+        </div>
+
+        <div className="card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Weekly goals</p>
+              <p className="text-xs text-ink-muted">
+                {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length} complete
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-ash px-3 py-2 text-sm text-ink-muted">
+              <Briefcase size={15} />
+              {commandCenter.activeApplications} active
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            {WEEKLY_GOAL_KEYS.map((goal) => (
+              <label
+                key={goal}
+                className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm"
+              >
+                <span className={weeklyGoals[goal] ? "text-ink-muted line-through" : "text-ink"}>
+                  {goal}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={!!weeklyGoals[goal]}
+                  onChange={() => toggleGoal(goal)}
+                  className="h-4 w-4 accent-ink"
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            className="btn-secondary mt-4 !px-3 !py-1.5 !text-xs"
+            onClick={() => navigate("/interview")}
+          >
+            <CalendarClock size={13} /> Practise now
+          </button>
+        </div>
+      </section>
 
       {user && primaryCv && (
         <div className="card mb-6 border-ink/10 bg-gradient-to-br from-white to-ash/40">

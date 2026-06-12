@@ -373,6 +373,50 @@ class RecruiterProfileOut(RecruiterRegisterRequest):
     updated_at: datetime
 
 
+class TalentPoolCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    description: str = ""
+
+
+class TalentPoolOut(TalentPoolCreate):
+    id: str
+    recruiter_id: str
+    candidate_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedCandidateCreate(BaseModel):
+    application_id: str
+    pool_id: Optional[str] = None
+    notes: str = ""
+
+
+class SavedCandidateUpdate(BaseModel):
+    pool_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SavedCandidateOut(BaseModel):
+    id: str
+    recruiter_id: str
+    pool_id: Optional[str] = None
+    application_id: str
+    candidate_id: str
+    job_id: str
+    cv_id: str
+    candidate_name: str = ""
+    candidate_title: str = ""
+    candidate_location: str = ""
+    skills: List[str] = Field(default_factory=list)
+    cv_snapshot: Optional[dict] = None
+    notes: str = ""
+    source_job_title: str = ""
+    status: str = ""
+    created_at: datetime
+    updated_at: datetime
+
+
 class LiveInterviewStart(BaseModel):
     application_id: str
     session_type: str = "live_manual"
@@ -481,6 +525,7 @@ class ApplicationEntry(BaseModel):
     cv_id: Optional[str] = None
     notes: str = ""
     applied_url: Optional[str] = None
+    follow_up_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     job: Optional[JobResult] = None
@@ -492,6 +537,7 @@ class ApplicationCreate(BaseModel):
     cv_id: Optional[str] = None
     notes: str = ""
     applied_url: Optional[str] = None
+    follow_up_at: Optional[datetime] = None
 
 
 class ApplicationUpdate(BaseModel):
@@ -499,6 +545,73 @@ class ApplicationUpdate(BaseModel):
     cv_id: Optional[str] = None
     notes: Optional[str] = None
     applied_url: Optional[str] = None
+    follow_up_at: Optional[datetime] = None
+
+
+class CVKeywordTrendItem(BaseModel):
+    keyword: str
+    priority: str = "medium"
+    suggested_placement: str = ""
+
+
+class CVAnalyticsCreate(BaseModel):
+    ats_score: int = Field(..., ge=0, le=100)
+    present_keywords: List[str] = Field(default_factory=list)
+    missing_keywords: List[CVKeywordTrendItem] = Field(default_factory=list)
+    job_description: str = ""
+    source: str = "keyword_gap"
+
+
+class CVAnalyticsEventOut(CVAnalyticsCreate):
+    id: str
+    cv_id: str
+    owner_id: str
+    created_at: datetime
+
+
+class CVKeywordTrendOut(BaseModel):
+    keyword: str
+    count: int
+    priority: str = "medium"
+    suggested_placement: str = ""
+    last_seen_at: datetime
+
+
+class CVAnalyticsOut(BaseModel):
+    cv_id: str
+    events: List[CVAnalyticsEventOut] = Field(default_factory=list)
+    missing_keyword_trends: List[CVKeywordTrendOut] = Field(default_factory=list)
+    present_keyword_trends: List[CVKeywordTrendOut] = Field(default_factory=list)
+
+
+class SkillGapRequest(BaseModel):
+    cv_data: CVData
+    target_role: str = Field(..., min_length=2, max_length=140)
+
+
+class SkillGapItem(BaseModel):
+    skill: str
+    priority: str = "medium"
+    reason: str = ""
+    current_evidence: str = ""
+
+
+class LearningRoadmapStep(BaseModel):
+    phase: str
+    focus: str
+    skills: List[str] = Field(default_factory=list)
+    actions: List[str] = Field(default_factory=list)
+    project: str = ""
+    outcome: str = ""
+
+
+class SkillGapResponse(BaseModel):
+    target_role: str
+    readiness_score: int = Field(..., ge=0, le=100)
+    matched_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[SkillGapItem] = Field(default_factory=list)
+    roadmap: List[LearningRoadmapStep] = Field(default_factory=list)
+    notes: str = ""
 
 class InterviewMode(str, Enum):
     behavioural = "behavioural"

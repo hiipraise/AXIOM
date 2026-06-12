@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle,
@@ -26,6 +27,7 @@ interface KeywordGapResult {
 
 interface Props {
   cvData: CVData;
+  cvId: string;
   onClose: () => void;
 }
 
@@ -212,10 +214,22 @@ function RawBlock({ text }: { text: string }) {
   );
 }
 
-function KeywordGapPanel({ cvData }: { cvData: CVData }) {
+function KeywordGapPanel({ cvData, cvId }: { cvData: CVData; cvId: string }) {
+  const qc = useQueryClient();
   const [jd, setJd] = useState(cvData.job_description || "");
   const [result, setResult] = useState<KeywordGapResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const saveAnalytics = useMutation({
+    mutationFn: (analysis: KeywordGapResult) =>
+      cvApi.createAnalyticsEvent(cvId, {
+        ats_score: analysis.ats_score_estimate,
+        present_keywords: analysis.present_keywords,
+        missing_keywords: analysis.missing_keywords,
+        job_description: jd,
+        source: "keyword_gap",
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cv-analytics", cvId] }),
+  });
 
   const run = async () => {
     if (!jd.trim()) {
@@ -226,7 +240,9 @@ function KeywordGapPanel({ cvData }: { cvData: CVData }) {
     setLoading(true);
     try {
       const res = await cvApi.aiKeywordGap(cvData, jd);
-      setResult(res.analysis ?? res);
+      const analysis = res.analysis ?? res;
+      setResult(analysis);
+      saveAnalytics.mutate(analysis);
     } catch {
       toast.error("Keyword gap analysis failed");
     } finally {
@@ -332,7 +348,97 @@ function KeywordGapPanel({ cvData }: { cvData: CVData }) {
   );
 }
 
-export default function CVReviewPanel({ cvData, onClose }: Props) {
+function CVAnalyticsPanel({ cvId }: { cvId: string }) {
+  const { data } = useQuery({
+    queryKey: ["cv-analytics", cvId],
+    queryFn: () => cvApi.analytics(cvId),
+  });
+  const events = data?.events || [];
+  const ordered = [...events].reverse();
+  const latest = events[0];
+  const bestScore = events.length
+    ? Math.max(...events.map((event) => event.ats_score))
+    : 0;
+
+  return (
+    <ReviewSection title="Performance Analytics" icon={Zap} defaultOpen>
+      {events.length ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-ash p-2">
+              <p className="text-[10px] text-ink-muted">Latest ATS</p>
+              <p className="text-lg font-bold text-ink">{latest.ats_score}%</p>
+            </div>
+            <div className="rounded-lg bg-ash p-2">
+              <p className="text-[10px] text-ink-muted">Best</p>
+              <p className="text-lg font-bold text-ink">{bestScore}%</p>
+            </div>
+            <div className="rounded-lg bg-ash p-2">
+              <p className="text-[10px] text-ink-muted">Runs</p>
+              <p className="text-lg font-bold text-ink">{events.length}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold text-ink">
+              ATS score history
+            </p>
+            <div className="flex h-24 items-end gap-1 rounded-lg border border-ash-border bg-ash/40 p-2">
+              {ordered.map((event) => (
+                <div
+                  key={event.id}
+                  className="min-w-[14px] flex-1 rounded-t bg-ink"
+                  style={{ height: `${Math.max(8, event.ats_score)}%` }}
+                  title={`${event.ats_score}% on ${new Date(event.created_at).toLocaleDateString()}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold text-ink">
+              Recurring missing keywords
+            </p>
+            <div className="space-y-1.5">
+              {(data?.missing_keyword_trends || []).slice(0, 6).map((trend) => (
+                <div
+                  key={trend.keyword}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-ash-border px-2 py-1.5 text-xs"
+                >
+                  <span className="font-medium text-ink">{trend.keyword}</span>
+                  <span className="text-ink-muted">{trend.count}x</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold text-ink">
+              Strengthening keywords
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {(data?.present_keyword_trends || []).slice(0, 10).map((trend) => (
+                <span
+                  key={trend.keyword}
+                  className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700"
+                >
+                  {trend.keyword} · {trend.count}x
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs leading-relaxed text-ink-muted">
+          Run Keyword Gap Analysis to start tracking ATS score history and
+          keyword trends for this CV.
+        </p>
+      )}
+    </ReviewSection>
+  );
+}
+
+export default function CVReviewPanel({ cvData, cvId, onClose }: Props) {
   const [reviewRaw, setReviewRaw] = useState("");
   const [loading, setLoading] = useState(false);
   const [jd, setJd] = useState(cvData.job_description || "");
@@ -427,6 +533,7 @@ export default function CVReviewPanel({ cvData, onClose }: Props) {
                 Analysing your CV across 6 dimensions...
               </p>
             )}
+            <CVAnalyticsPanel cvId={cvId} />
           </div>
         )}
 
@@ -512,8 +619,9 @@ export default function CVReviewPanel({ cvData, onClose }: Props) {
             )}
 
             <div className="border-t border-ash-border pt-3">
+              <CVAnalyticsPanel cvId={cvId} />
               <ReviewSection title="Keyword Gap Analysis" icon={Search}>
-                <KeywordGapPanel cvData={cvData} />
+                <KeywordGapPanel cvData={cvData} cvId={cvId} />
               </ReviewSection>
             </div>
           </div>

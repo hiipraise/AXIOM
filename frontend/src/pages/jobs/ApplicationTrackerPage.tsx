@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bookmark, Brain, Trash2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Brain, CalendarClock, Target, Trash2, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, jobsApi } from "../../api";
 import {
@@ -18,6 +18,14 @@ const STATUSES: ApplicationStatus[] = [
   "offer",
   "rejected",
 ];
+
+const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interview: "Interview",
+  offer: "Offer",
+  rejected: "Rejected",
+};
 
 type TrackerTab = "applications" | "saved";
 
@@ -88,6 +96,7 @@ export default function ApplicationTrackerPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<TrackerTab>("applications");
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const { data: applications = [], isLoading } = useQuery<ApplicationEntry[]>({
     queryKey: ["applications"],
     queryFn: jobsApi.applications,
@@ -107,8 +116,8 @@ export default function ApplicationTrackerPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>
-      jobsApi.updateApplication(id, { status }),
+    mutationFn: ({ id, body }: { id: string; body: Partial<ApplicationEntry> }) =>
+      jobsApi.updateApplication(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["applications"] }),
   });
 
@@ -178,6 +187,30 @@ export default function ApplicationTrackerPage() {
 
   const savedCount = savedJobCards.length;
 
+  const analytics = useMemo(() => {
+    const realApplications = applications.filter((app) => app.status !== "saved");
+    const offers = applications.filter((app) => app.status === "offer").length;
+    const interviews = applications.filter((app) => app.status === "interview").length;
+    const now = new Date();
+    const dueFollowUps = applications.filter((app) => {
+      if (!app.follow_up_at) return false;
+      return new Date(app.follow_up_at).getTime() <= now.getTime();
+    }).length;
+    const successRate = realApplications.length
+      ? Math.round((offers / realApplications.length) * 100)
+      : 0;
+    const interviewRate = realApplications.length
+      ? Math.round(((interviews + offers) / realApplications.length) * 100)
+      : 0;
+    return {
+      total: applications.length,
+      active: applications.filter((app) => !["offer", "rejected"].includes(app.status)).length,
+      successRate,
+      interviewRate,
+      dueFollowUps,
+    };
+  }, [applications]);
+
   const savedFallbackByJobId = useMemo(() => {
     return new Map(savedJobCards.map((entry) => [entry.jobId, entry.job || null]));
   }, [savedJobCards]);
@@ -188,6 +221,20 @@ export default function ApplicationTrackerPage() {
   const getApplicationJobUrl = (entry: ApplicationEntry) => {
     const job = getApplicationJob(entry);
     return job ? getJobDetailUrl(job) : `/jobs/${encodeURIComponent(entry.job_id)}`;
+  };
+
+  const moveApplication = (id: string, status: ApplicationStatus) => {
+    if (id.startsWith("saved-")) return;
+    updateMutation.mutate({ id, body: { status } });
+  };
+
+  const toDateTimeLocal = (value?: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
   };
 
   return (
@@ -233,6 +280,31 @@ export default function ApplicationTrackerPage() {
             Saved jobs
           </button>
         </div>
+
+        {activeTab === "applications" && (
+          <div className="mb-6 grid gap-3 md:grid-cols-4">
+            <div className="rounded-xl border border-ash-border bg-white p-4">
+              <Target size={17} />
+              <p className="mt-2 text-2xl font-bold text-ink">{analytics.successRate}%</p>
+              <p className="text-sm text-ink-muted">Offer success rate</p>
+            </div>
+            <div className="rounded-xl border border-ash-border bg-white p-4">
+              <TrendingUp size={17} />
+              <p className="mt-2 text-2xl font-bold text-ink">{analytics.interviewRate}%</p>
+              <p className="text-sm text-ink-muted">Interview conversion</p>
+            </div>
+            <div className="rounded-xl border border-ash-border bg-white p-4">
+              <CalendarClock size={17} />
+              <p className="mt-2 text-2xl font-bold text-ink">{analytics.dueFollowUps}</p>
+              <p className="text-sm text-ink-muted">Follow-ups due</p>
+            </div>
+            <div className="rounded-xl border border-ash-border bg-white p-4">
+              <Bookmark size={17} />
+              <p className="mt-2 text-2xl font-bold text-ink">{analytics.active}</p>
+              <p className="text-sm text-ink-muted">Active opportunities</p>
+            </div>
+          </div>
+        )}
 
         {activeTab === "saved" ? (
           savedLoading ? (
@@ -336,10 +408,17 @@ export default function ApplicationTrackerPage() {
                 <section
                   key={status}
                   className="rounded-2xl border border-ash-border bg-white p-4"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData("text/plain") || draggedId;
+                    if (id) moveApplication(id, status);
+                    setDraggedId(null);
+                  }}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-medium text-ink capitalize">
-                      {status}
+                      {STATUS_LABELS[status]}
                     </h2>
                     <span className="badge bg-ash-dark text-ink-muted">
                       {grouped[status].length}
@@ -353,7 +432,15 @@ export default function ApplicationTrackerPage() {
                       return (
                         <article
                           key={entry.id}
-                          className="rounded-xl border border-ash-border bg-ash/30 p-3"
+                          className={`rounded-xl border border-ash-border bg-ash/30 p-3 ${
+                            draggedId === entry.id ? "opacity-60" : ""
+                          }`}
+                          draggable={!isSavedOnly}
+                          onDragStart={(e) => {
+                            setDraggedId(entry.id);
+                            e.dataTransfer.setData("text/plain", entry.id);
+                          }}
+                          onDragEnd={() => setDraggedId(null)}
                         >
                           <Link
                             to={getApplicationJobUrl(entry)}
@@ -376,7 +463,7 @@ export default function ApplicationTrackerPage() {
                                 onChange={(e) =>
                                   updateMutation.mutate({
                                     id: entry.id,
-                                    status: e.target.value as ApplicationStatus,
+                                    body: { status: e.target.value as ApplicationStatus },
                                   })
                                 }
                               >
@@ -409,6 +496,28 @@ export default function ApplicationTrackerPage() {
                               </button>
                             )}
                           </div>
+                          {!isSavedOnly && (
+                            <div className="mt-3">
+                              <label className="label flex items-center gap-1">
+                                <CalendarClock size={12} /> Follow-up
+                              </label>
+                              <input
+                                className="input !py-1.5 !text-xs"
+                                type="datetime-local"
+                                value={toDateTimeLocal(entry.follow_up_at)}
+                                onChange={(e) =>
+                                  updateMutation.mutate({
+                                    id: entry.id,
+                                    body: {
+                                      follow_up_at: e.target.value
+                                        ? new Date(e.target.value).toISOString()
+                                        : null,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                          )}
                         </article>
                       );
                     })}

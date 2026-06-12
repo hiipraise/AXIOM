@@ -1,16 +1,61 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { axiomJobsApi } from "../../api";
+import { axiomJobsApi, cvApi } from "../../api";
 import AxiomJobCard from "../../components/jobs/AxiomJobCard";
 import ShareJobModal from "../../components/jobs/ShareJobModal";
 import { AxiomJob } from "../../types";
+import { useAuthStore } from "../../store/auth";
+
+function quickAxiomMatchScore(job: AxiomJob, tokens: string[]): number | null {
+  if (!tokens.length) return null;
+  const haystack = [
+    job.title,
+    job.company_name,
+    job.description,
+    job.industry,
+    job.experience_level,
+    ...job.skills_required,
+  ]
+    .join(" ")
+    .toLowerCase();
+  const hits = tokens.filter((token) => haystack.includes(token.toLowerCase())).length;
+  return Math.round((hits / tokens.length) * 100);
+}
 
 export default function AxiomJobBoardPage() {
+  const { user } = useAuthStore();
   const [q, setQ] = useState("");
   const [region, setRegion] = useState("");
-const [shareJob, setShareJob] = useState<AxiomJob | null>(null);
+  const [shareJob, setShareJob] = useState<AxiomJob | null>(null);
   const { data = [], isLoading } = useQuery({ queryKey: ["axiom-jobs", q, region], queryFn: () => axiomJobsApi.list({ q, region }) });
+  const { data: cvs = [] } = useQuery({
+    queryKey: ["cvs"],
+    queryFn: cvApi.list,
+    enabled: !!user,
+  });
+
+  const primaryCv = cvs[0];
+  const tokens = useMemo(() => {
+    const skills = primaryCv?.data.skills ?? [];
+    const roleBits = [
+      primaryCv?.data.target_role,
+      primaryCv?.data.personal_info.job_title,
+    ].filter(Boolean) as string[];
+    return [...skills, ...roleBits]
+      .flatMap((value) => value.split(/\s+/))
+      .filter(Boolean)
+      .slice(0, 20);
+  }, [primaryCv]);
+
+  const scoredJobs = useMemo(
+    () =>
+      data.map((job) => ({
+        job,
+        score: user && primaryCv ? quickAxiomMatchScore(job, tokens) : null,
+      })),
+    [data, primaryCv, tokens, user],
+  );
 
   return (
     <div className="min-h-screen bg-ash">
@@ -44,7 +89,14 @@ const [shareJob, setShareJob] = useState<AxiomJob | null>(null);
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.map((job) => <AxiomJobCard key={job.id} job={job} onShare={() => setShareJob(job)} />)}
+            {scoredJobs.map(({ job, score }) => (
+              <AxiomJobCard
+                key={job.id}
+                job={job}
+                matchPercentage={score}
+                onShare={() => setShareJob(job)}
+              />
+            ))}
           </div>
         )}
         {!isLoading && !data.length && <div className="card text-center text-sm text-ink-muted">No AXIOM jobs yet.</div>}

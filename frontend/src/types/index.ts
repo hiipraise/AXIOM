@@ -284,6 +284,36 @@ export interface RecruiterProfile {
   updated_at: string;
 }
 
+export interface TalentPool {
+  id: string;
+  recruiter_id: string;
+  name: string;
+  description: string;
+  candidate_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedCandidate {
+  id: string;
+  recruiter_id: string;
+  pool_id?: string | null;
+  application_id: string;
+  candidate_id: string;
+  job_id: string;
+  cv_id: string;
+  candidate_name: string;
+  candidate_title: string;
+  candidate_location: string;
+  skills: string[];
+  cv_snapshot?: Record<string, unknown> | null;
+  notes: string;
+  source_job_title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AxiomApplicationStatus =
   | "applied"
   | "reviewed"
@@ -368,6 +398,39 @@ export interface JobMatchResult {
   verdict: string;
 }
 
+export interface CVAnalyticsKeyword {
+  keyword: string;
+  priority: string;
+  suggested_placement: string;
+}
+
+export interface CVAnalyticsEvent {
+  id: string;
+  cv_id: string;
+  owner_id: string;
+  ats_score: number;
+  present_keywords: string[];
+  missing_keywords: CVAnalyticsKeyword[];
+  job_description: string;
+  source: string;
+  created_at: string;
+}
+
+export interface CVKeywordTrend {
+  keyword: string;
+  count: number;
+  priority: string;
+  suggested_placement: string;
+  last_seen_at: string;
+}
+
+export interface CVAnalytics {
+  cv_id: string;
+  events: CVAnalyticsEvent[];
+  missing_keyword_trends: CVKeywordTrend[];
+  present_keyword_trends: CVKeywordTrend[];
+}
+
 export interface CoverLetterResponse {
   cover_letter: string;
 }
@@ -387,6 +450,7 @@ export interface ApplicationEntry {
   cv_id?: string | null;
   notes: string;
   applied_url?: string | null;
+  follow_up_at?: string | null;
   created_at: string;
   updated_at: string;
   job?: JobResult | null;

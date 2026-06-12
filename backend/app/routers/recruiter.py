@@ -3,12 +3,21 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.config import settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.schemas import RecruiterProfileOut, RecruiterRegisterRequest
+from app.models.schemas import (
+    RecruiterProfileOut,
+    RecruiterRegisterRequest,
+    SavedCandidateCreate,
+    SavedCandidateOut,
+    SavedCandidateUpdate,
+    TalentPoolCreate,
+    TalentPoolOut,
+)
 
 router = APIRouter()
 
@@ -20,6 +29,27 @@ def _utcnow() -> datetime:
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "company"
+
+
+def _oid(value: str) -> ObjectId:
+    if not ObjectId.is_valid(value):
+        raise HTTPException(status_code=400, detail="Invalid id")
+    return ObjectId(value)
+
+
+def _require_recruiter(current_user: dict) -> None:
+    if current_user.get("role") not in ("recruiter", "staff", "admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Recruiter role required")
+
+
+def _json_safe(value):
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    return value
 
 
 def _profile_out(doc: dict) -> RecruiterProfileOut:
@@ -36,6 +66,51 @@ def _profile_out(doc: dict) -> RecruiterProfileOut:
         location=doc.get("location", ""),
         verified=bool(doc.get("verified", False)),
         is_approved=bool(doc.get("is_approved", True)),
+        created_at=doc.get("created_at", _utcnow()),
+        updated_at=doc.get("updated_at", _utcnow()),
+    )
+
+
+def _pool_out(doc: dict, candidate_count: int = 0) -> TalentPoolOut:
+    return TalentPoolOut(
+        id=str(doc["_id"]),
+        recruiter_id=doc["recruiter_id"],
+        name=doc.get("name", ""),
+        description=doc.get("description", ""),
+        candidate_count=candidate_count,
+        created_at=doc.get("created_at", _utcnow()),
+        updated_at=doc.get("updated_at", _utcnow()),
+    )
+
+
+def _candidate_summary(cv_snapshot: dict | None) -> dict:
+    data = (cv_snapshot or {}).get("data") or {}
+    personal = data.get("personal_info") or {}
+    return {
+        "candidate_name": personal.get("full_name", ""),
+        "candidate_title": personal.get("job_title", ""),
+        "candidate_location": personal.get("location", ""),
+        "skills": data.get("skills") or [],
+    }
+
+
+def _saved_candidate_out(doc: dict) -> SavedCandidateOut:
+    return SavedCandidateOut(
+        id=str(doc["_id"]),
+        recruiter_id=doc["recruiter_id"],
+        pool_id=doc.get("pool_id"),
+        application_id=doc["application_id"],
+        candidate_id=doc["candidate_id"],
+        job_id=doc["job_id"],
+        cv_id=doc["cv_id"],
+        candidate_name=doc.get("candidate_name", ""),
+        candidate_title=doc.get("candidate_title", ""),
+        candidate_location=doc.get("candidate_location", ""),
+        skills=doc.get("skills", []),
+        cv_snapshot=_json_safe(doc.get("cv_snapshot")),
+        notes=doc.get("notes", ""),
+        source_job_title=doc.get("source_job_title", ""),
+        status=doc.get("status", ""),
         created_at=doc.get("created_at", _utcnow()),
         updated_at=doc.get("updated_at", _utcnow()),
     )
@@ -146,3 +221,114 @@ async def delete_profile(current_user=Depends(get_current_user), db=Depends(get_
     if current_user.get("role") == "recruiter":
         await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"role": "user"}})
     return {"message": "Company profile removed"}
+
+
+@router.get("/talent-pools", response_model=list[TalentPoolOut])
+async def list_talent_pools(current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    recruiter_id = str(current_user["_id"])
+    docs = await db.talent_pools.find({"recruiter_id": recruiter_id}).sort("updated_at", -1).to_list(100)
+    counts = {}
+    for row in await db.saved_candidates.aggregate([
+        {"$match": {"recruiter_id": recruiter_id, "pool_id": {"$ne": None}}},
+        {"$group": {"_id": "$pool_id", "count": {"$sum": 1}}},
+    ]).to_list(100):
+        counts[row["_id"]] = row["count"]
+    return [_pool_out(doc, counts.get(str(doc["_id"]), 0)) for doc in docs]
+
+
+@router.post("/talent-pools", response_model=TalentPoolOut)
+async def create_talent_pool(body: TalentPoolCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    now = _utcnow()
+    doc = {
+        "recruiter_id": str(current_user["_id"]),
+        "name": body.name.strip(),
+        "description": body.description,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.talent_pools.insert_one(doc)
+    created = await db.talent_pools.find_one({"_id": result.inserted_id})
+    return _pool_out(created)
+
+
+@router.get("/saved-candidates", response_model=list[SavedCandidateOut])
+async def list_saved_candidates(pool_id: str | None = None, current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    query = {"recruiter_id": str(current_user["_id"])}
+    if pool_id:
+        query["pool_id"] = pool_id
+    docs = await db.saved_candidates.find(query).sort("updated_at", -1).to_list(300)
+    return [_saved_candidate_out(doc) for doc in docs]
+
+
+@router.post("/saved-candidates", response_model=SavedCandidateOut)
+async def save_candidate(body: SavedCandidateCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    recruiter_id = str(current_user["_id"])
+    if body.pool_id:
+        pool = await db.talent_pools.find_one({"_id": _oid(body.pool_id), "recruiter_id": recruiter_id})
+        if not pool:
+            raise HTTPException(status_code=404, detail="Talent pool not found")
+    application = await db.axiom_applications.find_one({"_id": _oid(body.application_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if application.get("employer_id") != recruiter_id and current_user.get("role") not in ("staff", "admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Not your application")
+    job = await db.axiom_jobs.find_one({"_id": _oid(application["job_id"])})
+    now = _utcnow()
+    summary = _candidate_summary(application.get("cv_snapshot"))
+    doc = {
+        "recruiter_id": recruiter_id,
+        "pool_id": body.pool_id,
+        "application_id": body.application_id,
+        "candidate_id": application["candidate_id"],
+        "job_id": application["job_id"],
+        "cv_id": application["cv_id"],
+        **summary,
+        "cv_snapshot": application.get("cv_snapshot"),
+        "notes": body.notes,
+        "source_job_title": (job or {}).get("title", ""),
+        "status": application.get("status", ""),
+        "created_at": now,
+        "updated_at": now,
+    }
+    existing = await db.saved_candidates.find_one({"recruiter_id": recruiter_id, "application_id": body.application_id})
+    if existing:
+        await db.saved_candidates.update_one({"_id": existing["_id"]}, {"$set": {**doc, "created_at": existing.get("created_at", now)}})
+        updated = await db.saved_candidates.find_one({"_id": existing["_id"]})
+        return _saved_candidate_out(updated)
+    result = await db.saved_candidates.insert_one(doc)
+    created = await db.saved_candidates.find_one({"_id": result.inserted_id})
+    return _saved_candidate_out(created)
+
+
+@router.put("/saved-candidates/{saved_id}", response_model=SavedCandidateOut)
+async def update_saved_candidate(saved_id: str, body: SavedCandidateUpdate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    recruiter_id = str(current_user["_id"])
+    doc = await db.saved_candidates.find_one({"_id": _oid(saved_id), "recruiter_id": recruiter_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Saved candidate not found")
+    updates = {"updated_at": _utcnow()}
+    if body.pool_id is not None:
+        if body.pool_id:
+            pool = await db.talent_pools.find_one({"_id": _oid(body.pool_id), "recruiter_id": recruiter_id})
+            if not pool:
+                raise HTTPException(status_code=404, detail="Talent pool not found")
+        updates["pool_id"] = body.pool_id or None
+    if body.notes is not None:
+        updates["notes"] = body.notes
+    await db.saved_candidates.update_one({"_id": doc["_id"]}, {"$set": updates})
+    updated = await db.saved_candidates.find_one({"_id": doc["_id"]})
+    return _saved_candidate_out(updated)
+
+
+@router.delete("/saved-candidates/{saved_id}")
+async def delete_saved_candidate(saved_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    _require_recruiter(current_user)
+    result = await db.saved_candidates.delete_one({"_id": _oid(saved_id), "recruiter_id": str(current_user["_id"])})
+    if not result.deleted_count:
+        raise HTTPException(status_code=404, detail="Saved candidate not found")
+    return {"message": "Candidate removed"}

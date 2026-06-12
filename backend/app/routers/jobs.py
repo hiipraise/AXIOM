@@ -39,6 +39,7 @@ def _application_doc(doc: dict) -> ApplicationEntry:
         cv_id=doc.get("cv_id"),
         notes=doc.get("notes", ""),
         applied_url=doc.get("applied_url"),
+        follow_up_at=doc.get("follow_up_at"),
         created_at=doc["created_at"],
         updated_at=doc["updated_at"],
         job=JobResult.model_validate(doc["job"]) if doc.get("job") else None,
@@ -230,6 +231,7 @@ async def create_application(body: ApplicationCreate, current_user=Depends(get_c
                 "cv_id": body.cv_id,
                 "notes": body.notes,
                 "applied_url": body.applied_url,
+                "follow_up_at": body.follow_up_at,
                 "updated_at": now,
                 "job": job_doc.get("payload"),
             },
@@ -255,6 +257,8 @@ async def update_application(application_id: str, body: ApplicationUpdate, curre
         updates["notes"] = body.notes
     if body.applied_url is not None:
         updates["applied_url"] = body.applied_url
+    if body.follow_up_at is not None:
+        updates["follow_up_at"] = body.follow_up_at
     await db.applications.update_one({"_id": ObjectId(application_id)}, {"$set": updates})
     updated = await db.applications.find_one({"_id": ObjectId(application_id)})
     return _application_doc(updated).model_dump(mode="json")
