@@ -46,6 +46,7 @@ import AwardsSection from "../../components/cv/AwardsSection";
 import LanguagesSection from "../../components/cv/LanguagesSection";
 import VolunteerSection from "../../components/cv/VolunteerSection";
 import AIAssistPanel from "../../components/cv/AIAssistPanel";
+import SkillGapEngine from "../../components/cv/SkillGapEngine";
 import CVPreview from "../../components/cv/CVPreview";
 import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 import { CV_TEMPLATE_OPTIONS } from "../../lib/cvTemplateRegistry";
@@ -286,6 +287,7 @@ export default function CVEditorPage() {
   const [template, setTemplate] = useState("standard");
   const [pageCount, setPageCount] = useState(1);
   const [showAI, setShowAI] = useState(false);
+  const [showSkillGap, setShowSkillGap] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showRating, setShowRating] = useState(false);
@@ -301,6 +303,7 @@ export default function CVEditorPage() {
     action: "leave" | "rate" | "restore"; // 8b: added "restore"
     run: () => void;
   }>(null);
+
   const { bannerH } = useAnnouncement();
 
   const { data: cv, isLoading } = useQuery<CV>({
@@ -413,7 +416,9 @@ export default function CVEditorPage() {
         className="flex bg-ash overflow-hidden"
         style={{
           height: `calc(100vh - ${bannerH}px)`,
-          transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)",
+          paddingTop: bannerH,
+          transition:
+            "height 0.28s cubic-bezier(0.4,0,0.2,1), padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         {/* Sidebar */}
@@ -442,6 +447,12 @@ export default function CVEditorPage() {
             ))}
           </div>
           <div className="p-3 border-t border-ash-border space-y-1 flex-shrink-0">
+            <button
+              onClick={() => setShowSkillGap(!showSkillGap)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#a0449f] text-white hover:bg-[#8d3f8c] transition-colors"
+            >
+              <Target size={13} /> Skill Gap
+            </button>
             <button
               onClick={() => setShowAI(!showAI)}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-ink text-white hover:bg-ink-light transition-colors"
@@ -597,6 +608,13 @@ export default function CVEditorPage() {
               </select>
 
               {/* Mobile-only action buttons */}
+              <button
+                onClick={() => setShowSkillGap(!showSkillGap)}
+                className="md:hidden p-1.5 text-blue-600 hover:text-blue-700"
+                title="Skill Gap"
+              >
+                <Target size={15} />
+              </button>
               <button
                 onClick={() => setShowAI(!showAI)}
                 className="md:hidden p-1.5 text-ink-muted hover:text-ink"
@@ -776,6 +794,29 @@ export default function CVEditorPage() {
                   setShowAI(false);
                 }}
                 onClose={() => setShowAI(false)}
+                cvId={id!}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Skill Gap panel */}
+        {showSkillGap && (
+          <div className="hidden md:block">
+            <SkillGapEngine
+              cvData={cvData}
+              onClose={() => setShowSkillGap(false)}
+              cvId={id!}
+            />
+          </div>
+        )}
+        {/* Mobile Skill Gap panel */}
+        {showSkillGap && (
+          <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              <SkillGapEngine
+                cvData={cvData}
+                onClose={() => setShowSkillGap(false)}
                 cvId={id!}
               />
             </div>

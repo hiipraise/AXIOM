@@ -79,6 +79,12 @@ async def export_pdf(cv_id: str, current_user=Depends(get_current_user),
         template=cv.get("template", "standard"),
     )
     enforce_pdf_size_limit(pdf_bytes)
+    await db.export_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "type": "cv-pdf",
+        "size_bytes": len(pdf_bytes),
+        "ts": datetime.now(timezone.utc),
+    })
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"',
@@ -105,6 +111,12 @@ async def export_public_pdf(username: str, slug: str, db=Depends(get_db)):
         template=cv.get("template", "standard"),
     )
     enforce_pdf_size_limit(pdf_bytes)
+    await db.export_events.insert_one({
+        "user_id": cv["owner_id"],
+        "type": "public-pdf",
+        "size_bytes": len(pdf_bytes),
+        "ts": datetime.now(timezone.utc),
+    })
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"'},

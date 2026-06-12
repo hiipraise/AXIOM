@@ -28,6 +28,11 @@ api.interceptors.response.use(
   },
 );
 
+// Track page events (announcement clicks/dismisses)
+export const trackEvent = (eventType: string, detail?: object) => {
+  api.post("/analytics/page-event", { event_type: eventType, ...detail }).catch(() => {});
+};
+
 export const authApi = {
   register: (data: object) =>
     api
@@ -120,6 +125,13 @@ export const cvApi = {
         job_description: jobDescription,
       })
       .then((r) => r.data),
+  skillGap: (cvData: object, targetRole: string) =>
+    api
+      .post("/cv/ai/skill-gap", {
+        cv_data: cvData,
+        target_role: targetRole,
+      })
+      .then((r) => r.data),
   uploadCV: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -166,6 +178,10 @@ export const adminApi = {
   setRole: (id: string, role: string) =>
     api.put(`/admin/users/${id}/role`, { role }).then((r) => r.data),
   recruiters: () => api.get("/admin/recruiters").then((r) => r.data),
+  recruiterActivity: () => api.get("/admin/recruiter-activity").then((r) => r.data),
+  aiStats: () => api.get("/admin/ai-stats").then((r) => r.data),
+  securityStats: () => api.get("/admin/security-stats").then((r) => r.data),
+  exportStats: () => api.get("/admin/export-stats").then((r) => r.data),
   setRecruiterApproval: (id: string, body: { is_approved: boolean; verified?: boolean }) =>
     api.put(`/admin/recruiters/${id}/approval`, body).then((r) => r.data),
   deactivate: (id: string) =>
@@ -180,6 +196,7 @@ export const adminApi = {
     api.get(`/admin/ratings?skip=${skip}&limit=${limit}`).then((r) => r.data),
   auditLog: (skip = 0, limit = 100) =>
     api.get(`/admin/audit-log?skip=${skip}&limit=${limit}`).then((r) => r.data),
+  engagementStats: () => api.get("/admin/engagement-stats").then((r) => r.data),
 };
 
 export const jobsApi = {

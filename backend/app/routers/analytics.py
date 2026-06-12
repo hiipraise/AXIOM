@@ -35,6 +35,24 @@ async def track_event(body: dict, request: Request, db=Depends(get_db), user=Dep
     return {"ok": True}
 
 
+@router.post("/page-event")
+async def track_page_event(body: dict, db=Depends(get_db), user=Depends(get_optional_user)):
+    """
+    Track generic page events (announcement clicks, dismisses, etc).
+    Body: { event_type: string, announcement_id?: string, ...detail }
+    """
+    event = {
+        "event_type":     body.get("event_type", ""),
+        "announcement_id": body.get("announcement_id"),
+        "session_id":    body.get("session_id"),
+        "user_id":       str(user["_id"]) if user else None,
+        "ts":            datetime.now(timezone.utc),
+    }
+    # Store all event types for analytics
+    await db.page_events.insert_one(event)
+    return {"ok": True}
+
+
 # ─── Admin queries ────────────────────────────────────────────────────────────
 
 def _since(days: int):

@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useAnnouncement, BANNER_H } from "../context/announcement";
+import { trackEvent } from "../api";
 
 const TYPE_STYLES = {
   info: "bg-ink text-white",
@@ -28,7 +29,10 @@ export default function AnnouncementBanner() {
           key={`${suffix}-${i}`}
           href={part}
           className="underline underline-offset-2 hover:opacity-100"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (ann) trackEvent("announcement_click", { announcement_id: ann.id });
+          }}
         >
           {part}
         </a>

@@ -17,6 +17,8 @@ from app.models.schemas import (
     CVAnalyticsEventOut,
     CVAnalyticsOut,
     CVKeywordTrendOut,
+    SkillGapRequest,
+    SkillGapResponse,
 )
 from app.services import ai_service
 from datetime import datetime, timezone
@@ -284,80 +286,136 @@ async def create_cv_analytics_event(cv_id: str, body: CVAnalyticsCreate, current
 
 @router.post("/ai/chat")
 @limiter.limit("20/minute")
-async def ai_chat(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user)):
+async def ai_chat(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     response = await ai_service.chat_with_ai(
         body.message,
         cv_data=body.cv_data.model_dump() if body.cv_data else None,
         context=body.context or ""
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "chat",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"response": response}
 
 
 @router.post("/ai/generate-summary")
 @limiter.limit("20/minute")
-async def ai_generate_summary(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user)):
+async def ai_generate_summary(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     if not body.cv_data:
         raise HTTPException(400, "CV data required")
     summary = await ai_service.generate_summary(body.cv_data.model_dump())
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "generate_summary",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"summary": summary}
 
 
 @router.post("/ai/edit")
 @limiter.limit("20/minute")
-async def ai_edit(request: Request, body: AIEditRequest, current_user=Depends(get_current_user)):
+async def ai_edit(request: Request, body: AIEditRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     updated = await ai_service.improve_cv_section(
         body.instruction, body.cv_data.model_dump(), body.section
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "edit",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"data": updated}
 
 
 @router.post("/ai/match-job")
 @limiter.limit("20/minute")
-async def ai_match_job(request: Request, body: JobMatchRequest, current_user=Depends(get_current_user)):
+async def ai_match_job(request: Request, body: JobMatchRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     updated = await ai_service.match_job_description(
         body.cv_data.model_dump(), body.job_description
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "match_job",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"data": updated}
 
 
 @router.post("/ai/interview")
 @limiter.limit("20/minute")
-async def ai_interview(request: Request, body: AIInterviewRequest, current_user=Depends(get_current_user)):
+async def ai_interview(request: Request, body: AIInterviewRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     response = await ai_service.interview_user(
         body.message,
         body.history,
         body.cv_data.model_dump() if body.cv_data else None,
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "interview",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"response": response}
 
 
 @router.post("/ai/review")
 @limiter.limit("20/minute")
-async def ai_review(request: Request, body: CVReviewRequest, current_user=Depends(get_current_user)):
+async def ai_review(request: Request, body: CVReviewRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     review = await ai_service.review_cv(
         body.cv_data.model_dump(),
         body.job_description or "",
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "review",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"review": review}
 
 
 @router.post("/ai/optimize-bullets")
 @limiter.limit("20/minute")
-async def ai_optimize_bullets(request: Request, body: OptimizeBulletsRequest, current_user=Depends(get_current_user)):
+async def ai_optimize_bullets(request: Request, body: OptimizeBulletsRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     updated = await ai_service.optimize_bullets(
         body.cv_data.model_dump(),
         body.experience_index,
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "optimize_bullets",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return {"data": updated}
 
 
 @router.post("/ai/keyword-gap")
 @limiter.limit("20/minute")
-async def ai_keyword_gap(request: Request, body: KeywordGapRequest, current_user=Depends(get_current_user)):
+async def ai_keyword_gap(request: Request, body: KeywordGapRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     analysis = await ai_service.keyword_gap_analysis(
         body.cv_data.model_dump(),
         body.job_description,
     )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "keyword_gap",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
     return analysis
 
 
@@ -391,3 +449,22 @@ async def rate_cv(cv_id: str, body: CVRating, current_user=Depends(get_current_u
     await db.ratings.insert_one(rating_doc)
     await db.cvs.update_one({"_id": ObjectId(cv_id)}, {"$set": {"rating": body.score}})
     return {"message": "Rating saved"}
+
+
+# Skill Gap Engine
+
+@router.post("/ai/skill-gap", response_model=SkillGapResponse)
+@limiter.limit("20/minute")
+async def analyze_skill_gaps(request: Request, body: SkillGapRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    analysis = await ai_service.analyze_skill_gaps(
+        body.cv_data.model_dump(),
+        body.target_role,
+    )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "skill_gap",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
+    return SkillGapResponse(**analysis)

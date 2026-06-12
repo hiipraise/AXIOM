@@ -6,7 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, trackEvent } from "../api";
 
 interface Announcement {
   id: string;
@@ -59,7 +59,10 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
   }, [ann?.id, ann?.active]);
 
   const dismiss = () => {
-    if (ann) dismissed.add(ann.id);
+    if (ann) {
+      dismissed.add(ann.id);
+      trackEvent("announcement_dismiss", { announcement_id: ann.id });
+    }
     setBannerH(0);
     setTimeout(() => setVisible(false), 300);
   };

@@ -98,6 +98,12 @@ async def register(request: Request, body: UserCreate, response: Response, db=De
 async def login(request: Request, body: UserLogin, response: Response, db=Depends(get_db)):
     user = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if not user or not verify_password(body.password, user["password_hash"]):
+        await db.security_events.insert_one({
+            "type": "failed_login",
+            "username": body.username,
+            "ip": request.client.host if request.client else None,
+            "ts": datetime.now(timezone.utc),
+        })
         raise HTTPException(401, "Invalid credentials")
     if not user.get("is_active"):
         raise HTTPException(403, "Account deactivated")

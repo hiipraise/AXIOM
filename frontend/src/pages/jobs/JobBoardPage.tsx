@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   SlidersHorizontal,
@@ -86,7 +86,32 @@ export default function JobBoardPage() {
     "all",
   );
   const [useCvMatch, setUseCvMatch] = useState(false);
-  const [page, setPage] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => {
+    const p = searchParams.get("page");
+    return p ? parseInt(p, 10) : 0;
+  });
+
+  // Track if we're actually initializing from URL vs setting from within the component
+  const isInitialUrlLoad = useRef(true);
+  // On first load, if page came from URL, mark it as already synced so we don't write back
+  useEffect(() => {
+    if (isInitialUrlLoad.current) {
+      isInitialUrlLoad.current = false;
+    }
+  }, []);
+
+  // Sync page changes to URL (but not on initial load to avoid loops)
+  useEffect(() => {
+    if (!isInitialUrlLoad.current) {
+      if (page === 0) {
+        searchParams.delete("page");
+      } else {
+        searchParams.set("page", page.toString());
+      }
+      setSearchParams(searchParams);
+    }
+  }, [page]);
 
   function commit() {
     setCommitted({ q: query, location, remote, region });

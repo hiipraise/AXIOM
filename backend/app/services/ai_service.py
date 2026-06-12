@@ -504,6 +504,56 @@ Return JSON only in this exact shape:
     return data
 
 
+async def analyze_skill_gaps(cv_data: dict, target_role: str) -> dict:
+    """Analyze skill gaps for a target role and generate learning roadmap."""
+    ctx = _cv_context(cv_data)
+    user_skills = [s.lower().strip() for s in cv_data.get("skills", [])]
+    user_roles = [e.get("role", "").lower().strip() for e in cv_data.get("experience", [])]
+
+    prompt = f"""Analyze skill gaps for someone targeting this role and generate a learning roadmap.
+
+Target role: {target_role}
+
+Current profile:
+Skills: {", ".join(user_skills)}
+Experience: {", ".join([r for r in user_roles if r])}
+Career level: {ctx.get("career_level", "mid")}
+Industry: {ctx.get("industry", "general")}
+
+Return JSON in this exact format:
+{{
+  "target_role": "the target role",
+  "readiness_score": 0-100 based on current skills vs role requirements,
+  "matched_skills": ["skill1", "skill2"],
+  "missing_skills": [
+    {{"skill": "React", "priority": "high", "reason": "why it's critical", "current_evidence": "what they have that relates"}},
+    {{"skill": "Team Leadership", "priority": "medium", "reason": "needed for senior roles", "current_evidence": ""}}
+  ],
+  "roadmap": [
+    {{
+      "phase": "Month 1-2",
+      "focus": "Core skills foundation",
+      "skills": ["skill1", "skill2"],
+      "actions": ["action1", "action2"],
+      "project": "portfolio project idea",
+      "outcome": "demonstrable evidence"
+    }}
+  ],
+  "notes": "one sentence assessment"
+}}
+
+Priority: high (critical for role), medium (accelerator), low (nice-to-have).
+Readiness score: weighted by high > medium > low priority matches.
+Return ONLY the JSON."""
+
+    text = _create_completion(
+        json_system_prompt(**ctx),
+        [{"role": "user", "content": prompt}],
+        max_tokens=2000,
+    )
+    return _safe_json_object(text)
+
+
 async def summarize_interview_session(
     cv_data: dict,
     job_description: str,

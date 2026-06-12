@@ -495,7 +495,7 @@ export default function DashboardPage() {
           </p>
           <div className="mt-3 h-2 rounded-full bg-ash-dark">
             <div
-              className="h-2 rounded-full bg-emerald-500"
+              className="h-2 rounded-full bg-amber-500"
               style={{ width: `${commandCenter.profileStrength}%` }}
             />
           </div>
@@ -514,7 +514,7 @@ export default function DashboardPage() {
           </p>
           <div className="mt-3 h-2 rounded-full bg-ash-dark">
             <div
-              className="h-2 rounded-full bg-indigo-500"
+              className="h-2 rounded-full bg-[#a0449f]"
               style={{ width: `${commandCenter.interviewReadiness}%` }}
             />
           </div>

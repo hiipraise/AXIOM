@@ -433,6 +433,31 @@ export interface CVAnalytics {
   present_keyword_trends: CVKeywordTrend[];
 }
 
+export interface SkillGapItem {
+  skill: string;
+  priority: string;
+  reason: string;
+  current_evidence: string;
+}
+
+export interface LearningRoadmapStep {
+  phase: string;
+  focus: string;
+  skills: string[];
+  actions: string[];
+  project: string;
+  outcome: string;
+}
+
+export interface SkillGapResponse {
+  target_role: string;
+  readiness_score: number;
+  matched_skills: string[];
+  missing_skills: SkillGapItem[];
+  roadmap: LearningRoadmapStep[];
+  notes: string;
+}
+
 export interface CoverLetterResponse {
   cover_letter: string;
 }
