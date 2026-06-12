@@ -306,7 +306,9 @@ export interface SavedCandidate {
   candidate_title: string;
   candidate_location: string;
   skills: string[];
-  cv_snapshot?: Record<string, unknown> | null;
+  cv_snapshot?: {
+    data?: Record<string, unknown>;
+  } | null;
   notes: string;
   source_job_title: string;
   status: string;
