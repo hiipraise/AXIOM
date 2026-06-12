@@ -14,7 +14,7 @@ from app.services.ai_prompts import (
     review_system_prompt,
 )
 
-MODEL_NAME = "llama-3.1-8b-instant"
+MODEL_NAME = settings.groq_model
 
 
 @lru_cache(maxsize=1)

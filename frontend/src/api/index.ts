@@ -175,6 +175,8 @@ export const adminApi = {
     api.get(`/admin/cvs?skip=${skip}&limit=${limit}`).then((r) => r.data),
   ratings: (skip = 0, limit = 50) =>
     api.get(`/admin/ratings?skip=${skip}&limit=${limit}`).then((r) => r.data),
+  auditLog: (skip = 0, limit = 100) =>
+    api.get(`/admin/audit-log?skip=${skip}&limit=${limit}`).then((r) => r.data),
 };
 
 export const jobsApi = {
@@ -240,6 +242,7 @@ export const recruiterApi = {
   register: (body: object) => api.post("/recruiter/register", body).then((r) => r.data as import("../types").RecruiterProfile),
   profile: () => api.get("/recruiter/profile").then((r) => r.data as import("../types").RecruiterProfile),
   updateProfile: (body: object) => api.put("/recruiter/profile", body).then((r) => r.data as import("../types").RecruiterProfile),
+  deleteProfile: () => api.delete("/recruiter/profile").then((r) => r.data),
 };
 
 export const axiomJobsApi = {

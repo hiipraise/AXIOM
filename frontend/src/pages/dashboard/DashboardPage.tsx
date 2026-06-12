@@ -426,9 +426,13 @@ export default function DashboardPage() {
               {matchJobs.map((job) => (
                 <button
                   key={job.id}
-                  onClick={() =>
-                    navigate(`/jobs/${encodeURIComponent(job.id)}`)
-                  }
+                  onClick={() => {
+                    const jobUrl =
+                      job.source === "axiom" && job.id.startsWith("axiom:")
+                        ? `/jobs/axiom/${job.id.slice("axiom:".length)}`
+                        : `/jobs/${encodeURIComponent(job.id)}`;
+                    navigate(jobUrl);
+                  }}
                   className="text-left rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start justify-between gap-3">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { authApi } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
-import { Shield, Mail, Key, Trash2, AlertTriangle } from 'lucide-react'
+import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle } from 'lucide-react'
 
 export default function AccountPage() {
   const { user, clearAuth, setUser } = useAuthStore()
@@ -11,6 +11,7 @@ export default function AccountPage() {
 
   const [pwForm, setPwForm] = useState({ old_password: '', new_password: '', confirm: '' })
   const [profileForm, setProfileForm] = useState({ email: user?.email || '', secret_question: '', secret_answer: '' })
+  const [emailNotifications, setEmailNotifications] = useState(Boolean(user?.email_notifications))
   const [loading, setLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
 
@@ -32,12 +33,13 @@ export default function AccountPage() {
     }
   }
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleUpdateProfile = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setLoading(true)
     try {
       const payload: any = {}
       if (profileForm.email) payload.email = profileForm.email
+      payload.email_notifications = Boolean(profileForm.email && emailNotifications)
       if (profileForm.secret_question) payload.secret_question = profileForm.secret_question
       if (profileForm.secret_answer) payload.secret_answer = profileForm.secret_answer
       const updated = await authApi.updateProfile(payload)
@@ -139,6 +141,45 @@ export default function AccountPage() {
           )}
           <button className="btn-secondary text-sm" disabled={loading}>Save recovery options</button>
         </form>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <Briefcase size={15} className="text-ink-muted" />
+          <h2 className="font-medium text-ink text-sm">CV targeting</h2>
+        </div>
+        <p className="text-sm text-ink-muted leading-relaxed">
+          Career level, industry, and target role are set per CV in the editor so each resume can target a different opportunity.
+        </p>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell size={15} className="text-ink-muted" />
+          <h2 className="font-medium text-ink text-sm">Notification preferences</h2>
+        </div>
+        <label className={`flex items-center justify-between gap-4 rounded-xl border border-ash-border p-3 ${profileForm.email ? "cursor-pointer" : "opacity-60"}`}>
+          <div>
+            <p className="text-sm font-medium text-ink">Email notifications</p>
+            <p className="text-xs text-ink-muted">
+              {profileForm.email ? `Send important account and application updates to ${profileForm.email}.` : "Add an email address above to enable email notifications."}
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-ink"
+            checked={Boolean(profileForm.email && emailNotifications)}
+            disabled={!profileForm.email}
+            onChange={(e) => setEmailNotifications(e.target.checked)}
+          />
+        </label>
+        <button
+          className="btn-secondary text-sm mt-3"
+          disabled={loading || !profileForm.email}
+          onClick={() => handleUpdateProfile()}
+        >
+          Save notification preferences
+        </button>
       </div>
 
       {/* Delete account */}

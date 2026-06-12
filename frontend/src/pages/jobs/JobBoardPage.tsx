@@ -33,9 +33,15 @@ const SORT_OPTIONS = [
 
 function JobBoardSkeleton() {
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading jobs">
+    <section
+      className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      aria-label="Loading jobs"
+    >
       {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse">
+        <div
+          key={i}
+          className="rounded-2xl border border-ash-border bg-white p-4 animate-pulse"
+        >
           <div className="mb-4 flex items-center justify-between">
             <div className="h-3 w-20 rounded bg-ash-dark" />
             <div className="h-3 w-14 rounded bg-ash-dark" />
@@ -76,7 +82,9 @@ export default function JobBoardPage() {
   // ── Filters / sort (client-side)
   const [sortBy, setSortBy] = useState("default");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">("all");
+  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">(
+    "all",
+  );
   const [useCvMatch, setUseCvMatch] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -133,8 +141,14 @@ export default function JobBoardPage() {
   }
 
   // ── Fetch jobs
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["jobs", committed.q, committed.location, committed.remote, committed.region],
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+    queryKey: [
+      "jobs",
+      committed.q,
+      committed.location,
+      committed.remote,
+      committed.region,
+    ],
     queryFn: () =>
       jobsApi.search({
         q: committed.q,
@@ -159,11 +173,14 @@ export default function JobBoardPage() {
   const processed = useMemo(() => {
     let result = rawJobs.map((job) => ({
       job,
-      score: user && primaryCv && useCvMatch ? quickMatchScore(job, tokens) : null,
+      score:
+        user && primaryCv && useCvMatch ? quickMatchScore(job, tokens) : null,
     }));
 
-    if (sourceMode === "axiom") result = result.filter(({ job }) => job.source === "axiom");
-    if (sourceMode === "external") result = result.filter(({ job }) => job.source !== "axiom");
+    if (sourceMode === "axiom")
+      result = result.filter(({ job }) => job.source === "axiom");
+    if (sourceMode === "external")
+      result = result.filter(({ job }) => job.source !== "axiom");
 
     // Source filter
     if (sourceFilter)
@@ -188,7 +205,16 @@ export default function JobBoardPage() {
       );
 
     return result;
-  }, [rawJobs, sortBy, sourceFilter, sourceMode, tokens, user, primaryCv, useCvMatch]);
+  }, [
+    rawJobs,
+    sortBy,
+    sourceFilter,
+    sourceMode,
+    tokens,
+    user,
+    primaryCv,
+    useCvMatch,
+  ]);
 
   const totalPages = Math.ceil(processed.length / PAGE_SIZE);
   const paginated = processed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -205,7 +231,10 @@ export default function JobBoardPage() {
       {/* ── Sticky header ── */}
       <header
         className="border-b border-ash-border bg-white/80 backdrop-blur-sm sticky z-20"
-        style={{ top: bannerH, transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)" }}
+        style={{
+          top: bannerH,
+          transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
+        }}
       >
         <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -307,12 +336,20 @@ export default function JobBoardPage() {
         {user && primaryCv && (
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ash-border bg-white px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-ink">Use your CV for matching</p>
+              <p className="text-sm font-medium text-ink">
+                Use your CV for matching
+              </p>
               <p className="text-xs text-ink-muted">
-                {useCvMatch ? `Searching with: ${cvSearch || "your CV"}` : "Start with all jobs, then switch on CV-aware search when you want it."}
+                {useCvMatch
+                  ? `Searching with: ${cvSearch || "your CV"}`
+                  : "Start with all jobs, then switch on CV-aware search when you want it."}
               </p>
             </div>
-            <button className={useCvMatch ? "btn-secondary" : "btn-primary"} onClick={useCvMatch ? clearCvSearch : applyCvSearch} disabled={!cvSearch}>
+            <button
+              className={useCvMatch ? "btn-secondary" : "btn-primary"}
+              onClick={useCvMatch ? clearCvSearch : applyCvSearch}
+              disabled={!cvSearch}
+            >
               {useCvMatch ? "Show all jobs" : "Use my CV"}
             </button>
           </section>
@@ -373,11 +410,13 @@ export default function JobBoardPage() {
             </button>
           )}
 
-          {sourceMode === "axiom" && !rawJobs.some((j) => j.source === "axiom") && (
-            <p className="text-xs text-amber-600">
-              No AXIOM jobs match this search. Try broader keywords or clear the region filter.
-            </p>
-          )}
+          {sourceMode === "axiom" &&
+            !rawJobs.some((j) => j.source === "axiom") && (
+              <p className="text-xs text-amber-600">
+                No AXIOM jobs match this search. Try broader keywords or clear
+                the region filter.
+              </p>
+            )}
 
           <div className="ml-auto flex items-center gap-2 text-xs text-ink-muted">
             {isFetching && !isLoading && (
@@ -395,6 +434,17 @@ export default function JobBoardPage() {
         {/* ── Results ── */}
         {isLoading ? (
           <JobBoardSkeleton />
+        ) : isError ? (
+          <div className="card text-center py-12">
+            <p className="text-sm text-ink-muted">
+              Could not load jobs. The server may be starting up — try again in
+              30 seconds.
+            </p>
+
+            <button className="btn-secondary mt-4" onClick={() => refetch()}>
+              Retry
+            </button>
+          </div>
         ) : paginated.length > 0 ? (
           <>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

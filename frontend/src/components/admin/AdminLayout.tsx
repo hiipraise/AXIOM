@@ -11,6 +11,7 @@ import {
   BarChart2,
   MessageSquare,
   Megaphone,
+  ScrollText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAnnouncement } from "../../context/announcement";
@@ -22,6 +23,7 @@ const NAV = [
   { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { to: "/admin/cvs", label: "All CVs", icon: FileText },
   { to: "/admin/ratings", label: "Ratings", icon: Star },
 ];

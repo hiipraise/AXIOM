@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     id: str
     username: str
     email: Optional[str]
+    email_notifications: bool = False
     role: UserRole
     must_change_password: bool
     created_at: datetime

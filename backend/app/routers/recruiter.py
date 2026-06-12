@@ -130,3 +130,19 @@ async def update_profile(body: RecruiterRegisterRequest, current_user=Depends(ge
     await db.company_profiles.update_one({"_id": doc["_id"]}, {"$set": updates})
     updated = await db.company_profiles.find_one({"_id": doc["_id"]})
     return _profile_out(updated)
+
+
+@router.delete("/profile")
+async def delete_profile(current_user=Depends(get_current_user), db=Depends(get_db)):
+    user_id = str(current_user["_id"])
+    doc = await db.company_profiles.find_one({"user_id": user_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recruiter profile not found")
+    await db.company_profiles.delete_one({"_id": doc["_id"]})
+    await db.axiom_jobs.update_many(
+        {"employer_id": user_id},
+        {"$set": {"is_active": False, "updated_at": _utcnow()}},
+    )
+    if current_user.get("role") == "recruiter":
+        await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"role": "user"}})
+    return {"message": "Company profile removed"}

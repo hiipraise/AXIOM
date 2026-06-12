@@ -44,6 +44,7 @@ import AdminCVs from "./pages/admin/AdminCVs";
 import AdminRatings from "./pages/admin/AdminRatings";
 import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
+import AdminAuditLog from "./pages/admin/AdminAuditLog";
 import AppLoading from "./components/AppLoading";
 import NotFoundPage from "./pages/NotFoundPage";
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
@@ -168,6 +169,7 @@ export default function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="audit" element={<AdminAuditLog />} />
           <Route path="cvs" element={<AdminCVs />} />
           <Route path="ratings" element={<AdminRatings />} />
           <Route path="feedback" element={<AdminFeedback />} />

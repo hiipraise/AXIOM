@@ -14,10 +14,16 @@ import re
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+MAX_PDF_BYTES = 20 * 1024 * 1024
 
 
 def safe_filename(name: str) -> str:
     return re.sub(r"[^\w\-]", "_", name)
+
+
+def enforce_pdf_size_limit(pdf_bytes: bytes) -> None:
+    if len(pdf_bytes) > MAX_PDF_BYTES:
+        raise HTTPException(413, "Generated PDF too large")
 
 
 @router.post("/html-pdf")
@@ -34,6 +40,7 @@ async def export_html_pdf(body: dict, current_user=Depends(get_current_user), db
     except Exception as e:
         logger.exception("html-pdf generation failed")
         raise HTTPException(500, f"PDF generation failed: {e}")
+    enforce_pdf_size_limit(pdf_bytes)
     await db.export_events.insert_one({
         "user_id": str(current_user["_id"]),
         "type": "html-pdf",
@@ -71,6 +78,7 @@ async def export_pdf(cv_id: str, current_user=Depends(get_current_user),
         page_count=cv.get("page_count", 1), public_url=public_url,
         template=cv.get("template", "standard"),
     )
+    enforce_pdf_size_limit(pdf_bytes)
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"',
@@ -96,6 +104,7 @@ async def export_public_pdf(username: str, slug: str, db=Depends(get_db)):
         page_count=cv.get("page_count", 1), public_url=public_url,
         template=cv.get("template", "standard"),
     )
+    enforce_pdf_size_limit(pdf_bytes)
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"'},
@@ -124,6 +133,7 @@ async def export_pdf_preview(body: dict, current_user=Depends(get_current_user),
         )
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {e}")
+    enforce_pdf_size_limit(pdf_bytes)
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}.pdf"',

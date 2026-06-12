@@ -42,6 +42,7 @@ def serialize_user(u: dict) -> dict:
         "id":                   str(u["_id"]),
         "username":             u["username"],
         "email":                u.get("email"),
+        "email_notifications":  u.get("email_notifications", False),
         "role":                 u.get("role", "user"),
         "must_change_password": u.get("must_change_password", False),
         "created_at":           u.get("created_at", datetime.now(timezone.utc)),
@@ -82,6 +83,7 @@ async def register(request: Request, body: UserCreate, response: Response, db=De
         "created_at":         datetime.now(timezone.utc),
         "secret_question":    body.secret_question,
         "secret_answer_hash": hash_password(body.secret_answer) if body.secret_answer else None,
+        "email_notifications": bool(body.email),
         "is_active":          True,
     }
     result = await db.users.insert_one(user_doc)
@@ -130,6 +132,10 @@ async def change_password(body: PasswordChange, current_user=Depends(get_current
 async def update_profile(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
     allowed = {}
     if "email"           in body: allowed["email"]               = body["email"]
+    if "email_notifications" in body:
+        if body["email_notifications"] and not (body.get("email") or current_user.get("email")):
+            raise HTTPException(400, "Email notifications require an email address")
+        allowed["email_notifications"] = bool(body["email_notifications"])
     if "secret_question" in body: allowed["secret_question"]     = body["secret_question"]
     if "secret_answer"   in body and body["secret_answer"]:
         allowed["secret_answer_hash"] = hash_password(body["secret_answer"])

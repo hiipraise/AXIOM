@@ -82,3 +82,16 @@ async def get_public_profile(username: str, db=Depends(get_db)):
             for c in cvs
         ],
     }
+
+# backend/app/routers/public.py
+@router.get("/sitemap.xml")
+async def sitemap(db=Depends(get_db)):
+    base = settings.frontend_url
+    cursor = db.cvs.find({"is_public": True}, {"owner_username": 1, "slug": 1, "updated_at": 1})
+    cvs = await cursor.to_list(5000)
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for cv in cvs:
+        if cv.get("slug"):
+            lines.append(f"  <url><loc>{base}/cv/{cv['owner_username']}/{cv['slug']}</loc></url>")
+    lines.append("</urlset>")
+    return Response("\n".join(lines), media_type="application/xml")

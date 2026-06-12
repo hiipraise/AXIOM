@@ -2,6 +2,7 @@ export interface User {
   id: string;
   username: string;
   email?: string;
+  email_notifications?: boolean;
   role: "user" | "recruiter" | "staff" | "admin" | "superadmin";
   must_change_password: boolean;
   created_at: string;

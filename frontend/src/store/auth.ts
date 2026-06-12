@@ -4,6 +4,7 @@ export interface User {
   id: string
   username: string
   email: string | null
+  email_notifications?: boolean
   role: string
   must_change_password: boolean
   is_active: boolean

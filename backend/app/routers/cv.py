@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from app.database import get_db
+from app.limiter import limiter
 from app.middleware.auth import get_current_user
 from app.models.schemas import (
     CVCreate,
@@ -185,7 +186,8 @@ async def get_cv_history(cv_id: str, current_user=Depends(get_current_user), db=
 # AI Endpoints
 
 @router.post("/ai/chat")
-async def ai_chat(body: AIPromptRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_chat(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user)):
     response = await ai_service.chat_with_ai(
         body.message,
         cv_data=body.cv_data.model_dump() if body.cv_data else None,
@@ -195,7 +197,8 @@ async def ai_chat(body: AIPromptRequest, current_user=Depends(get_current_user))
 
 
 @router.post("/ai/generate-summary")
-async def ai_generate_summary(body: AIPromptRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_generate_summary(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user)):
     if not body.cv_data:
         raise HTTPException(400, "CV data required")
     summary = await ai_service.generate_summary(body.cv_data.model_dump())
@@ -203,7 +206,8 @@ async def ai_generate_summary(body: AIPromptRequest, current_user=Depends(get_cu
 
 
 @router.post("/ai/edit")
-async def ai_edit(body: AIEditRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_edit(request: Request, body: AIEditRequest, current_user=Depends(get_current_user)):
     updated = await ai_service.improve_cv_section(
         body.instruction, body.cv_data.model_dump(), body.section
     )
@@ -211,7 +215,8 @@ async def ai_edit(body: AIEditRequest, current_user=Depends(get_current_user)):
 
 
 @router.post("/ai/match-job")
-async def ai_match_job(body: JobMatchRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_match_job(request: Request, body: JobMatchRequest, current_user=Depends(get_current_user)):
     updated = await ai_service.match_job_description(
         body.cv_data.model_dump(), body.job_description
     )
@@ -219,7 +224,8 @@ async def ai_match_job(body: JobMatchRequest, current_user=Depends(get_current_u
 
 
 @router.post("/ai/interview")
-async def ai_interview(body: AIInterviewRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_interview(request: Request, body: AIInterviewRequest, current_user=Depends(get_current_user)):
     response = await ai_service.interview_user(
         body.message,
         body.history,
@@ -229,7 +235,8 @@ async def ai_interview(body: AIInterviewRequest, current_user=Depends(get_curren
 
 
 @router.post("/ai/review")
-async def ai_review(body: CVReviewRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_review(request: Request, body: CVReviewRequest, current_user=Depends(get_current_user)):
     review = await ai_service.review_cv(
         body.cv_data.model_dump(),
         body.job_description or "",
@@ -238,7 +245,8 @@ async def ai_review(body: CVReviewRequest, current_user=Depends(get_current_user
 
 
 @router.post("/ai/optimize-bullets")
-async def ai_optimize_bullets(body: OptimizeBulletsRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_optimize_bullets(request: Request, body: OptimizeBulletsRequest, current_user=Depends(get_current_user)):
     updated = await ai_service.optimize_bullets(
         body.cv_data.model_dump(),
         body.experience_index,
@@ -247,7 +255,8 @@ async def ai_optimize_bullets(body: OptimizeBulletsRequest, current_user=Depends
 
 
 @router.post("/ai/keyword-gap")
-async def ai_keyword_gap(body: KeywordGapRequest, current_user=Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def ai_keyword_gap(request: Request, body: KeywordGapRequest, current_user=Depends(get_current_user)):
     analysis = await ai_service.keyword_gap_analysis(
         body.cv_data.model_dump(),
         body.job_description,

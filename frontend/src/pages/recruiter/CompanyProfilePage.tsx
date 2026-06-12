@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { recruiterApi } from "../../api";
 
 const EMPTY = { company_name: "", website: "", description: "", logo_url: "", industry: "", size: "", location: "" };
@@ -33,7 +35,9 @@ function CompanyProfileSkeleton() {
 
 export default function CompanyProfilePage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [form, setForm] = useState(EMPTY);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
   const profile = useQuery({ queryKey: ["company-profile-self"], queryFn: recruiterApi.profile });
 
   useEffect(() => {
@@ -56,6 +60,16 @@ export default function CompanyProfilePage() {
       toast.success("Company profile updated");
     },
     onError: () => toast.error("Could not update company profile"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: recruiterApi.deleteProfile,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-profile-self"] });
+      toast.success("Company profile removed");
+      navigate("/dashboard");
+    },
+    onError: () => toast.error("Could not remove company profile"),
   });
 
   function submit(event: FormEvent) {
@@ -94,6 +108,35 @@ export default function CompanyProfilePage() {
         </div>
         <button className="btn-primary" disabled={mutation.isPending}>{mutation.isPending ? "Saving..." : "Save profile"}</button>
       </form>
+      <section className="card mt-6 border-red-100">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle size={15} className="text-red-500" />
+          <h2 className="font-medium text-red-700 text-sm">Delete company profile</h2>
+        </div>
+        <p className="text-xs text-ink-muted mb-3">
+          This removes your public company profile and deactivates your AXIOM job posts. Type the company name to confirm.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            className="input text-sm"
+            placeholder={profile.data?.company_name || "Company name"}
+            value={deleteConfirm}
+            onChange={(event) => setDeleteConfirm(event.target.value)}
+          />
+          <button
+            className="btn-danger whitespace-nowrap"
+            type="button"
+            disabled={
+              deleteMutation.isPending ||
+              deleteConfirm !== profile.data?.company_name
+            }
+            onClick={() => deleteMutation.mutate()}
+          >
+            <Trash2 size={13} />
+            {deleteMutation.isPending ? "Deleting..." : "Delete profile"}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
