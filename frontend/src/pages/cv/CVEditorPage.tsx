@@ -30,6 +30,7 @@ import {
   Target,
   Info,
   PencilLine,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useRef } from "react";
 import { useAnnouncement } from "../../context/announcement";
@@ -121,11 +122,161 @@ function SectionDrawer({
   );
 }
 
+// ── 8a: Mobile settings bottom sheet ────────────────────────────────────────
+function MobileSettingsSheet({
+  theme,
+  template,
+  pageCount,
+  isPublic,
+  onThemeChange,
+  onTemplateChange,
+  onPageCountChange,
+  onPublicChange,
+  onClose,
+}: {
+  theme: string;
+  template: string;
+  pageCount: number;
+  isPublic: boolean;
+  onThemeChange: (v: string) => void;
+  onTemplateChange: (v: string) => void;
+  onPageCountChange: (v: number) => void;
+  onPublicChange: (v: boolean) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 bg-black/40 z-40 md:hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden"
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border">
+          <p className="font-semibold text-sm text-ink">CV Settings</p>
+          <button onClick={onClose}>
+            <X size={16} className="text-ink-muted" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          {/* Template */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
+              Template
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {CV_TEMPLATE_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  onClick={() => onTemplateChange(o.value)}
+                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${
+                    template === o.value
+                      ? "border-ink bg-ink text-white font-medium"
+                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
+              Theme
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {CV_THEME_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  onClick={() => onThemeChange(o.value)}
+                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${
+                    theme === o.value
+                      ? "border-ink bg-ink text-white font-medium"
+                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Page count */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
+              Page Count
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => onPageCountChange(n)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors font-medium ${
+                    pageCount === n
+                      ? "border-ink bg-ink text-white"
+                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visibility */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
+              Visibility
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onPublicChange(false)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${
+                  !isPublic
+                    ? "border-ink bg-ink text-white font-medium"
+                    : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
+                }`}
+              >
+                <Lock size={13} /> Private
+              </button>
+              <button
+                onClick={() => onPublicChange(true)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${
+                  isPublic
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 font-medium"
+                    : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
+                }`}
+              >
+                <Globe size={13} /> Public
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Safe-area spacer for home bar */}
+        <div className="h-safe-bottom pb-4" />
+      </motion.div>
+    </>
+  );
+}
+
 export default function CVEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { printCV, printJob, clearJob, isPrinting } = usePrintCV();
+  const { printCV, isPrinting } = usePrintCV();
 
   const [activeSection, setActiveSection] = useState("personal");
   const [cvData, setCvData] = useState<CVData>(EMPTY_CV_DATA);
@@ -139,6 +290,7 @@ export default function CVEditorPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false); // 8a
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentRating, setCurrentRating] = useState<number | undefined>(
@@ -146,7 +298,7 @@ export default function CVEditorPage() {
   );
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAction, setPendingAction] = useState<null | {
-    action: "leave" | "rate";
+    action: "leave" | "rate" | "restore"; // 8b: added "restore"
     run: () => void;
   }>(null);
   const { bannerH } = useAnnouncement();
@@ -170,7 +322,7 @@ export default function CVEditorPage() {
   }, [cv]);
 
   const confirmDiscard = useCallback(
-    (action: "leave" | "rate", run: () => void) => {
+    (action: "leave" | "rate" | "restore", run: () => void) => {
       if (!isDirty) {
         run();
         return;
@@ -184,6 +336,16 @@ export default function CVEditorPage() {
     confirmDiscard("leave", () => navigate("/dashboard"));
   const handleOpenRating = () =>
     confirmDiscard("rate", () => setShowRating(true));
+
+  // 8b: wrap history restore with the same unsaved-changes guard
+  const handleRestoreFromHistory = (snap: CVData) => {
+    confirmDiscard("restore", () => {
+      setCvData(snap);
+      setIsDirty(true);
+      setShowHistory(false);
+      toast.success("Version restored — save to keep it");
+    });
+  };
 
   const updateData = (patch: Partial<CVData>) => {
     setCvData((prev) => ({ ...prev, ...patch }));
@@ -215,7 +377,6 @@ export default function CVEditorPage() {
 
   const handleDownloadPDF = async () => {
     if (!id) return;
-    // Auto-save first so the printed version is up to date
     if (isDirty) {
       toast("Saving first…", { icon: "💾" });
       try {
@@ -248,8 +409,6 @@ export default function CVEditorPage() {
 
   return (
     <>
-      {/* ── Print frame — hidden normally, visible only during window.print() ── */}
-
       <div
         className="flex bg-ash overflow-hidden"
         style={{
@@ -372,6 +531,7 @@ export default function CVEditorPage() {
             </div>
 
             <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+              {/* Desktop-only selects */}
               <select
                 value={template}
                 onChange={(e) => {
@@ -413,18 +573,31 @@ export default function CVEditorPage() {
                 <option value={2}>2 Pages</option>
                 <option value={3}>3 Pages</option>
               </select>
+
+              {/* Mobile-only action buttons */}
               <button
                 onClick={() => setShowAI(!showAI)}
                 className="md:hidden p-1.5 text-ink-muted hover:text-ink"
+                title="AI Assist"
               >
                 <Sparkles size={15} />
               </button>
               <button
                 onClick={() => setShowPreview(true)}
                 className="md:hidden p-1.5 text-ink-muted hover:text-ink"
+                title="Preview"
               >
                 <Eye size={15} />
               </button>
+              {/* 8a: Mobile settings button */}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="md:hidden p-1.5 text-ink-muted hover:text-ink"
+                title="CV Settings"
+              >
+                <SlidersHorizontal size={15} />
+              </button>
+
               <button
                 onClick={() => {
                   setIsPublic(!isPublic);
@@ -597,6 +770,35 @@ export default function CVEditorPage() {
           )}
         </AnimatePresence>
 
+        {/* 8a: Mobile settings sheet */}
+        <AnimatePresence>
+          {showSettings && (
+            <MobileSettingsSheet
+              theme={theme}
+              template={template}
+              pageCount={pageCount}
+              isPublic={isPublic}
+              onThemeChange={(v) => {
+                setTheme(v);
+                setIsDirty(true);
+              }}
+              onTemplateChange={(v) => {
+                setTemplate(v);
+                setIsDirty(true);
+              }}
+              onPageCountChange={(v) => {
+                setPageCount(v);
+                setIsDirty(true);
+              }}
+              onPublicChange={(v) => {
+                setIsPublic(v);
+                setIsDirty(true);
+              }}
+              onClose={() => setShowSettings(false)}
+            />
+          )}
+        </AnimatePresence>
+
         {showPreview && (
           <CVPreview
             cvData={cvData}
@@ -609,12 +811,7 @@ export default function CVEditorPage() {
         {showHistory && id && (
           <HistoryDrawer
             cvId={id}
-            onRestore={(snap) => {
-              setCvData(snap);
-              setIsDirty(true);
-              setShowHistory(false);
-              toast.success("Version restored — save to keep it");
-            }}
+            onRestore={handleRestoreFromHistory} // 8b: guarded restore
             onClose={() => setShowHistory(false)}
           />
         )}
@@ -631,18 +828,24 @@ export default function CVEditorPage() {
             }}
           />
         )}
+
+        {/* 8b: Extended confirm dialog covers leave / rate / restore */}
         <ConfirmDialog
           open={!!pendingAction}
           title="Discard unsaved changes?"
           description={
             pendingAction?.action === "rate"
-              ? "You have unsaved edits. Open the rating dialog now and your current changes will be cleared unless you save first."
-              : "You have unsaved edits. Leave the editor now and your current changes will be cleared unless you save first."
+              ? "You have unsaved edits. Open the rating dialog now and your current changes will be lost unless you save first."
+              : pendingAction?.action === "restore"
+                ? "You have unsaved edits. Restoring a version will overwrite them. Save first if you want to keep your current changes."
+                : "You have unsaved edits. Leave the editor now and your current changes will be lost unless you save first."
           }
           confirmLabel={
             pendingAction?.action === "rate"
               ? "Discard and rate"
-              : "Discard and leave"
+              : pendingAction?.action === "restore"
+                ? "Discard and restore"
+                : "Discard and leave"
           }
           variant="danger"
           onClose={() => setPendingAction(null)}
