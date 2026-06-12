@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/axiom.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -263,16 +264,16 @@
   <!-- ── Boot progress: real events from main.tsx override the crawl timer ── -->
   <script>
     (function () {
-      var progress    = 0;
-      var realMode    = false;   // true once main.tsx starts emitting events
-      var startedAt   = Date.now();
+      var progress = 0;
+      var realMode = false;   // true once main.tsx starts emitting events
+      var startedAt = Date.now();
 
-      var percent  = document.getElementById("boot-percent");
-      var ring     = document.getElementById("boot-progress-ring");
+      var percent = document.getElementById("boot-percent");
+      var ring = document.getElementById("boot-progress-ring");
       var statusEl = document.getElementById("boot-status");
 
-      var radius         = 74;
-      var circumference  = 2 * Math.PI * radius;
+      var radius = 74;
+      var circumference = 2 * Math.PI * radius;
       ring.style.strokeDasharray = circumference;
 
       function updateRing(value) {
@@ -371,7 +372,7 @@
   <script>
     (function () {
       var ready = false;
-      var root  = document.getElementById("root");
+      var root = document.getElementById("root");
 
       function findLoader() {
         return (
