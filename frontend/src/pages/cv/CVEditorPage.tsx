@@ -495,58 +495,62 @@ export default function CVEditorPage() {
               <span className="truncate">{activeSectionLabel}</span>
             </button>
             <div className="hidden md:flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-  <div className="flex-1 min-w-0 overflow-hidden">
-    <input
-      ref={titleInputRef}
-      value={title}
-      onChange={(e) => {
-        setTitle(e.target.value);
-        setIsDirty(true);
-      }}
-      className="w-full font-display font-semibold text-sm text-ink bg-transparent border-none outline-none"
-      placeholder="CV Title"
-    />
-    <div className="text-[9px] text-ink-muted mt-0.5 flex items-center gap-2 w-full overflow-hidden">
-  <Info size={12} className="text-ink-muted flex-shrink-0" />
-  <div className="relative flex-1 overflow-hidden h-3">
-    <motion.div
-      key={(cvData.personal_info.full_name ? `${cvData.personal_info.full_name} - ${title || "CV"}` : title || "CV") + ".pdf"}
-      className="font-mono whitespace-nowrap absolute left-0 top-0 inline-flex"
-      animate={{ x: ["0%", "-50%"] }}
-      transition={{
-        duration: 10,
-        ease: "linear",
-        repeat: Infinity,
-      }}
-    >
-      <span className="pr-8">
-        {(cvData.personal_info.full_name
-          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
-          : title || "CV") + ".pdf"}
-      </span>
-      <span className="pr-8">
-        {(cvData.personal_info.full_name
-          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
-          : title || "CV") + ".pdf"}
-      </span>
-    </motion.div>
-  </div>
-</div>
-  </div>
-  <button
-    className="btn-ghost p-1.5 flex-shrink-0"
-    title="Rename title"
-    onClick={() => {
-      const el = document.querySelector(
-        'input[placeholder="CV Title"]',
-      ) as HTMLInputElement | null;
-      el?.focus();
-      el?.select();
-    }}
-  >
-    <PencilLine size={14} />
-  </button>
-</div>
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <input
+                  ref={titleInputRef}
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  className="w-full font-display font-semibold text-sm text-ink bg-transparent border-none outline-none"
+                  placeholder="CV Title"
+                />
+                <div className="text-[9px] text-ink-muted mt-0.5 flex items-center gap-2 w-full overflow-hidden">
+                  <Info size={12} className="text-ink-muted flex-shrink-0" />
+                  <div className="relative flex-1 overflow-hidden h-3">
+                    <motion.div
+                      key={
+                        (cvData.personal_info.full_name
+                          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                          : title || "CV") + ".pdf"
+                      }
+                      className="font-mono whitespace-nowrap absolute left-0 top-0 inline-flex"
+                      animate={{ x: ["0%", "-50%"] }}
+                      transition={{
+                        duration: 10,
+                        ease: "linear",
+                        repeat: Infinity,
+                      }}
+                    >
+                      <span className="pr-8">
+                        {(cvData.personal_info.full_name
+                          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                          : title || "CV") + ".pdf"}
+                      </span>
+                      <span className="pr-8">
+                        {(cvData.personal_info.full_name
+                          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                          : title || "CV") + ".pdf"}
+                      </span>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="btn-ghost p-1.5 flex-shrink-0"
+                title="Rename title"
+                onClick={() => {
+                  const el = document.querySelector(
+                    'input[placeholder="CV Title"]',
+                  ) as HTMLInputElement | null;
+                  el?.focus();
+                  el?.select();
+                }}
+              >
+                <PencilLine size={14} />
+              </button>
+            </div>
 
             <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
               {/* Desktop-only selects */}
