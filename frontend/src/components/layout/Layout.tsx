@@ -35,15 +35,6 @@ const NAV = [
   { to: "/account", label: "Account", icon: Settings },
 ];
 
-const MOBILE_NAV = [
-  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/interview", label: "Prep", icon: Brain },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/tracker", label: "Tracker", icon: ClipboardList },
-  { to: "/account", label: "Account", icon: Settings },
-];
-
 function SidebarContent({
   onNav,
   collapsed,
@@ -75,7 +66,7 @@ function SidebarContent({
           className="flex items-center gap-2 min-w-0"
         >
           <img
-            src="/axiom.png"
+            src="/axiom(dark).png"
             alt="AXIOM"
             className={clsx(
               "h-7 w-auto object-contain flex-shrink-0 transition-all",
@@ -173,12 +164,14 @@ function SidebarContent({
       {/* Footer */}
       <div className="px-3 py-4 border-t border-ash-border">
         {collapsed ? (
-          // Collapsed: stack avatar and bell vertically
+          // Collapsed: stack avatar, bell (desktop only), logout vertically
           <div className="flex flex-col items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
               {user?.username.charAt(0).toUpperCase()}
             </div>
-            <NotificationBell />
+            <div className="hidden md:flex">
+              <NotificationBell />
+            </div>
             <button
               onClick={() => setConfirmSignOut(true)}
               className="p-1.5 text-ink-muted hover:text-red-600 transition-colors"
@@ -199,7 +192,9 @@ function SidebarContent({
                   <p className="text-[10px] text-ink-muted capitalize">{user?.role}</p>
                 </div>
               </div>
-              <NotificationBell />
+              <div className="hidden md:flex">
+                <NotificationBell />
+              </div>
             </div>
             <button
               onClick={() => setConfirmSignOut(true)}
@@ -261,7 +256,7 @@ export default function Layout() {
         }}
       >
         <Link to="/" className="flex items-center gap-2">
-          <img src="/axiom.png" alt="AXIOM" className="h-6 w-auto object-contain" />
+          <img src="/axiom(dark).png" alt="AXIOM" className="h-6 w-auto object-contain" />
           <span className="font-display text-lg font-bold text-ink tracking-tight">AXIOM</span>
         </Link>
         <div className="flex items-center gap-1">
@@ -309,7 +304,7 @@ export default function Layout() {
 
       {/* Main content */}
       <main
-        className="flex-1 min-h-screen pb-20 md:pb-0"
+        className="flex-1 min-h-screen"
         style={{
           marginLeft: 0,
           paddingTop: bannerH + 56,
@@ -335,27 +330,6 @@ export default function Layout() {
           </div>
         </div>
       </main>
-
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-ash-border bg-white/95 backdrop-blur">
-        <div className="grid h-16 grid-cols-5">
-          {MOBILE_NAV.slice(0, 5).map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                clsx(
-                  "flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[10px] transition-colors",
-                  isActive ? "text-ink" : "text-ink-muted",
-                )
-              }
-            >
-              <Icon size={18} />
-              <span className="truncate">{label}</span>
-            </NavLink>
-          ))}
-        </div>
-      </nav>
     </div>
   );
 }
