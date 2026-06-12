@@ -125,7 +125,6 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="cv/new" element={<CVNewPage />} />
-          <Route path="cv/:id" element={<CVEditorPage />} />
           <Route path="tracker" element={<ApplicationTrackerPage />} />
           <Route path="recruiter" element={<RecruiterDashboard />} />
           <Route
@@ -159,6 +158,15 @@ export default function App() {
           />
           <Route path="account" element={<AccountPage />} />
         </Route>
+
+        <Route
+          path="/cv/:id"
+          element={
+            <ProtectedRoute>
+              <CVEditorPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin"
