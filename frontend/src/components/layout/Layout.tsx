@@ -53,10 +53,15 @@ function SidebarContent({
   const navigate = useNavigate();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const isAdmin = user && ["admin", "superadmin", "staff"].includes(user.role);
-  const canRecruit = user && ["recruiter", "admin", "superadmin", "staff"].includes(user.role);
+  const canRecruit =
+    user && ["recruiter", "admin", "superadmin", "staff"].includes(user.role);
 
   const handleLogout = async () => {
-    try { await authApi.logout(); } catch {}
+    try {
+      await authApi.logout();
+    } catch (_e) {
+      /* best-effort logout */
+    }
     clearAuth();
     navigate("/");
   };
@@ -90,7 +95,11 @@ function SidebarContent({
             className="ml-2 flex-shrink-0 p-1.5 text-ink-muted hover:text-ink transition-colors rounded-md hover:bg-ash"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+            {collapsed ? (
+              <PanelLeftOpen size={15} />
+            ) : (
+              <PanelLeftClose size={15} />
+            )}
           </button>
         )}
       </div>
@@ -118,7 +127,10 @@ function SidebarContent({
           </NavLink>
         ))}
         <button
-          onClick={() => { navigate("/cv/new"); onNav?.(); }}
+          onClick={() => {
+            navigate("/cv/new");
+            onNav?.();
+          }}
           className={clsx(
             "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted hover:bg-ash hover:text-ink transition-all",
             collapsed ? "justify-center px-2" : "",
@@ -204,8 +216,12 @@ function SidebarContent({
                   {user?.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-ink truncate">{user?.username}</p>
-                  <p className="text-[10px] text-ink-muted capitalize">{user?.role}</p>
+                  <p className="text-xs font-medium text-ink truncate">
+                    {user?.username}
+                  </p>
+                  <p className="text-[10px] text-ink-muted capitalize">
+                    {user?.role}
+                  </p>
                 </div>
               </div>
               <div className="hidden md:flex">
@@ -237,6 +253,8 @@ function SidebarContent({
 
 const SIDEBAR_W = 224; // w-56
 const COLLAPSED_W = 56; // w-14
+const BREADCRUMB_H = 44; // breadcrumb height on desktop
+const BREADCRUMB_MOBILE_H = 36; // breadcrumb height on mobile
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -245,6 +263,8 @@ export default function Layout() {
   const { bannerH } = useAnnouncement();
 
   const sidebarW = collapsed ? COLLAPSED_W : SIDEBAR_W;
+  const topOffset = bannerH + BREADCRUMB_H;
+  const topOffsetMobile = bannerH + BREADCRUMB_MOBILE_H;
 
   return (
     <div className="min-h-screen bg-ash flex">
@@ -253,10 +273,11 @@ export default function Layout() {
       <aside
         className="hidden md:flex flex-col fixed z-20 bg-white border-r border-ash-border overflow-visible"
         style={{
-          top: bannerH,
+          top: topOffset,
           bottom: 0,
           width: sidebarW,
-          transition: "width 0.22s cubic-bezier(0.4,0,0.2,1), top 0.28s cubic-bezier(0.4,0,0.2,1)",
+          transition:
+            "width 0.22s cubic-bezier(0.4,0,0.2,1), top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         <SidebarContent
@@ -270,13 +291,19 @@ export default function Layout() {
       <div
         className="md:hidden fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between"
         style={{
-          top: bannerH,
+          top: topOffsetMobile,
           transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         <Link to="/" className="flex items-center gap-2">
-          <img src="/axiom(dark).png" alt="AXIOM" className="h-6 w-auto object-contain" />
-          <span className="font-display text-lg font-bold text-ink tracking-tight">AXIOM</span>
+          <img
+            src="/axiom(dark).png"
+            alt="AXIOM"
+            className="h-6 w-auto object-contain"
+          />
+          <span className="font-display text-lg font-bold text-ink tracking-tight">
+            AXIOM
+          </span>
         </Link>
         <div className="flex items-center gap-1">
           <NotificationBell />
@@ -306,7 +333,7 @@ export default function Layout() {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              style={{ top: bannerH, bottom: 0 }}
+              style={{ top: topOffsetMobile, bottom: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
               <button
@@ -315,7 +342,13 @@ export default function Layout() {
               >
                 <X size={18} />
               </button>
-              <SidebarContent onNav={() => setMobileOpen(false)} onSearch={() => { setMobileOpen(false); setSearchOpen(true); }} />
+              <SidebarContent
+                onNav={() => setMobileOpen(false)}
+                onSearch={() => {
+                  setMobileOpen(false);
+                  setSearchOpen(true);
+                }}
+              />
             </motion.aside>
           </>
         )}
@@ -324,27 +357,26 @@ export default function Layout() {
       {/* Main content */}
       <main
         className="flex-1 min-h-screen"
-        style={{
-          marginLeft: 0,
-          paddingTop: bannerH + 56,
-          transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
-        }}
       >
         {/* Desktop: offset for sidebar width */}
         <div
           className="hidden md:block"
           style={{
             marginLeft: sidebarW,
+            paddingTop: topOffset + 16,
             transition: "margin-left 0.22s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          <div style={{ marginTop: -56 }}>
-            <Breadcrumb />
-            <Outlet />
-          </div>
+          <Breadcrumb />
+          <Outlet />
         </div>
-        {/* Mobile: no sidebar offset */}
-        <div className="md:hidden">
+        {/* Mobile: account for banner + top bar + breadcrumb */}
+        <div
+          className="md:hidden"
+          style={{
+            paddingTop: bannerH + 88,
+          }}
+        >
           <Breadcrumb />
           <Outlet />
         </div>

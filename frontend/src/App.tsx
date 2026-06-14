@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/auth";
 import Layout from "./components/layout/Layout";
@@ -17,42 +17,74 @@ const CVNewPage = lazy(() => import("./pages/cv/CVNewPage"));
 const CVPrintPage = lazy(() => import("./pages/cv/CVPrintPage"));
 const GuestCVEditorPage = lazy(() => import("./pages/cv/GuestCVEditorPage"));
 const PublicCVPage = lazy(() => import("./pages/public/PublicCVPage"));
-const PublicProfilePage = lazy(() => import("./pages/public/PublicProfilePage"));
+const PublicProfilePage = lazy(
+  () => import("./pages/public/PublicProfilePage"),
+);
 const PublicFeedPage = lazy(() => import("./pages/public/PublicFeedPage"));
-const CompanyPublicPage = lazy(() => import("./pages/public/CompanyPublicPage"));
+const CompanyPublicPage = lazy(
+  () => import("./pages/public/CompanyPublicPage"),
+);
 const AboutPage = lazy(() => import("./pages/public/AboutPage"));
 const WhyAxiomPage = lazy(() => import("./pages/public/WhyAxiomPage"));
 const LegalPage = lazy(() => import("./pages/public/LegalPage"));
-const RecruiterHelpPage = lazy(() => import("./pages/public/RecruiterHelpPage"));
+const RecruiterHelpPage = lazy(
+  () => import("./pages/public/RecruiterHelpPage"),
+);
 const AccountPage = lazy(() => import("./pages/dashboard/AccountPage"));
 const JobBoardPage = lazy(() => import("./pages/jobs/JobBoardPage"));
 const JobDetailPage = lazy(() => import("./pages/jobs/JobDetailPage"));
 const PublicJobsPage = lazy(() => import("./pages/jobs/PublicJobsPage"));
 const AxiomJobBoardPage = lazy(() => import("./pages/jobs/AxiomJobBoardPage"));
-const AxiomJobDetailPage = lazy(() => import("./pages/jobs/AxiomJobDetailPage"));
+const AxiomJobDetailPage = lazy(
+  () => import("./pages/jobs/AxiomJobDetailPage"),
+);
 const CreateJobPage = lazy(() => import("./pages/jobs/CreateJobPage"));
 const EditJobPage = lazy(() => import("./pages/jobs/EditJobPage"));
-const ApplicationTrackerPage = lazy(() => import("./pages/jobs/ApplicationTrackerPage"));
-const InterviewStartPage = lazy(() => import("./pages/interview/InterviewStartPage"));
-const InterviewSessionPage = lazy(() => import("./pages/interview/InterviewSessionPage"));
-const InterviewReviewPage = lazy(() => import("./pages/interview/InterviewReviewPage"));
-const LiveInterviewLobbyPage = lazy(() => import("./pages/interview/LiveInterviewLobbyPage"));
-const LiveInterviewPage = lazy(() => import("./pages/interview/LiveInterviewPage"));
-const RecruiterDashboard = lazy(() => import("./pages/recruiter/RecruiterDashboard"));
-const RecruiterRegisterPage = lazy(() => import("./pages/recruiter/RecruiterRegisterPage"));
-const RecruiterApplicationsPage = lazy(() => import("./pages/recruiter/RecruiterApplicationsPage"));
+const ApplicationTrackerPage = lazy(
+  () => import("./pages/jobs/ApplicationTrackerPage"),
+);
+const InterviewStartPage = lazy(
+  () => import("./pages/interview/InterviewStartPage"),
+);
+const InterviewSessionPage = lazy(
+  () => import("./pages/interview/InterviewSessionPage"),
+);
+const InterviewReviewPage = lazy(
+  () => import("./pages/interview/InterviewReviewPage"),
+);
+const LiveInterviewLobbyPage = lazy(
+  () => import("./pages/interview/LiveInterviewLobbyPage"),
+);
+const LiveInterviewPage = lazy(
+  () => import("./pages/interview/LiveInterviewPage"),
+);
+const RecruiterDashboard = lazy(
+  () => import("./pages/recruiter/RecruiterDashboard"),
+);
+const RecruiterRegisterPage = lazy(
+  () => import("./pages/recruiter/RecruiterRegisterPage"),
+);
+const RecruiterApplicationsPage = lazy(
+  () => import("./pages/recruiter/RecruiterApplicationsPage"),
+);
 const TalentPoolsPage = lazy(() => import("./pages/recruiter/TalentPoolsPage"));
-const CompanyProfilePage = lazy(() => import("./pages/recruiter/CompanyProfilePage"));
+const CompanyProfilePage = lazy(
+  () => import("./pages/recruiter/CompanyProfilePage"),
+);
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminCVs = lazy(() => import("./pages/admin/AdminCVs"));
 const AdminRatings = lazy(() => import("./pages/admin/AdminRatings"));
 const AdminFeedback = lazy(() => import("./pages/admin/AdminFeedback"));
-const AdminAnnouncements = lazy(() => import("./pages/admin/AdminAnnouncements"));
+const AdminAnnouncements = lazy(
+  () => import("./pages/admin/AdminAnnouncements"),
+);
 const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const NotificationsPage = lazy(() => import("./pages/dashboard/NotificationsPage"));
+const NotificationsPage = lazy(
+  () => import("./pages/dashboard/NotificationsPage"),
+);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -94,11 +126,7 @@ function RootRedirect() {
 
 // Wrapper for lazy-loaded routes - no loader, let pages render directly
 function LazyRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={<AppLoading fullScreen />}>
-      {children}
-    </Suspense>
-  );
+  return <Suspense fallback={<AppLoading fullScreen />}>{children}</Suspense>;
 }
 
 export default function App() {
@@ -112,7 +140,10 @@ export default function App() {
           <Route path="/forgot" element={<ForgotPage />} />
           <Route path="/guest" element={<GuestCVEditorPage />} />
           <Route path="/jobs/explore" element={<PublicJobsPage />} />
-          <Route path="/jobs/axiom" element={<Navigate to="/jobs?source=axiom" replace />} />
+          <Route
+            path="/jobs/axiom"
+            element={<Navigate to="/jobs?source=axiom" replace />}
+          />
           <Route path="/jobs/axiom/:id" element={<AxiomJobDetailPage />} />
           <Route path="/jobs" element={<JobBoardPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
@@ -151,7 +182,10 @@ export default function App() {
               path="recruiter/applications"
               element={<RecruiterApplicationsPage />}
             />
-            <Route path="recruiter/talent-pools" element={<TalentPoolsPage />} />
+            <Route
+              path="recruiter/talent-pools"
+              element={<TalentPoolsPage />}
+            />
             <Route path="jobs/axiom/new" element={<CreateJobPage />} />
             <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
             <Route path="interview" element={<InterviewStartPage />} />
