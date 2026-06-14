@@ -1,4 +1,5 @@
-import { useState, type ComponentType } from "react";
+import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   Briefcase,
   Check,
@@ -29,16 +30,22 @@ function GridSelector({
   onChange,
 }: {
   label: string;
-  icon: any;
+  icon: LucideIcon;
   options: { value: string; label: string; hint: string }[];
   value: string;
-  onChange: (v: string) => void;
+  onChange: (v: string, e: React.MouseEvent) => void;
 }) {
   const selected =
     options.find((option) => option.value === value) ?? options[0];
 
+  const handleClick = (optionValue: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onChange(optionValue, e);
+  };
+
   return (
-    <div>
+    <div onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center gap-1.5 mb-2">
         <Icon size={12} className="text-ink-muted" />
         <span className="text-xs font-medium text-ink">{label}</span>
@@ -53,7 +60,7 @@ function GridSelector({
           <button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
+            onClick={(e) => handleClick(option.value, e)}
             title={option.hint}
             className={`
               px-2.5 py-2 text-left rounded-lg border text-[11px] leading-tight
@@ -89,11 +96,29 @@ export default function CVContextSelector({
 
   const isConfigured = careerLevel || industry || targetRole;
 
+  // Handle any type coercion issues - ensure we always have strings
+  const safeCareerLevel = careerLevel ?? "";
+  const safeIndustry = industry ?? "";
+  const safeTargetRole = targetRole ?? "";
+
+  const handleCareerLevelChange = (v: string, _e: React.MouseEvent) => {
+    onChange({ career_level: v });
+  };
+  const handleIndustryChange = (v: string, _e: React.MouseEvent) => {
+    onChange({ industry: v });
+  };
+  const handleTargetRoleChange = (v: string, _e?: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ target_role: v });
+  };
+
   if (mode === "edit") {
     return (
       <div className="border border-ash-border rounded-xl overflow-hidden">
         <button
-          onClick={() => setExpanded(!expanded)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
           className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-ash transition-colors"
         >
           <div className="flex items-center gap-2">
@@ -116,17 +141,17 @@ export default function CVContextSelector({
               label="Career Level"
               icon={TrendingUp}
               options={CAREER_LEVELS}
-              value={careerLevel}
-              onChange={(v) => onChange({ career_level: v })}
+              value={safeCareerLevel}
+              onChange={handleCareerLevelChange}
             />
             <GridSelector
               label="Industry"
               icon={Briefcase}
               options={INDUSTRIES}
-              value={industry}
-              onChange={(v) => onChange({ industry: v })}
+              value={safeIndustry}
+              onChange={handleIndustryChange}
             />
-            <div>
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Target size={12} className="text-ink-muted" />
                 <span className="text-xs font-medium text-ink">
@@ -134,8 +159,12 @@ export default function CVContextSelector({
                 </span>
               </div>
               <input
-                value={targetRole}
-                onChange={(e) => onChange({ target_role: e.target.value })}
+                value={safeTargetRole}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleTargetRoleChange(e.target.value, e);
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="e.g. Senior Product Manager at a fintech startup"
                 className="w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink placeholder:text-ink-muted/50"
               />
@@ -169,16 +198,16 @@ export default function CVContextSelector({
         label="Career Level"
         icon={TrendingUp}
         options={CAREER_LEVELS}
-        value={careerLevel}
-        onChange={(v) => onChange({ career_level: v })}
+        value={safeCareerLevel}
+        onChange={handleCareerLevelChange}
       />
 
       <GridSelector
         label="Industry"
         icon={Briefcase}
         options={INDUSTRIES}
-        value={industry}
-        onChange={(v) => onChange({ industry: v })}
+        value={safeIndustry}
+        onChange={handleIndustryChange}
       />
 
       <div>
@@ -187,8 +216,12 @@ export default function CVContextSelector({
           <span className="text-xs font-medium text-ink">Target Role</span>
         </div>
         <input
-          value={targetRole}
-          onChange={(e) => onChange({ target_role: e.target.value })}
+          value={safeTargetRole}
+          onChange={(e) => {
+            e.stopPropagation();
+            handleTargetRoleChange(e.target.value, e);
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
           placeholder="e.g. Senior Product Manager at a fintech startup"
           className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink placeholder:text-ink-muted/50"
         />

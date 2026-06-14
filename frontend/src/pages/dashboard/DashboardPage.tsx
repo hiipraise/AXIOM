@@ -1,9 +1,21 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { axiomApplicationsApi, cvApi, interviewApi, jobsApi } from "../../api";
-import { ApplicationEntry, AxiomApplication, CV, InterviewSessionListItem, JobResult } from "../../types";
+import {
+  ApplicationEntry,
+  AxiomApplication,
+  CV,
+  InterviewSessionListItem,
+  JobResult,
+} from "../../types";
 import {
   Plus,
   FileText,
@@ -22,13 +34,101 @@ import {
   TrendingUp,
   CalendarClock,
   Briefcase,
+  Info,
+  Lightbulb,
+  ArrowRight,
+  Search,
+  Send,
+  Map,
+  CheckSquare,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/auth";
 import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
+import OnboardingWizard from "../../components/OnboardingWizard";
 
 const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
+
+// ─── MetricCard ───────────────────────────────────────────────────────────────
+
+interface MetricCardProps {
+  label: string;
+  icon: React.ReactNode;
+  value: string | number;
+  progress?: number;
+  progressColor?: string;
+  tooltip: string;
+  children?: React.ReactNode;
+}
+
+function MetricCard({
+  label,
+  icon,
+  value,
+  progress,
+  progressColor = "bg-amber-500",
+  tooltip,
+  children,
+}: MetricCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [flipDown, setFlipDown] = useState(false);
+  const [flipRight, setFlipRight] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      setFlipDown(rect.top < 160);
+      setFlipRight(rect.left > window.innerWidth / 2);
+    }
+    setShowTooltip(true);
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      className="card relative cursor-help"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowTooltip(false)}
+      onFocus={handleMouseEnter}
+      onBlur={() => setShowTooltip(false)}
+      tabIndex={0}
+      role="button"
+      aria-label={`${label}: ${value}. ${tooltip}`}
+    >
+      {showTooltip && (
+        <div
+          className={`absolute z-50 w-52 max-w-[calc(100vw-2rem)] rounded-lg bg-ink px-3 py-2 text-xs text-white shadow-lg pointer-events-none
+            ${flipDown ? "top-full mt-2" : "bottom-full mb-2"}
+            ${flipRight ? "right-0" : "left-1/2 -translate-x-1/2"}
+          `}
+        >
+          <p className="font-medium">{tooltip}</p>
+          <div
+            className={`absolute ${flipRight ? "right-4" : "left-1/2 -translate-x-1/2"} w-2 h-2 bg-ink rotate-45
+              ${flipDown ? "-top-1" : "-bottom-1"}
+            `}
+          />
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-ink">{label}</p>
+        {icon}
+      </div>
+      <p className="mt-3 text-3xl font-bold text-ink">{value}</p>
+      {progress !== undefined && (
+        <div className="mt-3 h-2 rounded-full bg-ash-dark">
+          <div
+            className={`h-2 rounded-full ${progressColor}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,16 +146,16 @@ interface KebabMenuProps {
   onRate: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
+  duplicating?: boolean;
   onDelete: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MENU_WIDTH = 176; // w-44 = 11rem = 176px
-const MENU_ITEM_HEIGHT = 44; // approx px per item (2.75rem)
-const MENU_ITEMS = 5; // Rename, Rate, Edit, Duplicate, Delete
-const MENU_ESTIMATED_HEIGHT = MENU_ITEM_HEIGHT * MENU_ITEMS + 8 + 1; // items + padding + divider
-const VIEWPORT_MARGIN = 8; // minimum gap from viewport edge
+const MENU_ITEM_HEIGHT = 44;
+const MENU_ITEMS = 5;
+const MENU_ESTIMATED_HEIGHT = MENU_ITEM_HEIGHT * MENU_ITEMS + 8 + 1;
+const VIEWPORT_MARGIN = 8;
 
 // ─── KebabMenu ────────────────────────────────────────────────────────────────
 
@@ -65,6 +165,7 @@ function KebabMenu({
   onRate,
   onEdit,
   onDuplicate,
+  duplicating,
   onDelete,
 }: KebabMenuProps) {
   const [open, setOpen] = useState(false);
@@ -72,64 +173,41 @@ function KebabMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Compute where to render the dropdown relative to the viewport
+  const getMenuWidth = () =>
+    Math.min(176, window.innerWidth - VIEWPORT_MARGIN * 2);
+
   const computePosition = useCallback((): MenuPosition => {
     const btn = triggerRef.current!.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const menuWidth = getMenuWidth();
 
-    // Horizontal: align right edge of menu with button's right edge
     let right = vw - btn.right;
-    // Clamp to keep menu within viewport (right edge at most MENU_WIDTH from right)
-    right = Math.max(VIEWPORT_MARGIN, Math.min(right, vw - MENU_WIDTH - VIEWPORT_MARGIN));
+    right = Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(right, vw - menuWidth - VIEWPORT_MARGIN),
+    );
 
-    // Vertical: decide direction
     const spaceBelow = vh - btn.bottom - VIEWPORT_MARGIN;
     const spaceAbove = btn.top - VIEWPORT_MARGIN;
     const fitsBelow = spaceBelow >= MENU_ESTIMATED_HEIGHT;
     const fitsAbove = spaceAbove >= MENU_ESTIMATED_HEIGHT;
 
     if (fitsBelow) {
-      // Open downward — plenty of room
-      return {
-        top: btn.bottom + 4,
-        right,
-        maxHeight: spaceBelow,
-        openUpward: false,
-      };
+      return { top: btn.bottom + 4, right, maxHeight: spaceBelow, openUpward: false };
     } else if (fitsAbove) {
-      // Open upward — not enough room below
-      return {
-        bottom: vh - btn.top + 4,
-        right,
-        maxHeight: spaceAbove,
-        openUpward: true,
-      };
+      return { bottom: vh - btn.top + 4, right, maxHeight: spaceAbove, openUpward: true };
     } else {
-      // Neither fits perfectly — pick the larger side and scroll inside
       const useBelow = spaceBelow >= spaceAbove;
-      if (useBelow) {
-        return {
-          top: btn.bottom + 4,
-          right,
-          maxHeight: spaceBelow,
-          openUpward: false,
-        };
-      } else {
-        return {
-          bottom: vh - btn.top + 4,
-          right,
-          maxHeight: spaceAbove,
-          openUpward: true,
-        };
-      }
+      return useBelow
+        ? { top: btn.bottom + 4, right, maxHeight: spaceBelow, openUpward: false }
+        : { bottom: vh - btn.top + 4, right, maxHeight: spaceAbove, openUpward: true };
     }
   }, []);
 
   const openMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const pos = computePosition();
-    setPosition(pos);
+    setPosition(computePosition());
     setOpen(true);
   };
 
@@ -138,10 +216,8 @@ function KebabMenu({
     setPosition(null);
   }, []);
 
-  // Close on outside click / scroll / resize
   useEffect(() => {
     if (!open) return;
-
     const handleOutside = (e: Event) => {
       if (
         menuRef.current &&
@@ -153,12 +229,10 @@ function KebabMenu({
       }
     };
     const handleScrollResize = () => closeMenu();
-
     document.addEventListener("mousedown", handleOutside);
     document.addEventListener("touchstart", handleOutside, { passive: true });
     window.addEventListener("scroll", handleScrollResize, { passive: true });
     window.addEventListener("resize", handleScrollResize, { passive: true });
-
     return () => {
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("touchstart", handleOutside);
@@ -167,13 +241,10 @@ function KebabMenu({
     };
   }, [open, closeMenu]);
 
-  // Recompute on scroll inside any ancestor (e.g. the page itself scrolls)
   useEffect(() => {
     if (!open) return;
     const handleScroll = () => {
-      if (triggerRef.current) {
-        setPosition(computePosition());
-      }
+      if (triggerRef.current) setPosition(computePosition());
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -183,7 +254,7 @@ function KebabMenu({
     ? {
         position: "fixed",
         right: position.right,
-        width: MENU_WIDTH,
+        width: getMenuWidth(),
         maxHeight: position.maxHeight,
         overflowY: "auto",
         zIndex: 9999,
@@ -219,55 +290,40 @@ function KebabMenu({
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => {
-                onRename();
-                closeMenu();
-              }}
+              onClick={() => { onRename(); closeMenu(); }}
             >
               <PencilLine size={14} /> Rename
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => {
-                onRate();
-                closeMenu();
-              }}
+              onClick={() => { onRate(); closeMenu(); }}
             >
-              <Star
-                size={14}
-                className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
-              />
+              <Star size={14} className={cv.rating ? "text-amber-400 fill-amber-400" : ""} />
               Rate
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => {
-                onEdit();
-                closeMenu();
-              }}
+              onClick={() => { onEdit(); closeMenu(); }}
             >
               <Edit size={14} /> Edit
             </button>
             <button
               role="menuitem"
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => {
-                onDuplicate();
-                closeMenu();
-              }}
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm ${
+                duplicating ? "text-ink-muted cursor-wait" : "text-ink hover:bg-ash-dark"
+              }`}
+              onClick={() => { if (!duplicating) { onDuplicate(); closeMenu(); } }}
+              disabled={duplicating}
             >
-              <Copy size={14} /> Duplicate
+              <Copy size={14} /> {duplicating ? "Duplicating..." : "Duplicate"}
             </button>
             <div className="my-1 border-t border-ash-border" />
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50"
-              onClick={() => {
-                onDelete();
-                closeMenu();
-              }}
+              onClick={() => { onDelete(); closeMenu(); }}
             >
               <Trash2 size={14} /> Delete
             </button>
@@ -286,17 +342,12 @@ export default function DashboardPage() {
   const qc = useQueryClient();
   const [ratingCV, setRatingCV] = useState<CV | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CV | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
-  const goalStorageKey = user ? `weekly-goals:${user.id}` : "weekly-goals:guest";
-  const [weeklyGoals, setWeeklyGoals] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(goalStorageKey) || "{}");
-    } catch {
-      return {};
-    }
-  });
+  const [weeklyGoals, setWeeklyGoals] = useState<Record<string, boolean>>({});
+  const [skillGapCV, setSkillGapCV] = useState<CV | null>(null);
 
   const { data: cvs = [], isLoading } = useQuery<CV[]>({
     queryKey: ["cvs"],
@@ -342,18 +393,6 @@ export default function DashboardPage() {
     enabled: !!user,
   });
 
-  useEffect(() => {
-    try {
-      setWeeklyGoals(JSON.parse(localStorage.getItem(goalStorageKey) || "{}"));
-    } catch {
-      setWeeklyGoals({});
-    }
-  }, [goalStorageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(goalStorageKey, JSON.stringify(weeklyGoals));
-  }, [goalStorageKey, weeklyGoals]);
-
   const commandCenter = useMemo(() => {
     const cv = primaryCv;
     const data = cv?.data;
@@ -378,40 +417,123 @@ export default function DashboardPage() {
     const rawLatestScore =
       completedSessions.find((session) => session.overall_score != null)
         ?.overall_score || 0;
-    const latestScore = rawLatestScore <= 10 ? rawLatestScore * 10 : rawLatestScore;
+    const latestScore =
+      rawLatestScore <= 10 ? rawLatestScore * 10 : rawLatestScore;
     const interviewReadiness = Math.min(
       100,
       Math.round(
         latestScore +
           Math.min(completedSessions.length, 5) * 8 +
           (applications.some((app) => app.status === "interview") ? 15 : 0) +
-          (axiomApplications.some((app) => app.status === "interview_scheduled") ? 15 : 0),
+          (axiomApplications.some((app) => app.status === "interview_scheduled")
+            ? 15
+            : 0),
       ),
     );
-    const weeklyCompleted = WEEKLY_GOAL_KEYS.filter((key) => weeklyGoals[key]).length;
+    const weeklyCompleted = WEEKLY_GOAL_KEYS.filter(
+      (key) => weeklyGoals[key],
+    ).length;
+
+    const now = new Date();
+    const overdueFollowUps = applications.filter((app) => {
+      if (!app.follow_up_at) return false;
+      return new Date(app.follow_up_at).getTime() <= now.getTime();
+    }).length;
+
+    const activeApplications =
+      applications.filter((app) => !["offer", "rejected"].includes(app.status))
+        .length +
+      axiomApplications.filter(
+        (app) =>
+          !["offered", "rejected", "accepted", "declined"].includes(app.status),
+      ).length;
+
+    let suggestedNextAction: {
+      message: string;
+      action: string;
+      icon: React.ReactNode;
+    } | null = null;
+
+    if (!primaryCv) {
+      suggestedNextAction = {
+        message: "You haven't created a CV yet — create your first one to get started.",
+        action: "/cv/new",
+        icon: <FileText size={16} />,
+      };
+    } else if (profileStrength < 50) {
+      suggestedNextAction = {
+        message: "Your profile is incomplete — add more details to improve visibility.",
+        action: `/cv/${primaryCv.id}`,
+        icon: <Edit size={16} />,
+      };
+    } else if (!primaryCv.is_public) {
+      suggestedNextAction = {
+        message: "Your CV isn't public — make it public to attract recruiters.",
+        action: `/cv/${primaryCv.id}`,
+        icon: <Globe size={16} />,
+      };
+    } else if (!primaryCv.rating || primaryCv.rating < 4) {
+      suggestedNextAction = {
+        message: "Your CV needs a higher rating — update and rate it again.",
+        action: `/cv/${primaryCv.id}`,
+        icon: <Star size={16} />,
+      };
+    } else if (overdueFollowUps > 0) {
+      suggestedNextAction = {
+        message: `You have ${overdueFollowUps} overdue follow-up${overdueFollowUps > 1 ? "s" : ""} — check your tracker.`,
+        action: "/tracker",
+        icon: <CalendarClock size={16} />,
+      };
+    } else if (completedSessions.length === 0) {
+      suggestedNextAction = {
+        message: "You haven't started an interview yet — practise now to build confidence.",
+        action: "/interview",
+        icon: <CalendarClock size={16} />,
+      };
+    } else if (activeApplications === 0) {
+      suggestedNextAction = {
+        message: "You haven't applied to any jobs — start applying today.",
+        action: "/jobs",
+        icon: <Send size={16} />,
+      };
+    } else {
+      suggestedNextAction = {
+        message: "Great progress! Keep applying and practising to stay job-ready.",
+        action: "/jobs",
+        icon: <Search size={16} />,
+      };
+    }
+
     return {
       profileStrength,
       interviewReadiness,
       weeklyCompleted,
-      activeApplications: applications.filter(
-        (app) => !["offer", "rejected"].includes(app.status),
-      ).length + axiomApplications.filter(
-        (app) => !["offered", "rejected", "accepted", "declined"].includes(app.status),
-      ).length,
+      activeApplications,
+      suggestedNextAction,
     };
-  }, [applications, axiomApplications, interviewSessions, primaryCv, weeklyGoals]);
+  }, [
+    applications,
+    axiomApplications,
+    interviewSessions,
+    primaryCv,
+    weeklyGoals,
+  ]);
 
   const toggleGoal = (goal: string) => {
     setWeeklyGoals((current) => ({ ...current, [goal]: !current[goal] }));
   };
 
   const handleDuplicate = async (id: string) => {
+    if (duplicatingId) return;
+    setDuplicatingId(id);
     try {
       await cvApi.duplicate(id);
       qc.invalidateQueries({ queryKey: ["cvs"] });
       toast.success("CV duplicated");
     } catch {
       toast.error("Failed to duplicate");
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -463,11 +585,15 @@ export default function DashboardPage() {
       year: "numeric",
     });
 
+  const showOnboarding = user?.is_first_login;
+
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto overflow-x-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 sm:mb-8">
-        <div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto overflow-x-hidden">
+      {showOnboarding && <OnboardingWizard />}
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-3 mb-6 sm:mb-8">
+        <div className="min-w-0">
           <h1 className="font-display text-xl sm:text-2xl font-bold text-ink tracking-tight">
             Career Command Center
           </h1>
@@ -475,58 +601,86 @@ export default function DashboardPage() {
             {cvs.length} {cvs.length === 1 ? "resume" : "resumes"} saved
           </p>
         </div>
-        <button className="btn-primary" onClick={() => navigate("/cv/new")}>
+        <button className="btn-primary flex-shrink-0" onClick={() => navigate("/cv/new")}>
           <Plus size={14} /> New CV
         </button>
       </div>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-ink">Profile strength</p>
-            <Target size={17} />
-          </div>
-          <p className="mt-3 text-3xl font-bold text-ink">
-            {commandCenter.profileStrength}%
-          </p>
-          <div className="mt-3 h-2 rounded-full bg-ash-dark">
-            <div
-              className="h-2 rounded-full bg-amber-500"
-              style={{ width: `${commandCenter.profileStrength}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-ink-muted">
-            Based on CV completeness, public profile, targeting, and ratings.
-          </p>
-        </div>
+      {/* ── Metric cards + What to do next ──
+          Mobile:  full-width stack (Profile → Interview → Next action → Weekly goals)
+          lg+:     [left col: Profile+Interview 2-up, then Next action] | [right col: Weekly goals]
+      ── */}
+      <section className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.25fr] lg:items-start">
 
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-ink">Interview readiness</p>
-            <TrendingUp size={17} />
-          </div>
-          <p className="mt-3 text-3xl font-bold text-ink">
-            {commandCenter.interviewReadiness}%
-          </p>
-          <div className="mt-3 h-2 rounded-full bg-ash-dark">
-            <div
-              className="h-2 rounded-full bg-[#a0449f]"
-              style={{ width: `${commandCenter.interviewReadiness}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-ink-muted">
-            Practice sessions and interview-stage applications raise this score.
-          </p>
-        </div>
+        {/* Left column */}
+        <div className="flex flex-col gap-4">
 
-        <div className="card">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-ink">Weekly goals</p>
-              <p className="text-xs text-ink-muted">
-                {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length} complete
+          {/* Profile + Interview — single col on mobile, 2-col from sm */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <MetricCard
+              label="Profile strength"
+              icon={<Target size={17} />}
+              value={`${commandCenter.profileStrength}%`}
+              progress={commandCenter.profileStrength}
+              progressColor="bg-amber-500"
+              tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
+            >
+              <p className="mt-2 text-xs text-ink-muted">
+                Based on CV completeness, public profile, targeting, and ratings.
               </p>
+            </MetricCard>
+
+            <MetricCard
+              label="Interview readiness"
+              icon={<TrendingUp size={17} />}
+              value={`${commandCenter.interviewReadiness}%`}
+              progress={commandCenter.interviewReadiness}
+              progressColor="bg-[#a0449f]"
+              tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
+            >
+              <p className="mt-2 text-xs text-ink-muted">
+                Practice sessions and interview-stage applications raise this score.
+              </p>
+            </MetricCard>
+          </div>
+
+          {/* What to do next */}
+          {user && commandCenter.suggestedNextAction && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-4 flex flex-col gap-3">
+              <div className="flex items-start gap-3">
+                <Lightbulb size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700 font-medium">
+                    What to do next
+                  </p>
+                  <p className="text-sm text-ink mt-1 leading-snug">
+                    {commandCenter.suggestedNextAction.message}
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn-primary self-start !px-4 !py-2 text-sm"
+                onClick={() => navigate(commandCenter.suggestedNextAction!.action)}
+              >
+                {commandCenter.suggestedNextAction.icon}
+                Take action
+                <ArrowRight size={14} className="ml-1" />
+              </button>
             </div>
+          )}
+        </div>
+
+        {/* Right column: Weekly goals — full-width on mobile, right col on lg */}
+        <MetricCard
+          label="Weekly goals"
+          icon={<CheckSquare size={17} />}
+          value={`${commandCenter.weeklyCompleted}/${WEEKLY_GOAL_KEYS.length}`}
+          tooltip="Track your weekly career goals. Update your CV, apply to jobs, or practise interviews to stay on track."
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+            <p className="text-xs text-ink-muted">
+              {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length} complete
+            </p>
             <div className="flex items-center gap-2 rounded-lg bg-ash px-3 py-2 text-sm text-ink-muted">
               <Briefcase size={15} />
               {commandCenter.activeApplications} active
@@ -536,7 +690,7 @@ export default function DashboardPage() {
             {WEEKLY_GOAL_KEYS.map((goal) => (
               <label
                 key={goal}
-                className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm cursor-pointer select-none"
               >
                 <span className={weeklyGoals[goal] ? "text-ink-muted line-through" : "text-ink"}>
                   {goal}
@@ -545,7 +699,7 @@ export default function DashboardPage() {
                   type="checkbox"
                   checked={!!weeklyGoals[goal]}
                   onChange={() => toggleGoal(goal)}
-                  className="h-4 w-4 accent-ink"
+                  className="h-4 w-4 flex-shrink-0 accent-ink"
                 />
               </label>
             ))}
@@ -556,13 +710,115 @@ export default function DashboardPage() {
           >
             <CalendarClock size={13} /> Practise now
           </button>
-        </div>
+        </MetricCard>
       </section>
 
+      {/* ── Skill Gap + Roadmap ── */}
+      <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+
+        {/* Skill Gap Analysis */}
+        <div
+          className={`card bg-violet-50/30${
+            !(user && user.roadmap_progress && user.roadmap_progress.length > 0)
+              ? " lg:col-span-2"
+              : ""
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <Map size={20} className="text-violet-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs uppercase tracking-[0.18em] text-violet-700 font-medium">
+                Skill Gap Engine
+              </p>
+              <p className="text-sm text-ink mt-1">
+                Discover what skills you need for your target role and get a learning roadmap.
+              </p>
+
+              {cvs.length > 0 ? (
+                /* Stack vertically on mobile; row on sm+ */
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={skillGapCV?.id || ""}
+                    onChange={(e) => {
+                      const selected = cvs.find((c) => c.id === e.target.value);
+                      setSkillGapCV(selected || null);
+                    }}
+                    className="w-full sm:flex-1 text-sm border border-ash-border rounded-lg px-3 py-2 bg-white min-w-0"
+                  >
+                    <option value="">Select a CV to analyze</option>
+                    {cvs.map((cv) => (
+                      <option key={cv.id} value={cv.id}>
+                        {cv.title || `CV ${cv.id.slice(0, 8)}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn-primary !px-4 !py-2 !bg-violet-600 hover:!bg-violet-700 sm:flex-shrink-0 whitespace-nowrap"
+                    onClick={() => {
+                      const cvToUse = skillGapCV || primaryCv;
+                      if (cvToUse) {
+                        navigate(`/cv/${cvToUse.id}?skill_gap=true`);
+                      } else {
+                        navigate("/cv/new?skill_gap=true");
+                      }
+                    }}
+                    disabled={!skillGapCV && !primaryCv}
+                  >
+                    <Map size={14} className="mr-1" />
+                    Analyze
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn-primary mt-3 !px-4 !py-2 !bg-violet-600 hover:!bg-violet-700"
+                  onClick={() => navigate("/cv/new?skill_gap=true")}
+                >
+                  <Map size={14} className="mr-1" />
+                  Create CV
+                  <ArrowRight size={14} className="ml-1" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Roadmap Progress */}
+        {user && user.roadmap_progress && user.roadmap_progress.length > 0 && (
+          <div className="card border-l-4 border-l-emerald-500 bg-emerald-50/30">
+            <div className="flex items-start gap-3">
+              <TrendingUp size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-700 font-medium">
+                  Your Progress
+                </p>
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-ink mb-1">
+                    <span>Steps completed</span>
+                    <span className="font-medium">{user.roadmap_progress.length}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((user.roadmap_progress.length / 5) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Complete 5 roadmap steps to unlock achievements
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Jobs matching CV ── */}
       {user && primaryCv && (
         <div className="card mb-6 border-ink/10 bg-gradient-to-br from-white to-ash/40">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">
                 Jobs matching your CV
               </p>
@@ -570,27 +826,30 @@ export default function DashboardPage() {
                 Based on {matchSeed || "your latest CV"}
               </h2>
               <p className="text-sm text-ink-muted mt-1">
-                Quick matches pulled from live job sources. Open the board to
-                refine filters or start tracking.
+                Quick matches pulled from live job sources. Open the board to refine filters or
+                start tracking.
               </p>
             </div>
-            <div className="flex gap-2">
+            {/* Button pair: stretch to fill on mobile, natural on sm+ */}
+            <div className="flex gap-2 sm:flex-shrink-0">
               <button
-                className="btn-secondary"
+                className="btn-secondary flex-1 sm:flex-none"
                 onClick={() => navigate("/jobs")}
               >
                 Browse jobs
               </button>
               <button
-                className="btn-primary"
+                className="btn-primary flex-1 sm:flex-none"
                 onClick={() => navigate("/tracker")}
               >
                 View tracker
               </button>
             </div>
           </div>
+
           {matchJobs.length > 0 ? (
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            /* 1 col on mobile, 2 col from sm, 3 col from xl */
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {matchJobs.map((job) => (
                 <button
                   key={job.id}
@@ -605,52 +864,54 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium text-ink truncate">
-                        {job.title}
-                      </p>
-                      <p className="text-sm text-ink-muted truncate mt-0.5">
-                        {job.company}
-                      </p>
+                      <p className="font-medium text-ink truncate">{job.title}</p>
+                      <p className="text-sm text-ink-muted truncate mt-0.5">{job.company}</p>
                     </div>
-                    <span className="badge bg-ash-dark text-ink-muted capitalize">
+                    <span className="badge bg-ash-dark text-ink-muted capitalize flex-shrink-0">
                       {job.source}
                     </span>
                   </div>
-                  <p className="text-xs text-ink-muted mt-3 line-clamp-2">
-                    {job.location}
-                  </p>
+                  <p className="text-xs text-ink-muted mt-3 line-clamp-2">{job.location}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-ink-muted mt-4">
-              No matches yet. Add a target role or skills to your latest CV and
-              try again.
-            </p>
+            <div className="text-center py-8">
+              <Info size={24} className="mx-auto text-ink-muted/30 mb-2" />
+              <p className="text-sm text-ink-muted">
+                No matches yet. Add a target role or skills to your latest CV and try again.
+              </p>
+              <button
+                className="btn-secondary mt-3"
+                onClick={() => navigate(`/cv/${primaryCv?.id}`)}
+              >
+                <Edit size={14} /> Update CV
+              </button>
+            </div>
           )}
         </div>
       )}
 
-      {/* Empty state */}
+      {/* ── Empty state ── */}
       {!isLoading && cvs.length === 0 && (
         <div className="card text-center py-16 border-dashed">
           <FileText size={32} className="mx-auto text-ink-muted/40 mb-3" />
-          <p className="text-sm text-ink-muted mb-4">
-            No CVs yet. Create your first one.
-          </p>
+          <p className="text-sm text-ink-muted mb-4">No CVs yet. Create your first one.</p>
           <button className="btn-primary" onClick={() => navigate("/cv/new")}>
             <Plus size={14} /> Create CV
           </button>
         </div>
       )}
 
-      {/* CV list */}
+      {/* ── CV list ── */}
       <div className="space-y-2">
         {cvs.map((cv) => (
           <div key={cv.id} className="card !p-4">
+
             {/* ── MOBILE LAYOUT (hidden on sm+) ── */}
             <div className="sm:hidden">
-              <div className="flex items-center gap-2 w-full">
+              {/* Row 1: title + kebab */}
+              <div className="flex items-center gap-2 w-full min-w-0">
                 {editingTitleId === cv.id ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <input
@@ -682,12 +943,10 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 ) : (
-                  <h3 className="font-medium text-ink text-sm truncate w-0 flex-1">
+                  <h3 className="font-medium text-ink text-sm truncate flex-1 min-w-0">
                     {cv.title}
                   </h3>
                 )}
-
-                {/* ✅ Portal-based kebab menu — no clipping, viewport-aware */}
                 <div className="flex-shrink-0">
                   <KebabMenu
                     cv={cv}
@@ -695,50 +954,41 @@ export default function DashboardPage() {
                     onRate={() => setRatingCV(cv)}
                     onEdit={() => navigate(`/cv/${cv.id}`)}
                     onDuplicate={() => handleDuplicate(cv.id)}
+                    duplicating={duplicatingId === cv.id}
                     onDelete={() => setDeleteTarget(cv)}
                   />
                 </div>
               </div>
 
-              {/* Mobile row 2: badge + stars */}
+              {/* Row 2: badge + stars */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span
-                  className={`badge text-[10px] ${cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"}`}
+                  className={`badge text-[10px] ${
+                    cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"
+                  }`}
                 >
                   {cv.is_public ? (
-                    <>
-                      <Globe size={9} className="inline mr-0.5" />
-                      Public
-                    </>
+                    <><Globe size={9} className="inline mr-0.5" />Public</>
                   ) : (
-                    <>
-                      <Lock size={9} className="inline mr-0.5" />
-                      Private
-                    </>
+                    <><Lock size={9} className="inline mr-0.5" />Private</>
                   )}
                 </span>
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={10}
-                        className="text-amber-400 fill-amber-400"
-                      />
+                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Mobile row 3: meta */}
+              {/* Row 3: meta */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-muted mt-1">
                 <span className="flex items-center gap-1">
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>
-                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
-                </span>
+                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
                 {cv.data.personal_info.job_title && (
                   <span className="truncate max-w-[180px]">
                     {cv.data.personal_info.job_title}
@@ -746,7 +996,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Mobile row 4: public URL */}
+              {/* Row 4: public URL */}
               {cv.is_public && cv.slug && (
                 <p className="text-[11px] text-ink-muted/60 font-mono mt-1 truncate">
                   /cv/{cv.owner_username}/{cv.slug}
@@ -789,7 +1039,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <h3 className="font-medium text-ink text-sm truncate w-0 flex-1">
+                    <h3 className="font-medium text-ink text-sm truncate flex-1 min-w-0">
                       {cv.title}
                     </h3>
                     <button
@@ -803,29 +1053,21 @@ export default function DashboardPage() {
                 )}
 
                 <span
-                  className={`badge text-[10px] flex-shrink-0 ${cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"}`}
+                  className={`badge text-[10px] flex-shrink-0 ${
+                    cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"
+                  }`}
                 >
                   {cv.is_public ? (
-                    <>
-                      <Globe size={9} className="inline mr-0.5" />
-                      Public
-                    </>
+                    <><Globe size={9} className="inline mr-0.5" />Public</>
                   ) : (
-                    <>
-                      <Lock size={9} className="inline mr-0.5" />
-                      Private
-                    </>
+                    <><Lock size={9} className="inline mr-0.5" />Private</>
                   )}
                 </span>
 
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={10}
-                        className="text-amber-400 fill-amber-400"
-                      />
+                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
                     ))}
                   </div>
                 )}
@@ -840,9 +1082,7 @@ export default function DashboardPage() {
                   >
                     <Star
                       size={13}
-                      className={
-                        cv.rating ? "text-amber-400 fill-amber-400" : ""
-                      }
+                      className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
                     />
                   </button>
                   <button
@@ -856,6 +1096,7 @@ export default function DashboardPage() {
                     className="btn-ghost p-1.5"
                     title="Duplicate"
                     onClick={() => handleDuplicate(cv.id)}
+                    disabled={duplicatingId === cv.id}
                   >
                     <Copy size={13} />
                   </button>
@@ -875,9 +1116,7 @@ export default function DashboardPage() {
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>
-                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
-                </span>
+                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
                 {cv.data.personal_info.job_title && (
                   <span className="truncate max-w-[160px]">
                     {cv.data.personal_info.job_title}
@@ -896,6 +1135,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* ── Modals ── */}
       {ratingCV && (
         <RatingModal
           cvId={ratingCV.id}
@@ -911,9 +1151,7 @@ export default function DashboardPage() {
         description={
           <>
             Delete{" "}
-            <span className="font-medium text-ink">
-              "{deleteTarget?.title}"
-            </span>
+            <span className="font-medium text-ink">"{deleteTarget?.title}"</span>
             ? This cannot be undone.
           </>
         }

@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cvApi } from "../../api";
 import { CVData } from "../../types";
-import { X, RotateCcw, Clock } from "lucide-react";
+import { X, RotateCcw, Clock, GitCompare, ChevronDown, ChevronUp } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement"
+import DiffViewer from "./DiffViewer";
 
 interface HistoryEntry {
   id: string;
@@ -13,17 +15,21 @@ interface HistoryEntry {
 
 interface Props {
   cvId: string;
+  currentData?: CVData;
   onRestore: (snapshot: CVData) => void;
   onClose: () => void;
 }
 
-export default function HistoryDrawer({ cvId, onRestore, onClose }: Props) {
-  
+export default function HistoryDrawer({ cvId, currentData, onRestore, onClose }: Props) {
+
   const { data: history = [], isLoading } = useQuery<HistoryEntry[]>({
     queryKey: ["cv-history", cvId],
     queryFn: () => cvApi.history(cvId),
   });
-  
+
+  const [selectedCompare, setSelectedCompare] = useState<HistoryEntry | null>(null);
+  const [compareWith, setCompareWith] = useState<"current" | "previous">("current");
+
   const fmt = (d: string) =>
     new Date(d).toLocaleString(undefined, {
       month: "short",
@@ -31,8 +37,31 @@ export default function HistoryDrawer({ cvId, onRestore, onClose }: Props) {
       hour: "2-digit",
       minute: "2-digit",
     });
-    
-    const { bannerH } = useAnnouncement()
+
+  const handleCompare = (entry: HistoryEntry) => {
+    if (selectedCompare?.id === entry.id) {
+      setSelectedCompare(null);
+    } else {
+      setSelectedCompare(entry);
+    }
+  };
+
+  const getCompareData = (): CVData | null => {
+    if (!selectedCompare) return null;
+    if (compareWith === "current" && currentData) {
+      return currentData;
+    }
+    // Compare with the previous version in the list
+    const idx = history.findIndex(h => h.id === selectedCompare.id);
+    if (idx >= 0 && idx < history.length - 1) {
+      return history[idx + 1].snapshot;
+    }
+    return selectedCompare.snapshot;
+  };
+
+  const compareData = getCompareData();
+
+  const { bannerH } = useAnnouncement()
 
   return (
     <div className="fixed inset-y-0 right-0 w-72 bg-white border-l border-ash-border z-40 flex flex-col shadow-xl" style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}>
@@ -70,12 +99,47 @@ export default function HistoryDrawer({ cvId, onRestore, onClose }: Props) {
             <p className="text-[10px] text-ink-muted mt-0.5">
               {fmt(entry.saved_at)}
             </p>
-            <button
-              onClick={() => onRestore(entry.snapshot)}
-              className="mt-2 flex items-center gap-1.5 text-[11px] text-ink hover:text-ink-muted transition-colors"
-            >
-              <RotateCcw size={11} /> Restore this version
-            </button>
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={() => onRestore(entry.snapshot)}
+                className="flex items-center gap-1.5 text-[11px] text-ink hover:text-ink-muted transition-colors"
+              >
+                <RotateCcw size={11} /> Restore
+              </button>
+              {currentData && (
+                <button
+                  onClick={() => handleCompare(entry)}
+                  className="flex items-center gap-1.5 text-[11px] text-ink hover:text-ink-muted transition-colors"
+                >
+                  <GitCompare size={11} />
+                  {selectedCompare?.id === entry.id ? "Hide" : "Compare"}
+                </button>
+              )}
+            </div>
+            {selectedCompare?.id === entry.id && compareData && (
+              <div className="mt-3 border-t border-ash-border pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] text-ink-muted">Compare with:</span>
+                  <select
+                    value={compareWith}
+                    onChange={(e) => setCompareWith(e.target.value as "current" | "previous")}
+                    className="text-[10px] bg-white border border-ash-border rounded px-1 py-0.5"
+                  >
+                    <option value="current">Current</option>
+                    <option value="previous">Previous version</option>
+                  </select>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  <DiffViewer before={entry.snapshot} after={compareData} />
+                </div>
+                <button
+                  onClick={() => onRestore(entry.snapshot)}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] bg-axiom text-white rounded py-1.5 hover:bg-axiom-dark transition-colors"
+                >
+                  <RotateCcw size={11} /> Restore this version
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

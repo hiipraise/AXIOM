@@ -12,7 +12,9 @@ import httpx
 from app.config import settings
 from app.models.schemas import JobResult
 
-SEARCH_TTL_HOURS = 6
+# Cache TTLs: 30 min for external API, 5 min for AXIOM internal
+EXTERNAL_TTL_MINUTES = 30
+AXIOM_TTL_MINUTES = 5
 DEFAULT_PER_PAGE = 20
 
 
@@ -408,13 +410,30 @@ async def search_jobs(query: str = "", location: str = "", remote: Optional[bool
 
 
 async def fetch_cached_search(db, cache_key: str) -> Optional[dict[str, Any]]:
-    return await db.job_cache.find_one({"cache_key": cache_key})
+    """Fetch cached search if not expired."""
+    now = _now()
+    cached = await db.job_cache.find_one({"cache_key": cache_key})
+    if not cached:
+        return None
+    # Check TTL based on source type - external jobs get 30 min, axiom jobs get 5 min
+    expires_at = cached.get("expires_at")
+    # MongoDB returns naive datetime - make timezone-aware for comparison
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if not expires_at or now >= expires_at:
+        # Expired - delete and return None
+        await db.job_cache.delete_one({"cache_key": cache_key})
+        return None
+    return cached
 
 
 async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_payload: dict[str, Any]) -> None:
     now = _now()
-    expires_at = now + timedelta(hours=SEARCH_TTL_HOURS)
     payload = [job.model_dump(mode="json") for job in jobs]
+    # Determine source and set appropriate TTL
+    has_axiom = any(job.source == "axiom" for job in jobs)
+    ttl = AXIOM_TTL_MINUTES if has_axiom else EXTERNAL_TTL_MINUTES
+    expires_at = now + timedelta(minutes=ttl)
     await db.job_cache.update_one(
         {"cache_key": cache_key},
         {
@@ -430,15 +449,18 @@ async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_
         upsert=True,
     )
     for job in jobs:
+        job_ttl = AXIOM_TTL_MINUTES if job.source == "axiom" else EXTERNAL_TTL_MINUTES
+        job_expires_at = now + timedelta(minutes=job_ttl)
         await db.job_cache.update_one(
             {"job_id": job.id},
             {
                 "$set": {
                     "job_id": job.id,
                     "kind": "job",
+                    "source": job.source,
                     "payload": job.model_dump(mode="json"),
                     "cached_at": now,
-                    "expires_at": expires_at,
+                    "expires_at": job_expires_at,
                 }
             },
             upsert=True,
@@ -447,3 +469,14 @@ async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_
 
 def make_search_cache_key(query: str, location: str, remote: Optional[bool], page: int, per_page: int, region: str = "") -> str:
     return _search_cache_key({"q": query, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})
+
+
+async def invalidate_job_cache(db, job_id: str, source: str = "axiom") -> None:
+    """Invalidate all cached entries for a job or search results when a job changes."""
+    if source == "axiom":
+        # Delete the individual job cache entry
+        await db.job_cache.delete_one({"job_id": job_id})
+        # Invalidate all search cache entries (they may contain this job)
+        await db.job_cache.delete_many({"kind": "search"})
+        # Also delete any general job cache entries
+        await db.job_cache.delete_many({"job_id": {"$regex": ".*"}})

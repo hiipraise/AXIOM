@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from app.database import get_db
 from app.limiter import limiter
 from app.middleware.auth import get_current_user
+from app.middleware.validation import valid_object_id
+from app.utils.errors import not_found, forbidden, bad_request, too_large, conflict
 from app.models.schemas import (
     CVCreate,
     CVUpdate,
+    CVHistoryRequest,
     AIPromptRequest,
     AIEditRequest,
     JobMatchRequest,
@@ -26,6 +29,17 @@ from bson import ObjectId
 import pdfplumber
 import io
 import re
+
+# Magic bytes for file type validation
+MAGIC_PDF = b"%PDF"
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+def _validate_pdf(content: bytes) -> None:
+    """Validate PDF by magic bytes and size. Raises HTTPException on failure."""
+    if len(content) > MAX_FILE_SIZE:
+        raise too_large(f"File too large. Maximum size is {MAX_FILE_SIZE // 1024 // 1024}MB")
+    if not content.startswith(MAGIC_PDF):
+        raise bad_request("Invalid file type. Only PDF files are accepted")
 
 router = APIRouter()
 
@@ -147,24 +161,30 @@ async def list_cvs(current_user=Depends(get_current_user), db=Depends(get_db)):
 
 @router.get("/{cv_id}")
 async def get_cv(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv:
-        raise HTTPException(404, "CV not found")
+        raise not_found("CV")
     if cv["owner_id"] != str(current_user["_id"]) and current_user.get("role") not in ("admin", "superadmin"):
         if not cv.get("is_public"):
-            raise HTTPException(403, "Access denied")
+            raise forbidden("Access denied")
     return serialize_cv(cv)
 
 
 @router.put("/{cv_id}")
-async def update_cv(cv_id: str, body: CVUpdate, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def update_cv(body: CVUpdate, cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv:
-        raise HTTPException(404, "CV not found")
+        raise not_found("CV")
     if cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
 
-    # Save history snapshot before update
+    # Save history snapshot before update (keep last 50 versions)
     await db.cv_history.insert_one({
         "cv_id": cv_id,
         "owner_id": str(current_user["_id"]),
@@ -172,6 +192,13 @@ async def update_cv(cv_id: str, body: CVUpdate, current_user=Depends(get_current
         "title": cv["title"],
         "saved_at": datetime.now(timezone.utc),
     })
+    # Enforce 50 version limit - delete oldest entries beyond limit
+    count = await db.cv_history.count_documents({"cv_id": cv_id})
+    if count > 50:
+        oldest = await db.cv_history.find({"cv_id": cv_id}).sort("saved_at", 1).limit(count - 50).to_list(count - 50)
+        if oldest:
+            ids = [doc["_id"] for doc in oldest]
+            await db.cv_history.delete_many({"_id": {"$in": ids}})
 
     updates = {"updated_at": datetime.now(timezone.utc)}
     if body.title is not None:
@@ -199,11 +226,14 @@ async def update_cv(cv_id: str, body: CVUpdate, current_user=Depends(get_current
 
 @router.delete("/{cv_id}")
 async def delete_cv(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv:
-        raise HTTPException(404, "CV not found")
+        raise not_found("CV")
     if cv["owner_id"] != str(current_user["_id"]) and current_user.get("role") not in ("admin", "superadmin"):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     await db.cv_history.delete_many({"cv_id": cv_id})
     await db.cv_analytics.delete_many({"cv_id": cv_id})
     await db.cvs.delete_one({"_id": ObjectId(cv_id)})
@@ -212,11 +242,14 @@ async def delete_cv(cv_id: str, current_user=Depends(get_current_user), db=Depen
 
 @router.post("/{cv_id}/duplicate")
 async def duplicate_cv(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv:
-        raise HTTPException(404, "CV not found")
+        raise not_found("CV")
     if cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     now = datetime.now(timezone.utc)
     new_doc = {
         "owner_id": str(current_user["_id"]),
@@ -239,19 +272,67 @@ async def duplicate_cv(cv_id: str, current_user=Depends(get_current_user), db=De
 
 @router.get("/{cv_id}/history")
 async def get_cv_history(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv or cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     cursor = db.cv_history.find({"cv_id": cv_id}).sort("saved_at", -1).limit(20)
     history = await cursor.to_list(20)
     return [{"id": str(h["_id"]), "title": h.get("title"), "saved_at": h["saved_at"], "snapshot": h["snapshot"]} for h in history]
 
 
-@router.get("/{cv_id}/analytics", response_model=CVAnalyticsOut)
-async def get_cv_analytics(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+@router.post("/{cv_id}/history/restore")
+async def restore_cv_version(
+    body: CVHistoryRequest,
+    cv_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Restore CV to a previous version from history."""
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv or cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
+
+    # Get the history snapshot
+    history_doc = await db.cv_history.find_one({"_id": ObjectId(body.history_id), "cv_id": cv_id})
+    if not history_doc:
+        raise not_found("History entry")
+
+    snapshot = history_doc.get("snapshot")
+    if not snapshot:
+        raise bad_request("Invalid history snapshot")
+
+    # Save current state to history before restoring
+    await db.cv_history.insert_one({
+        "cv_id": cv_id,
+        "owner_id": str(current_user["_id"]),
+        "snapshot": cv["data"],
+        "title": cv["title"],
+        "saved_at": datetime.now(timezone.utc),
+    })
+
+    # Apply the snapshot
+    await db.cvs.update_one(
+        {"_id": ObjectId(cv_id)},
+        {"$set": {"data": snapshot, "updated_at": datetime.now(timezone.utc)}},
+    )
+
+    return {"restored": True, "title": history_doc.get("title")}
+
+
+@router.get("/{cv_id}/analytics", response_model=CVAnalyticsOut)
+async def get_cv_analytics(cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
+    if not cv or cv["owner_id"] != str(current_user["_id"]):
+        raise forbidden("Access denied")
     events = await db.cv_analytics.find({"cv_id": cv_id, "owner_id": str(current_user["_id"])}).sort("created_at", -1).limit(50).to_list(50)
     return CVAnalyticsOut(
         cv_id=cv_id,
@@ -262,10 +343,13 @@ async def get_cv_analytics(cv_id: str, current_user=Depends(get_current_user), d
 
 
 @router.post("/{cv_id}/analytics", response_model=CVAnalyticsEventOut)
-async def create_cv_analytics_event(cv_id: str, body: CVAnalyticsCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def create_cv_analytics_event(body: CVAnalyticsCreate, cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv or cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     now = datetime.now(timezone.utc)
     doc = {
         "cv_id": cv_id,
@@ -306,7 +390,7 @@ async def ai_chat(request: Request, body: AIPromptRequest, current_user=Depends(
 @limiter.limit("20/minute")
 async def ai_generate_summary(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
     if not body.cv_data:
-        raise HTTPException(400, "CV data required")
+        raise bad_request("CV data required")
     summary = await ai_service.generate_summary(body.cv_data.model_dump())
     await db.ai_events.insert_one({
         "user_id": str(current_user["_id"]),
@@ -421,32 +505,41 @@ async def ai_keyword_gap(request: Request, body: KeywordGapRequest, current_user
 
 @router.post("/upload-cv")
 async def upload_cv(file: UploadFile = File(...), current_user=Depends(get_current_user)):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(400, "Only PDF files are supported")
     content = await file.read()
+    # Validate magic bytes and size
+    _validate_pdf(content)
+    # Extract text from PDF
     text = ""
     with pdfplumber.open(io.BytesIO(content)) as pdf:
         for page in pdf.pages:
             text += page.extract_text() or ""
     if not text.strip():
-        raise HTTPException(400, "Could not extract text from PDF")
+        raise bad_request("Could not extract text from PDF")
     extracted = await ai_service.extract_cv_from_text(text)
     return {"data": extracted}
 
 
 @router.post("/{cv_id}/rate")
-async def rate_cv(cv_id: str, body: CVRating, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def rate_cv(body: CVRating, cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from bson import ObjectId
+    from pymongo.errors import DuplicateKeyError
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv or cv["owner_id"] != str(current_user["_id"]):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     rating_doc = {
         "cv_id": cv_id,
+        "rater_id": str(current_user["_id"]),
         "owner_id": str(current_user["_id"]),
         "score": body.score,
         "comment": body.comment,
         "created_at": datetime.now(timezone.utc),
     }
-    await db.ratings.insert_one(rating_doc)
+    try:
+        await db.ratings.insert_one(rating_doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="You have already rated this CV")
     await db.cvs.update_one({"_id": ObjectId(cv_id)}, {"$set": {"rating": body.score}})
     return {"message": "Rating saved"}
 

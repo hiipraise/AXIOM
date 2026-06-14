@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
 from app.middleware.auth import require_admin, require_staff, get_current_user
+from app.middleware.validation import valid_object_id
+from app.models.schemas import UserRoleUpdate, RecruiterApprovalUpdate
+from app.utils.errors import not_found, forbidden, bad_request
 from app.services.auth_service import hash_password
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
@@ -138,17 +141,17 @@ async def list_users(
 
 
 @router.put("/users/{user_id}/role")
-async def set_user_role(user_id: str, body: dict, admin=Depends(require_admin), db=Depends(get_db)):
-    role = body.get("role")
-    if role not in ("user", "recruiter", "staff", "admin"):
-        raise HTTPException(400, "Invalid role")
+async def set_user_role(body: UserRoleUpdate, user_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    role = body.role
 
     target = await db.users.find_one({"_id": ObjectId(user_id)}, {"role": 1})
     if not target:
-        raise HTTPException(404, "User not found")
+        raise not_found("User")
     previous_role = target.get("role")
 
-    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": role}})
+    await db.users.update_one({"_id": user_id}, {"$set": {"role": role}})
     await audit(db, str(admin["_id"]), "set_role", user_id, {
         "previous_role": previous_role,
         "new_role": role,
@@ -158,6 +161,8 @@ async def set_user_role(user_id: str, body: dict, admin=Depends(require_admin), 
 
 @router.put("/users/{user_id}/deactivate")
 async def deactivate_user(user_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"is_active": False}})
     await audit(db, str(admin["_id"]), "deactivate_user", user_id)
     return {"message": "User deactivated"}
@@ -165,6 +170,8 @@ async def deactivate_user(user_id: str, admin=Depends(require_admin), db=Depends
 
 @router.put("/users/{user_id}/activate")
 async def activate_user(user_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"is_active": True}})
     await audit(db, str(admin["_id"]), "activate_user", user_id)
     return {"message": "User activated"}
@@ -172,11 +179,13 @@ async def activate_user(user_id: str, admin=Depends(require_admin), db=Depends(g
 
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
-        raise HTTPException(404, "User not found")
+        raise not_found("User")
     if user.get("role") == "superadmin":
-        raise HTTPException(403, "Cannot delete super admin")
+        raise forbidden("Cannot delete super admin")
 
     cvs = await db.cvs.find({"owner_id": user_id}, {"_id": 1}).to_list(None)
     cv_ids = [str(cv["_id"]) for cv in cvs]
@@ -193,7 +202,7 @@ async def delete_user(user_id: str, admin=Depends(require_admin), db=Depends(get
     await db.interview_messages.delete_many({"user_id": user_id})
     await db.feedback.delete_many({"user_id": user_id})
     await db.page_events.delete_many({"user_id": user_id})
-    await db.users.delete_one({"_id": ObjectId(user_id)})
+    await db.users.delete_one({"_id": user_id})
     await audit(db, str(admin["_id"]), "delete_user", user_id, {
         "username": user.get("username"),
         "email":    user.get("email"),
@@ -224,13 +233,13 @@ async def list_recruiters(admin=Depends(require_staff), db=Depends(get_db)):
 
 
 @router.put("/recruiters/{profile_id}/approval")
-async def set_recruiter_approval(profile_id: str, body: dict, admin=Depends(require_admin), db=Depends(get_db)):
-    approved = bool(body.get("is_approved"))
-    verified = bool(body.get("verified", approved))
+async def set_recruiter_approval(profile_id: str, body: RecruiterApprovalUpdate, admin=Depends(require_admin), db=Depends(get_db)):
+    approved = body.is_approved
+    verified = approved
 
     profile = await db.company_profiles.find_one({"_id": ObjectId(profile_id)})
     if not profile:
-        raise HTTPException(404, "Recruiter profile not found")
+        raise not_found("Recruiter profile")
     previous = {
         "is_approved": profile.get("is_approved"),
         "verified":    profile.get("verified"),

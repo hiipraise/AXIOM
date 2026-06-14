@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends
 from app.database import get_db
 from app.middleware.auth import get_optional_user, require_staff
+from app.models.schemas import FeedbackSubmit
 from datetime import datetime, timezone
 
 router = APIRouter()
 
 
 @router.post("")
-async def submit_feedback(body: dict, db=Depends(get_db), user=Depends(get_optional_user)):
+async def submit_feedback(body: FeedbackSubmit, db=Depends(get_db), user=Depends(get_optional_user)):
     doc = {
-        "type":    body.get("type", "other"),
-        "rating":  body.get("rating"),
-        "message": (body.get("message") or "").strip()[:1000],
-        "page":    body.get("page", ""),
+        "type":    "other",
+        "rating":  None,
+        "message": body.message.strip(),
+        "page":    body.page_url or "",
         "user_id": str(user["_id"]) if user else None,
         "ts":      datetime.now(timezone.utc),
     }

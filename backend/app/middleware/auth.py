@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.services.auth_service import decode_token
+from app.services.auth_service import decode_token, is_token_revoked
 from app.database import get_db
 from bson import ObjectId
 
@@ -29,6 +29,10 @@ async def get_current_user(
     payload = decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    # Check if token was revoked
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(db, jti):
+        raise HTTPException(status_code=401, detail="Token revoked")
     user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
     if not user or not user.get("is_active"):
         raise HTTPException(status_code=401, detail="User not found")
@@ -45,6 +49,10 @@ async def get_optional_user(
         return None
     payload = decode_token(token)
     if not payload:
+        return None
+    # Check if token was revoked
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(db, jti):
         return None
     return await db.users.find_one({"_id": ObjectId(payload["sub"])})
 

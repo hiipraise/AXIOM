@@ -20,8 +20,8 @@ class UserRole(str, Enum):
 
 
 class UserCreate(BaseModel):
-    username: str = Field(..., min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_\-]+$")
-    password: str = Field(..., min_length=6)
+    username: str = Field(..., min_length=3, max_length=30, pattern=r"^[a-zA-Z0-9_\-]+$")
+    password: str = Field(..., min_length=6, max_length=72)
     email: Optional[EmailStr] = None
     secret_question: Optional[str] = None
     secret_answer: Optional[str] = None
@@ -30,6 +30,22 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+
+class RoadmapProgressItem(BaseModel):
+    """Single completed roadmap item."""
+    step_id: str
+    completed_at: datetime
+
+
+class RoadmapProgressUpdate(BaseModel):
+    """Update user's roadmap progress."""
+    step_id: str
+
+
+class RoadmapStepComplete(BaseModel):
+    """Mark a roadmap step as complete."""
+    step_id: str
 
 
 class UserOut(BaseModel):
@@ -41,6 +57,7 @@ class UserOut(BaseModel):
     must_change_password: bool
     created_at: datetime
     is_active: bool
+    roadmap_progress: List[RoadmapProgressItem] = Field(default_factory=list)
 
 
 class PasswordChange(BaseModel):
@@ -179,6 +196,17 @@ class CVUpdate(BaseModel):
     theme: Optional[str] = None
     page_count: Optional[int] = None
     template: Optional[str] = None
+
+
+class CVHistoryRequest(BaseModel):
+    history_id: str
+
+
+class CVHistoryResponse(BaseModel):
+    id: str
+    title: str
+    saved_at: datetime
+    snapshot: dict
 
 
 class CVOut(BaseModel):
@@ -479,9 +507,9 @@ class JobSearchResponse(BaseModel):
 
 class CoverLetterRequest(BaseModel):
     cv_data: CVData
-    job_title: str
-    company: str
-    job_description: str
+    job_title: str = Field(..., min_length=1, max_length=200)
+    company: str = Field(..., min_length=1, max_length=200)
+    job_description: str = Field(..., max_length=5000)
 
 
 class CoverLetterResponse(BaseModel):
@@ -688,3 +716,96 @@ class InterviewSessionDetail(InterviewSessionListItem):
     job_description: str = ""
     summary: Optional[dict] = None
     messages: List[InterviewMessageOut] = Field(default_factory=list)
+
+
+# ─── Input validation schemas ────────────────────────────────────────────────
+
+class AnnouncementCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+    type: str = Field(default="info", pattern=r"^(info|success|warning|error)$")
+
+
+class FeedbackSubmit(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+    page_url: Optional[str] = None
+
+
+class AnalyticsEvent(BaseModel):
+    event_type: str = Field(..., min_length=1, max_length=100)
+    event_data: Optional[dict] = None
+    page_url: Optional[str] = None
+
+
+class ProfileUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    email_notifications: Optional[bool] = None
+
+
+class ExportRequest(BaseModel):
+    cv_id: str = Field(..., min_length=24, max_length=24)
+    format: str = Field(default="pdf", pattern=r"^(pdf|html|markdown)$")
+    theme: Optional[str] = None
+    html: Optional[str] = Field(None, max_length=5_000_000)
+    data: Optional[dict] = None
+    title: Optional[str] = Field(None, max_length=120)
+    username: Optional[str] = Field(None, max_length=30)
+    template: Optional[str] = None
+
+
+class ForgotUsernameRequest(BaseModel):
+    email: Optional[EmailStr] = None
+
+
+class UserRoleUpdate(BaseModel):
+    role: str = Field(..., pattern=r"^(user|recruiter|staff|admin|superadmin)$")
+
+
+class RecruiterApprovalUpdate(BaseModel):
+    is_approved: bool
+
+
+class LiveAnswer(BaseModel):
+    answer: str = Field(..., min_length=1, max_length=5000)
+    question_id: str = Field(..., min_length=1)
+
+
+class LiveFollowUp(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000)
+
+
+class LiveFeedbackUpdate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+# Search result models
+class CVSearchResult(BaseModel):
+    id: str
+    title: str
+    owner_username: str
+    updated_at: Optional[str] = None
+
+
+class JobSearchResult(BaseModel):
+    id: str
+    title: str
+    company: str
+    location: str
+    source: str = "indeed"
+    posted_at: Optional[str] = None
+
+
+class AxiomJobSearchResult(BaseModel):
+    id: str
+    title: str
+    company: str
+    location: str
+    remote: bool = False
+    job_type: str = ""
+    created_at: Optional[str] = None
+
+
+class SearchResults(BaseModel):
+    cvs: List[CVSearchResult] = []
+    jobs: List[JobSearchResult] = []
+    axiom_jobs: List[AxiomJobSearchResult] = []

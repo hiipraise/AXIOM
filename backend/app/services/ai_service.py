@@ -1,20 +1,47 @@
 # app/services/ai_service.py
 import json
+import logging
+import asyncio
 from functools import lru_cache
 from typing import Optional
 
 from groq import Groq, APIError, AuthenticationError, APIConnectionError, RateLimitError
 from fastapi import HTTPException
 
+from app.utils.errors import service_unavailable, bad_request
+
 from app.config import settings
-from app.services.ai_prompts import (
-    json_system_prompt,
-    text_system_prompt,
-    interview_system_prompt,
-    review_system_prompt,
+from app.prompts.cv_generation import (
+    build_prompt as cv_build_prompt,
+    MODEL_NAME as CV_MODEL_NAME,
+    TEMPERATURE as CV_TEMPERATURE,
+    MAX_TOKENS as CV_MAX_TOKENS,
+)
+from app.prompts.interview import (
+    build_prompt as interview_build_prompt,
+    MODEL_NAME as INTERVIEW_MODEL_NAME,
+    TEMPERATURE as INTERVIEW_TEMPERATURE,
+    MAX_TOKENS as INTERVIEW_MAX_TOKENS,
+)
+from app.prompts.cover_letter import (
+    build_prompt as cover_letter_build_prompt,
+    MODEL_NAME as COVER_LETTER_MODEL_NAME,
+    TEMPERATURE as COVER_LETTER_TEMPERATURE,
+    MAX_TOKENS as COVER_LETTER_MAX_TOKENS,
+)
+from app.prompts.review import (
+    build_prompt as review_build_prompt,
+    MODEL_NAME as REVIEW_MODEL_NAME,
+    TEMPERATURE as REVIEW_TEMPERATURE,
+    MAX_TOKENS as REVIEW_MAX_TOKENS,
 )
 
+logger = logging.getLogger(__name__)
 MODEL_NAME = settings.groq_model
+
+# Retry configuration
+MAX_RETRIES = 3
+BASE_DELAY = 1.0  # seconds
 
 
 @lru_cache(maxsize=1)
@@ -22,26 +49,107 @@ def get_client() -> Groq:
     return Groq(api_key=settings.groq_api_key)
 
 
-def _create_completion(system_prompt: str, messages: list, max_tokens: int) -> str:
+def _log_failure(error_type: str, prompt_length: int, attempt: int = 0):
+    """Log failure with structured info for troubleshooting."""
+    logger.warning(
+        "AI service error",
+        extra={
+            "error_type": error_type,
+            "model": MODEL_NAME,
+            "prompt_length": prompt_length,
+            "attempt": attempt + 1,
+            "max_retries": MAX_RETRIES,
+        },
+    )
+
+
+async def _create_completion_with_retry(
+    system_prompt: str,
+    messages: list,
+    max_tokens: int,
+    temperature: float = 0.2,
+) -> str:
+    """
+    Create a completion with exponential backoff retry.
+    Returns the response text or raises a structured HTTPException on final failure.
+    """
     client = get_client()
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "system", "content": system_prompt}, *messages],
-            max_tokens=max_tokens,
-            temperature=0.2,
-        )
-        return (response.choices[0].message.content or "").strip()
-    except AuthenticationError:
-        # Key is missing or revoked — never surface the key value itself
-        raise HTTPException(503, "AI service configuration error. Contact support.")
-    except RateLimitError:
-        raise HTTPException(429, "AI service rate limit reached. Try again shortly.")
-    except APIConnectionError:
-        raise HTTPException(503, "AI service unreachable. Try again shortly.")
-    except APIError:
-        # Catch-all for remaining Groq API errors (5xx, malformed responses, etc.)
-        raise HTTPException(503, "AI service temporarily unavailable.")
+    prompt_len = len(system_prompt) + sum(len(m.get("content", "")) for m in messages)
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "system", "content": system_prompt}, *messages],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return (response.choices[0].message.content or "").strip()
+
+        except AuthenticationError:
+            # Key is missing or revoked — never surface the key value itself
+            _log_failure("AuthenticationError", prompt_len, attempt)
+            raise service_unavailable("AI service configuration error. Contact support.")
+
+        except RateLimitError as e:
+            # 429 — might succeed after backoff
+            _log_failure("RateLimitError", prompt_len, attempt)
+            if attempt < MAX_RETRIES - 1:
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.info(
+                    "AI rate limited, retrying",
+                    extra={"delay_seconds": delay, "attempt": attempt + 1},
+                )
+                await asyncio.sleep(delay)
+                continue
+            raise HTTPException(
+                status_code=429,
+                detail="AI service rate limit reached. Please try again shortly.",
+            )
+
+        except APIConnectionError as e:
+            # Network/transient errors — retry with backoff
+            _log_failure("APIConnectionError", prompt_len, attempt)
+            if attempt < MAX_RETRIES - 1:
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.info(
+                    "AI connection error, retrying",
+                    extra={"delay_seconds": delay, "attempt": attempt + 1},
+                )
+                await asyncio.sleep(delay)
+                continue
+            raise service_unavailable("AI service temporarily unavailable. Please try again later.")
+
+        except APIError as e:
+            # Catch-all for remaining Groq API errors (5xx, malformed responses, etc.)
+            _log_failure("APIError", prompt_len, attempt)
+            if attempt < MAX_RETRIES - 1:
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.info(
+                    "AI API error, retrying",
+                    extra={"delay_seconds": delay, "attempt": attempt + 1},
+                )
+                await asyncio.sleep(delay)
+                continue
+            raise service_unavailable("AI service temporarily unavailable. Please try again later.")
+
+    # Exhausted retries — should not reach here but handle gracefully
+    _log_failure("ExhaustedRetries", prompt_len)
+    raise service_unavailable("AI service unavailable after multiple attempts. Please try again later.")
+
+
+def _create_completion(
+    system_prompt: str,
+    messages: list,
+    max_tokens: int,
+    temperature: float = 0.2,
+) -> str:
+    """
+    Synchronous completion wrapper. Runs the async retry logic in an event loop.
+    """
+    return asyncio.get_event_loop().run_until_complete(
+        _create_completion_with_retry(system_prompt, messages, max_tokens, temperature)
+    )
 
 
 def _strip_fences(text: str) -> str:
@@ -77,10 +185,10 @@ async def chat_with_ai(
     if context:
         user_content = f"Context: {context}\n\n{user_content}"
 
-    return _create_completion(
-        text_system_prompt(**ctx),
+    return await _create_completion_with_retry(
+        cv_build_prompt(**ctx, response_format="text"),
         [{"role": "user", "content": user_content}],
-        max_tokens=2000,
+        max_tokens=CV_MAX_TOKENS,
     )
 
 
@@ -109,8 +217,8 @@ CV Data:
 
 Return ONLY the summary text."""
 
-    return _create_completion(
-        text_system_prompt(**ctx),
+    return await _create_completion_with_retry(
+        cv_build_prompt(**ctx, response_format="text"),
         [{"role": "user", "content": prompt}],
         max_tokens=500,
     )
@@ -145,7 +253,7 @@ Current CV:
 Return ONLY the updated JSON object matching the exact same schema. No markdown, no explanation."""
 
     text = _create_completion(
-        json_system_prompt(**ctx),
+        cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
@@ -177,7 +285,7 @@ Current CV:
 Return ONLY the updated JSON object. No markdown, no explanation."""
 
     text = _create_completion(
-        json_system_prompt(**ctx),
+        cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
     )
@@ -212,7 +320,7 @@ CV Text:
 Return ONLY valid JSON. No markdown, no explanation."""
 
     text = _create_completion(
-        json_system_prompt(),
+        cv_build_prompt(response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=4000,
     )
@@ -243,10 +351,15 @@ async def interview_user(
             *messages,
         ]
 
-    return _create_completion(
-        interview_system_prompt(career_level, industry, target_role),
+    return await _create_completion_with_retry(
+        interview_build_prompt(
+            career_level=career_level,
+            industry=industry,
+            target_role=target_role,
+            response_format="text",
+        ),
         messages,
-        max_tokens=800,
+        max_tokens=INTERVIEW_MAX_TOKENS,
     )
 
 
@@ -274,10 +387,16 @@ CV Data:
 Score it hard, identify every failure, and tell the person exactly what to fix.
 Do not soften criticism. Prioritise optimisation, relevance, ATS alignment, and evidence."""
 
-    return _create_completion(
-        review_system_prompt(),
+    return await _create_completion_with_retry(
+        review_build_prompt(
+            career_level=ctx.get("career_level", ""),
+            industry=ctx.get("industry", ""),
+            target_role=ctx.get("target_role", ""),
+            job_description=job_description,
+            response_format="text",
+        ),
         [{"role": "user", "content": prompt}],
-        max_tokens=2000,
+        max_tokens=REVIEW_MAX_TOKENS,
     )
 
 
@@ -310,7 +429,7 @@ Rules:
 Return the updated experience entry as JSON only. Same schema, no extra keys."""
 
     text = _create_completion(
-        json_system_prompt(**ctx),
+        cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=800,
     )
@@ -350,7 +469,7 @@ Priority levels: high (will fail ATS without it), medium (differentiator), low (
 Return ONLY the JSON."""
 
     text = _create_completion(
-        json_system_prompt(**ctx),
+        cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=1000,
     )
@@ -385,10 +504,17 @@ CV data:
 
 Return only the cover letter text."""
 
-    return _create_completion(
-        text_system_prompt(**ctx),
+    return await _create_completion_with_retry(
+        cover_letter_build_prompt(
+            job_title=job_title,
+            company=company,
+            career_level=ctx.get("career_level", ""),
+            industry=ctx.get("industry", ""),
+            target_role=ctx.get("target_role", ""),
+            response_format="text",
+        ),
         [{"role": "user", "content": prompt}],
-        max_tokens=900,
+        max_tokens=COVER_LETTER_MAX_TOKENS,
     )
 
 
@@ -547,7 +673,7 @@ Readiness score: weighted by high > medium > low priority matches.
 Return ONLY the JSON."""
 
     text = _create_completion(
-        json_system_prompt(**ctx),
+        cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=2000,
     )

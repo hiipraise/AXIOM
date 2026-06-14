@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.schemas import LiveInterviewSession, LiveInterviewStart
+from app.models.schemas import LiveInterviewSession, LiveInterviewStart, LiveAnswer, LiveFollowUp, LiveFeedbackUpdate
 from app.services.ai_service import evaluate_interview_answer, generate_interview_question, summarize_interview_session
 from app.services.notification_service import create_notification
 
@@ -168,16 +168,16 @@ async def next_live_question(session_id: str, current_user=Depends(get_current_u
 
 
 @router.post("/{session_id}/answer", response_model=LiveInterviewSession)
-async def answer_live_question(session_id: str, body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def answer_live_question(session_id: str, body: LiveAnswer, current_user=Depends(get_current_user), db=Depends(get_db)):
     doc = await db.interview_sessions.find_one({"_id": _oid(session_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Interview not found")
     if doc.get("candidate_id") != str(current_user["_id"]) and current_user.get("role") not in ("staff", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Candidate only")
-    answer = (body.get("answer") or "").strip()
+    answer = body.answer.strip()
     if not answer:
         raise HTTPException(status_code=400, detail="Answer required")
-    question = doc.get("current_question") or body.get("question") or "Live interview question"
+    question = doc.get("current_question") or body.question_id or "Live interview question"
     cv_data, job_description = await _application_context(db, doc)
     feedback = await evaluate_interview_answer(cv_data, job_description, "full", question, answer, True)
     entry = {"type": "candidate_answer", "question": question, "answer": answer, "feedback": feedback, "created_at": _utcnow()}
@@ -190,13 +190,13 @@ async def answer_live_question(session_id: str, body: dict, current_user=Depends
 
 
 @router.post("/{session_id}/follow-up", response_model=LiveInterviewSession)
-async def add_follow_up(session_id: str, body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def add_follow_up(session_id: str, body: LiveFollowUp, current_user=Depends(get_current_user), db=Depends(get_db)):
     doc = await db.interview_sessions.find_one({"_id": _oid(session_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Interview not found")
     if doc.get("employer_id") != str(current_user["_id"]) and current_user.get("role") not in ("staff", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Employer only")
-    question = (body.get("question") or "").strip()
+    question = body.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question required")
     now = _utcnow()
@@ -224,19 +224,18 @@ async def summarize_live_interview(session_id: str, current_user=Depends(get_cur
 
 
 @router.put("/{session_id}/feedback", response_model=LiveInterviewSession)
-async def update_live_feedback(session_id: str, body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def update_live_feedback(session_id: str, body: LiveFeedbackUpdate, current_user=Depends(get_current_user), db=Depends(get_db)):
     doc = await db.interview_sessions.find_one({"_id": _oid(session_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Interview not found")
     if doc.get("employer_id") != str(current_user["_id"]) and current_user.get("role") not in ("staff", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Employer only")
     updates = {
-        "employer_notes": body.get("employer_notes", doc.get("employer_notes", "")),
-        "employer_decision": body.get("employer_decision", doc.get("employer_decision")),
+        "employer_notes": body.notes or "",
         "updated_at": _utcnow(),
     }
-    if body.get("ended"):
-        updates["ended_at"] = _utcnow()
+    if body.rating:
+        updates["employer_rating"] = body.rating
     await db.interview_sessions.update_one({"_id": doc["_id"]}, {"$set": updates})
     updated = await db.interview_sessions.find_one({"_id": doc["_id"]})
     return _session_out(updated)

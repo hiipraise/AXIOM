@@ -1,15 +1,19 @@
-import { useState } from "react";
+import {  useState } from "react";
+import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { authApi } from "../../api";
+import { authApi, getErrorDetail } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { useAnnouncement } from "../../context/announcement";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 
+interface LoginForm {
+  username: string;
+  password: string;
+}
+
 export default function LoginPage() {
   const { bannerH } = useAnnouncement();
-  const [form, setForm] = useState({ username: "", password: "" });
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
@@ -18,22 +22,26 @@ export default function LoginPage() {
   const requestedNext = params.get("next") || params.get("from") || "/dashboard";
   const next = requestedNext.startsWith("/") ? requestedNext : "/dashboard";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginForm>({
+    defaultValues: { username: "", password: "" },
+  });
+
+  const onSubmit = async (data: LoginForm) => {
     try {
-      const res = await authApi.login(form);
-      setAuth(res.user, res.token); // ← token saved to sessionStorage
+      const res = await authApi.login(data);
+      setAuth(res.user, res.token);
       if (res.user.must_change_password) {
         toast("Please set a new password.", { icon: "🔒" });
         navigate("/account");
       } else {
         navigate(next);
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Invalid credentials");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      toast.error(getErrorDetail(err) || "Invalid credentials");
     }
   };
 
@@ -55,17 +63,18 @@ export default function LoginPage() {
 
         <div className="card">
           <h2 className="font-semibold text-ink mb-5">Sign in</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="label">Username</label>
               <input
                 className="input"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                {...register("username", { required: "Username is required" })}
                 placeholder="your_username"
                 autoComplete="username"
-                required
               />
+              {errors.username && (
+                <p className="text-xs text-red mt-1">{errors.username.message}</p>
+              )}
             </div>
             <div>
               <label className="label">Password</label>
@@ -74,13 +83,9 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   className="input pr-10"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
+                  {...register("password", { required: "Password is required" })}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  required
                 />
 
                 <button
@@ -92,12 +97,15 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs text-red mt-1">{errors.password.message}</p>
+              )}
             </div>
             <button
               className="btn-primary w-full justify-center"
-              disabled={loading}
+              disabled={isSubmitting}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {isSubmitting ? "Signing in..." : "Sign in"}
             </button>
           </form>
 

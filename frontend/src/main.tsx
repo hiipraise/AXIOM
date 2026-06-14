@@ -1,8 +1,11 @@
+/// <reference lib="DOM" />
+/// <reference lib="DOM.Iterable" />
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import App from './App'
 import { authApi } from './api'
 import { useAuthStore } from './store/auth'
@@ -10,9 +13,8 @@ import { usePageTracking } from './components/admin/useAnalytics'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
 import { AnnouncementProvider, announceReady } from './context/announcement'
 import AnnouncementBanner from './components/AnnouncementBanner'
+import { queryClient } from './lib/queryClient'
 import './index.css'
-
-const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
 
 function AppWithTracking() {
   usePageTracking()
@@ -66,7 +68,7 @@ async function bootstrap() {
 // Render immediately without waiting for backend - show content first
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={qc}>
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AnnouncementProvider>
           <AnnouncementBanner />

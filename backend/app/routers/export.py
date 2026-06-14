@@ -3,10 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.validation import valid_object_id
 from app.services.pdf_service import generate_pdf
 from app.services.html_pdf import html_to_pdf
-from app.models.schemas import CVData
+from app.models.schemas import CVData, ExportRequest
 from app.config import settings
+from app.utils.errors import not_found, forbidden, bad_request, too_large
 from bson import ObjectId
 from datetime import datetime, timezone
 import io
@@ -23,23 +25,23 @@ def safe_filename(name: str) -> str:
 
 def enforce_pdf_size_limit(pdf_bytes: bytes) -> None:
     if len(pdf_bytes) > MAX_PDF_BYTES:
-        raise HTTPException(413, "Generated PDF too large")
+        raise too_large("Generated PDF too large")
 
 
 @router.post("/html-pdf")
-async def export_html_pdf(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
-    html = body.get("html", "").strip()
+async def export_html_pdf(body: ExportRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    html = body.html or ""
     if not html:
-        raise HTTPException(400, "html field is required")
+        raise bad_request("html field is required")
     if len(html) > 5_000_000:
-        raise HTTPException(413, "HTML payload too large")
+        raise too_large("HTML payload too large")
     try:
         pdf_bytes = await html_to_pdf(html)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise bad_request(str(e))
     except Exception as e:
         logger.exception("html-pdf generation failed")
-        raise HTTPException(500, f"PDF generation failed: {e}")
+        raise HTTPException(status_code=500, detail="PDF generation failed. Please try again later.")
     enforce_pdf_size_limit(pdf_bytes)
     await db.export_events.insert_one({
         "user_id": str(current_user["_id"]),
@@ -60,11 +62,13 @@ async def export_html_pdf(body: dict, current_user=Depends(get_current_user), db
 @router.get("/pdf/{cv_id}")
 async def export_pdf(cv_id: str, current_user=Depends(get_current_user),
                      db=Depends(get_db)):
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
     if not cv:
-        raise HTTPException(404, "CV not found")
+        raise not_found("CV")
     if cv["owner_id"] != str(current_user["_id"]) and not cv.get("is_public"):
-        raise HTTPException(403, "Access denied")
+        raise forbidden("Access denied")
     cv_data    = CVData(**cv["data"])
     public_url = ""
     if cv.get("is_public") and cv.get("slug"):
@@ -98,7 +102,7 @@ async def export_public_pdf(username: str, slug: str, db=Depends(get_db)):
         {"owner_username": username, "slug": slug, "is_public": True}
     )
     if not cv:
-        raise HTTPException(404, "CV not found or not public")
+        raise not_found("CV")
     cv_data    = CVData(**cv["data"])
     public_url = f"{settings.frontend_url}/cv/{username}/{slug}"
     fname      = safe_filename(
@@ -130,7 +134,7 @@ async def export_pdf_preview(body: dict, current_user=Depends(get_current_user),
     try:
         cv_data = CVData(**body.get("data", {}))
     except Exception as e:
-        raise HTTPException(400, f"Invalid CV data: {e}")
+        raise bad_request(f"Invalid CV data: {e}")
     theme      = body.get("theme", "minimal")
     title      = body.get("title", "CV") or "CV"
     username   = body.get("username", "guest") or "guest"
@@ -144,7 +148,7 @@ async def export_pdf_preview(body: dict, current_user=Depends(get_current_user),
             template=template,
         )
     except Exception as e:
-        raise HTTPException(500, f"PDF generation failed: {e}")
+        raise HTTPException(status_code=500, detail="PDF generation failed. Please try again later.")
     enforce_pdf_size_limit(pdf_bytes)
     return StreamingResponse(
         io.BytesIO(pdf_bytes), media_type="application/pdf",

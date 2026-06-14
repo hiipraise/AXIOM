@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAnnouncement } from "../../context/announcement";
+import Breadcrumb from "../Breadcrumb";
 import clsx from "clsx";
 
 const NAV = [
@@ -149,6 +150,7 @@ export default function AdminLayout() {
         }}
       >
         <div className="md:-mt-12">
+          <Breadcrumb />
           <Outlet />
         </div>
       </main>

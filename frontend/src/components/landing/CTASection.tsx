@@ -34,6 +34,12 @@ export default function CTASection() {
           >
             Sign in
           </Link>
+          <Link
+            to="/guest"
+            className="px-8 py-4 text-sm text-ink-muted hover:text-ink rounded-xl border border-ink-border hover:bg-ash-50 transition-all"
+          >
+            Try without signing up
+          </Link>
         </div>
 
         {/* Mobile: stars stacked above text / Desktop: stars inline with text */}

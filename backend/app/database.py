@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ASCENDING, DESCENDING
 from app.config import settings
+from app.utils.errors import service_unavailable
 from app.services.auth_service import hash_password
 import logging
 
@@ -29,12 +30,23 @@ async def get_db():
     return db
 
 
+async def ping_db() -> bool:
+    """Ping MongoDB to check connection health."""
+    try:
+        await db.command("ping")
+        return True
+    except Exception:
+        logger.warning("MongoDB ping failed")
+        return False
+
+
 async def setup_indexes():
     # Users: unique username and email
     await db.users.create_index([("username", ASCENDING)], unique=True)
     await db.users.create_index([("email", ASCENDING)], sparse=True)
     # CVs: by owner
     await db.cvs.create_index([("owner_id", ASCENDING)])
+    await db.cvs.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
     await db.cvs.create_index([("slug", ASCENDING)], sparse=True)
     # CV History
     await db.cv_history.create_index([("cv_id", ASCENDING)])
@@ -46,8 +58,13 @@ async def setup_indexes():
     await db.saved_jobs.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
     await db.saved_jobs.create_index([("user_id", ASCENDING), ("saved_at", ASCENDING)])
     await db.applications.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
+    await db.applications.create_index([("user_id", ASCENDING), ("status", ASCENDING)])
     await db.applications.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
     await db.axiom_jobs.create_index([("employer_id", ASCENDING)])
+    await db.axiom_jobs.create_index([("employer_id", ASCENDING), ("created_at", DESCENDING)])
+    await db.axiom_jobs.create_index([("title", "text"), ("description", "text")])
+    # Revoked tokens: auto-expire after 24 hours (matches JWT expiry)
+    await db.revoked_tokens.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
     await db.axiom_jobs.create_index([("is_active", ASCENDING), ("is_approved", ASCENDING)])
     await db.axiom_jobs.create_index([("share_token", ASCENDING)], unique=True, sparse=True)
     await db.axiom_jobs.create_index([("created_at", DESCENDING)])
@@ -62,7 +79,13 @@ async def setup_indexes():
     await db.notifications.create_index([("user_id", ASCENDING), ("read", ASCENDING)])
     await db.notifications.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
     await db.notifications.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    await db.interview_sessions.create_index([("user_id", ASCENDING)])
     await db.interview_sessions.create_index([("axiom_application_id", ASCENDING)], sparse=True)
+    await db.interview_sessions.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    # Ratings: unique per user-CV to prevent manipulation
+    # First delete legacy ratings without rater_id (they can't be tied to users anyway)
+    await db.ratings.delete_many({"rater_id": None})
+    await db.ratings.create_index([("rater_id", ASCENDING), ("cv_id", ASCENDING)], unique=True)
     logger.info("Database indexes ensured")
 
 

@@ -1,3 +1,8 @@
+export interface RoadmapProgressItem {
+  step_id: string;
+  completed_at: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -7,6 +12,7 @@ export interface User {
   must_change_password: boolean;
   created_at: string;
   is_active: boolean;
+  roadmap_progress?: RoadmapProgressItem[];
 }
 
 export interface PersonalInfo {
@@ -139,22 +145,29 @@ export const EMPTY_CV_DATA: CVData = {
   target_role: "",
 };
 
-export const normalizeCVData = (data?: Partial<CVData> | null): CVData => ({
-  ...EMPTY_CV_DATA,
-  ...data,
-  personal_info: {
-    ...EMPTY_CV_DATA.personal_info,
-    ...(data?.personal_info || {}),
-  },
-  skills: data?.skills || [],
-  experience: data?.experience || [],
-  education: data?.education || [],
-  certifications: data?.certifications || [],
-  projects: data?.projects || [],
-  awards: data?.awards || [],
-  languages: data?.languages || [],
-  volunteer: data?.volunteer || [],
-});
+export const normalizeCVData = (data?: Partial<CVData> | null): CVData => {
+  if (!data) return { ...EMPTY_CV_DATA };
+  return {
+    ...EMPTY_CV_DATA,
+    ...data,
+    career_level: data?.career_level ?? "",
+    industry: data?.industry ?? "",
+    target_role: data?.target_role ?? "",
+    job_description: data?.job_description ?? "",
+    personal_info: {
+      ...EMPTY_CV_DATA.personal_info,
+      ...(data?.personal_info || {}),
+    },
+    skills: data?.skills || [],
+    experience: data?.experience || [],
+    education: data?.education || [],
+    certifications: data?.certifications || [],
+    projects: data?.projects || [],
+    awards: data?.awards || [],
+    languages: data?.languages || [],
+    volunteer: data?.volunteer || [],
+  };
+};
 
 export const EMPTY_EXPERIENCE: ExperienceItem = {
   company: "",
@@ -537,4 +550,37 @@ export interface InterviewSessionDetail extends InterviewSessionListItem {
     summary?: string;
   } | null;
   messages: InterviewMessage[];
+}
+
+// Search result types
+export interface CVSearchResult {
+  id: string;
+  title: string;
+  owner_username: string;
+  updated_at?: string;
+}
+
+export interface JobSearchResult {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  source: string;
+  posted_at?: string;
+}
+
+export interface AxiomJobSearchResult {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  remote: boolean;
+  job_type: string;
+  created_at?: string;
+}
+
+export interface SearchResults {
+  cvs: CVSearchResult[];
+  jobs: JobSearchResult[];
+  axiom_jobs: AxiomJobSearchResult[];
 }

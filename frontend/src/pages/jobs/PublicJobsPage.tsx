@@ -7,6 +7,7 @@ import { useAuthStore } from "../../store/auth";
 import { JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
 import { useAnnouncement } from "../../context/announcement";
+import { EmptyJobs } from "../../components/UI/EmptyState";
 
 const PAGE_SIZE = 12;
 
@@ -78,7 +79,7 @@ export default function PublicJobsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["public-jobs", active, region],
     queryFn:  () => jobsApi.search({ q: active, region, per_page: 60 }),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0, // Job listings need fresh data for accurate availability
   });
 
   const jobs = data?.items ?? [];
@@ -220,17 +221,13 @@ export default function PublicJobsPage() {
         {isLoading ? (
           <JobsGridSkeleton />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 border-2 border-dashed border-ash-border rounded-2xl">
-            <Briefcase size={28} className="mx-auto text-ink-muted/30 mb-3" />
-            <p className="text-sm text-ink-muted mb-1">
-              {search ? `No results for "${search}"` : `No ${active || "jobs"} at the moment`}
-            </p>
-            {search && (
-              <button onClick={() => setSearch("")} className="text-xs text-ink underline mt-1">
-                Clear filter
-              </button>
-            )}
-          </div>
+          <EmptyJobs
+            action={
+              search
+                ? { label: "Clear filter", onClick: () => setSearch("") }
+                : undefined
+            }
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {paginated.map((job) => (

@@ -2,11 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from app.database import get_db
 from app.limiter import limiter
 from app.middleware.auth import get_current_user
-from app.services.auth_service import hash_password, verify_password, create_access_token
-from app.models.schemas import UserCreate, UserLogin, PasswordChange, RecoverAccount
+from app.utils.errors import not_found, forbidden, bad_request, unauthorized
+from app.services.auth_service import hash_password, verify_password, create_access_token, decode_token, revoke_token
+from app.models.schemas import UserCreate, UserLogin, PasswordChange, RecoverAccount, ProfileUpdate, RoadmapStepComplete
 from app.config import settings
 from datetime import datetime, timezone
 import os, re
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -47,6 +51,7 @@ def serialize_user(u: dict) -> dict:
         "must_change_password": u.get("must_change_password", False),
         "created_at":           u.get("created_at", datetime.now(timezone.utc)),
         "is_active":            u.get("is_active", True),
+        "is_first_login":       u.get("is_first_login", False),
     }
 
 
@@ -68,11 +73,11 @@ def _auth_response(request: Request, user: dict, token: str) -> dict:
 @limiter.limit("5/minute")
 async def register(request: Request, body: UserCreate, response: Response, db=Depends(get_db)):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", body.username):
-        raise HTTPException(400, "Username may only contain letters, numbers, underscores, and hyphens")
+        raise bad_request("Username may only contain letters, numbers, underscores, and hyphens")
     if await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}}):
-        raise HTTPException(400, "Username already taken")
+        raise bad_request("Username already taken")
     if body.email and await db.users.find_one({"email": body.email}):
-        raise HTTPException(400, "Email already registered")
+        raise bad_request("Email already registered")
 
     user_doc = {
         "username":           body.username,
@@ -85,6 +90,7 @@ async def register(request: Request, body: UserCreate, response: Response, db=De
         "secret_answer_hash": hash_password(body.secret_answer) if body.secret_answer else None,
         "email_notifications": bool(body.email),
         "is_active":          True,
+        "is_first_login":     True,
     }
     result = await db.users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
@@ -104,16 +110,30 @@ async def login(request: Request, body: UserLogin, response: Response, db=Depend
             "ip": request.client.host if request.client else None,
             "ts": datetime.now(timezone.utc),
         })
-        raise HTTPException(401, "Invalid credentials")
+        logger.warning(
+            "failed login attempt",
+            extra={
+                "username": body.username,
+                "ip": request.client.host if request.client else None,
+            },
+        )
+        raise unauthorized("Invalid credentials")
     if not user.get("is_active"):
-        raise HTTPException(403, "Account deactivated")
+        raise forbidden("Account deactivated")
     token = create_access_token({"sub": str(user["_id"])})
     set_auth_cookie(response, token)
     return _auth_response(request, user, token)
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response, db=Depends(get_db)):
+    # Extract Bearer token from header and revoke it
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        payload = decode_token(token)
+        if payload and payload.get("jti"):
+            await revoke_token(db, payload["jti"])
     clear_auth_cookie(response)
     return {"message": "Logged out"}
 
@@ -126,7 +146,7 @@ async def get_me(current_user=Depends(get_current_user)):
 @router.put("/change-password")
 async def change_password(body: PasswordChange, current_user=Depends(get_current_user), db=Depends(get_db)):
     if not verify_password(body.old_password, current_user["password_hash"]):
-        raise HTTPException(400, "Current password is incorrect")
+        raise bad_request("Current password is incorrect")
     await db.users.update_one(
         {"_id": current_user["_id"]},
         {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False}},
@@ -135,16 +155,14 @@ async def change_password(body: PasswordChange, current_user=Depends(get_current
 
 
 @router.put("/update-profile")
-async def update_profile(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
+async def update_profile(body: ProfileUpdate, current_user=Depends(get_current_user), db=Depends(get_db)):
     allowed = {}
-    if "email"           in body: allowed["email"]               = body["email"]
-    if "email_notifications" in body:
-        if body["email_notifications"] and not (body.get("email") or current_user.get("email")):
-            raise HTTPException(400, "Email notifications require an email address")
-        allowed["email_notifications"] = bool(body["email_notifications"])
-    if "secret_question" in body: allowed["secret_question"]     = body["secret_question"]
-    if "secret_answer"   in body and body["secret_answer"]:
-        allowed["secret_answer_hash"] = hash_password(body["secret_answer"])
+    if body.email is not None:
+        if body.email_notifications and not body.email and not current_user.get("email"):
+            raise bad_request("Email notifications require an email address")
+        allowed["email"] = body.email
+    if body.email_notifications is not None:
+        allowed["email_notifications"] = body.email_notifications
     if allowed:
         await db.users.update_one({"_id": current_user["_id"]}, {"$set": allowed})
     updated = await db.users.find_one({"_id": current_user["_id"]})
@@ -153,10 +171,10 @@ async def update_profile(body: dict, current_user=Depends(get_current_user), db=
 
 @router.post("/forgot-username")
 @limiter.limit("5/minute")
-async def forgot_username(request: Request, body: dict, db=Depends(get_db)):
-    email = body.get("email")
+async def forgot_username(request: Request, body: ProfileUpdate, db=Depends(get_db)):
+    email = body.email
     if not email:
-        raise HTTPException(400, "Email required")
+        raise bad_request("Email required")
     user = await db.users.find_one({"email": email})
     if not user:
         return {"message": "If that email is registered, a username hint was returned.", "username": None}
@@ -168,11 +186,11 @@ async def forgot_username(request: Request, body: dict, db=Depends(get_db)):
 async def recover_account(request: Request, body: RecoverAccount, db=Depends(get_db)):
     user = await db.users.find_one({"username": {"$regex": f"^{re.escape(body.username)}$", "$options": "i"}})
     if not user:
-        raise HTTPException(404, "User not found")
+        raise not_found("User")
     if not user.get("secret_answer_hash"):
-        raise HTTPException(400, "No secret question set for this account")
+        raise bad_request("No secret question set for this account")
     if not verify_password(body.secret_answer, user["secret_answer_hash"]):
-        raise HTTPException(400, "Incorrect answer")
+        raise bad_request("Incorrect answer")
     await db.users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
     return {"message": "Password reset successfully"}
 
@@ -203,3 +221,35 @@ async def delete_account(response: Response, current_user=Depends(get_current_us
     await db.users.delete_one({"_id": user_id})
     clear_auth_cookie(response)
     return {"message": "Account and all data permanently deleted"}
+
+
+@router.post("/onboarding-complete")
+async def complete_onboarding(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Mark first-time onboarding as complete."""
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"is_first_login": False}}
+    )
+    return {"message": "Onboarding completed"}
+
+
+@router.get("/roadmap-progress")
+async def get_roadmap_progress(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Get user's roadmap progress."""
+    user = await db.users.find_one({"_id": current_user["_id"]})
+    return {"roadmap_progress": user.get("roadmap_progress", [])}
+
+
+@router.post("/roadmap-progress")
+async def update_roadmap_progress(body: RoadmapStepComplete, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Mark a roadmap step as complete."""
+    from datetime import datetime, timezone
+    new_item = {"step_id": body.step_id, "completed_at": datetime.now(timezone.utc)}
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {
+            "$push": {"roadmap_progress": new_item},
+            "$set": {"is_first_login": False}
+        }
+    )
+    return {"message": "Step completed", "item": new_item}

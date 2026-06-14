@@ -12,6 +12,7 @@ import { useAuthStore } from "../../store/auth";
 import { JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
 import { useAnnouncement } from "../../context/announcement";
+import { EmptySearch } from "../../components/UI/EmptyState";
 
 const PAGE_SIZE = 12;
 
@@ -80,13 +81,14 @@ export default function JobBoardPage() {
   });
 
   // ── Filters / sort (client-side)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">(() => {
+    const s = searchParams.get("source");
+    return s === "axiom" || s === "external" ? s : "all";
+  });
   const [sortBy, setSortBy] = useState("default");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">(
-    "all",
-  );
   const [useCvMatch, setUseCvMatch] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(() => {
     const p = searchParams.get("page");
     return p ? parseInt(p, 10) : 0;
@@ -112,6 +114,18 @@ export default function JobBoardPage() {
       setSearchParams(searchParams);
     }
   }, [page]);
+
+  // Sync sourceMode changes to URL
+  useEffect(() => {
+    if (!isInitialUrlLoad.current) {
+      if (sourceMode === "all") {
+        searchParams.delete("source");
+      } else {
+        searchParams.set("source", sourceMode);
+      }
+      setSearchParams(searchParams);
+    }
+  }, [sourceMode]);
 
   function commit() {
     setCommitted({ q: query, location, remote, region });
@@ -182,7 +196,7 @@ export default function JobBoardPage() {
         region: committed.region,
         per_page: 60,
       }),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0, // Job listings need fresh data for accurate availability
     placeholderData: (prev) => prev,
   });
 
@@ -548,14 +562,10 @@ export default function JobBoardPage() {
             )}
           </>
         ) : (
-          <div className="card mt-2 text-center py-16">
-            <p className="text-sm text-ink-muted mb-2">
-              No jobs matched this search.
-            </p>
-            <p className="text-xs text-ink-muted">
-              Try broader keywords, different location, or remove filters.
-            </p>
-          </div>
+          <EmptySearch
+            title="No jobs matched this search"
+            description="Try broader keywords, different location, or remove filters."
+          />
         )}
       </main>
     </div>

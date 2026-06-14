@@ -13,6 +13,18 @@ interface TopRef      { referrer: string; count: number }
 interface HourlyRow   { hour: number; views: number }
 interface Overview    { views: number; sessions: number; authenticated_users: number }
 
+interface TooltipPayload {
+  name: string;
+  value: number | string;
+  color?: string;
+}
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
 const DAYS_OPTIONS = [7, 14, 30]
 
 function fmtDate(d: string) {
@@ -25,12 +37,12 @@ function fmtHour(h: number) {
   return h < 12 ? `${h}am` : `${h - 12}pm`
 }
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-white border border-ash-border rounded-xl px-3 py-2 shadow-sm text-xs">
       <p className="font-medium text-ink mb-1">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p: TooltipPayload) => (
         <p key={p.name} style={{ color: p.color ?? '#0F172A' }}>
           {p.name}: <strong>{p.value}</strong>
         </p>

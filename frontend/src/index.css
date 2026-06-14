@@ -18,7 +18,7 @@
     height: 4px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-ash;
+    @apply bg-ink-5;
   }
   ::-webkit-scrollbar-thumb {
     @apply bg-ink-muted rounded-full;
@@ -26,38 +26,59 @@
 }
 
 @layer components {
+  /* Consistent button variants */
   .btn-primary {
-    @apply inline-flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-2 border border-ash-border text-ink px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ash active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 border border-ink-20 text-ink px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-5 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-2 text-ink-muted px-3 py-2 rounded-lg text-sm font-medium hover:bg-ash hover:text-ink active:scale-95 transition-all duration-150;
+    @apply inline-flex items-center gap-2 text-ink-muted px-3 py-2 rounded-lg text-sm font-medium hover:bg-ink-5 hover:text-ink active:scale-[0.98] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 active:scale-95 transition-all duration-150;
+    @apply inline-flex items-center gap-2 bg-error-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-error-700 active:scale-[0.98] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500 focus-visible:ring-offset-2;
   }
+  /* Form elements */
   .input {
-    @apply w-full border border-ash-border rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-muted/50 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink transition-all bg-white;
+    @apply w-full border border-ink-20 rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-muted/50 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 transition-all bg-white;
   }
   .textarea {
-    @apply w-full border border-ash-border rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-muted/50 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink transition-all bg-white resize-none;
+    @apply w-full border border-ink-20 rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-muted/50 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 transition-all bg-white resize-none;
   }
+  /* Consistent card */
   .card {
-    @apply bg-white border border-ash-border rounded-xl p-6;
+    @apply bg-white border border-ink-20 rounded-xl p-6 transition-all duration-200;
   }
+  .card-hover {
+    @apply card hover:border-ink-30 hover:shadow-card;
+  }
+  /* Labels */
   .label {
     @apply block text-xs font-medium text-ink-muted uppercase tracking-wide mb-1.5;
   }
+  /* Section titles */
   .section-title {
     @apply font-display text-lg font-700 text-ink tracking-tight;
   }
+  /* Tags */
   .tag {
-    @apply inline-flex items-center gap-1 text-xs bg-ash-dark border border-ash-border text-ink-muted px-2 py-1 rounded-md;
+    @apply inline-flex items-center gap-1 text-xs bg-ink-10 border border-ink-20 text-ink-muted px-2 py-1 rounded-md;
   }
+  /* Badge base */
   .badge {
     @apply inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+}
+
+/* Accessibility utilities */
+@layer utilities {
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+    clip: rect(0, 0, 0, 0);
+  }
+  .focus-visible-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
   }
 }
 

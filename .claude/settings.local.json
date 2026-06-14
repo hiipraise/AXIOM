@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(python -c \"from main import app; print\\(''Server loads OK''\\)\")",
+      "Bash(pip install slowapi)",
+      "Bash(python -m py_compile app/routers/admin.py app/routers/export.py app/routers/announcements.py)",
+      "Bash(python -m py_compile main.py app/models/schemas.py app/routers/announcements.py app/routers/feedback.py app/routers/analytics.py app/routers/auth.py app/routers/export.py app/routers/admin.py app/routers/interview_live.py)",
+      "Bash(npx tsc --noEmit src/App.tsx src/main.tsx src/components/ErrorBoundary.tsx)",
+      "Bash(npm install react-hook-form)",
+      "Bash(npx tsc --noEmit src/pages/auth/LoginPage.tsx)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities)",
+      "Bash(npm install react-big-calendar moment --save)",
+      "Bash(npx tsc --noEmit --skipLibCheck)",
+      "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts --max-warnings 0)",
+      "Bash(python -c \"from app.routers import auth; print\\(''auth router OK''\\)\")",
+      "Bash(pip install passlib python-jose python-multipart -q)",
+      "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts)"
     ]
   }
 }

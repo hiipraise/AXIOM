@@ -24,7 +24,7 @@ export default function EducationSection({ items, onChange }: Props) {
               <p className="text-xs text-ink-muted">{item.institution || 'Institution'}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={(e) => { e.stopPropagation(); remove(i) }} className="p-1 text-ink-muted hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+              <button onClick={(e) => { e.stopPropagation(); remove(i) }} className="p-1 text-ink-muted hover:text-red-500 transition-colors" aria-label="Remove education"><Trash2 size={14} /></button>
               {expanded === i ? <ChevronUp size={16} className="text-ink-muted" /> : <ChevronDown size={16} className="text-ink-muted" />}
             </div>
           </button>

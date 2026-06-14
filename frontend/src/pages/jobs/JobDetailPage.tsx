@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -105,6 +106,17 @@ export default function JobDetailPage() {
     enabled: !!user,
   });
 
+  // Check if already applied to this job
+  const { data: applications = [] } = useQuery<ApplicationEntry[]>({
+    queryKey: ["applications"],
+    queryFn: jobsApi.applications,
+    enabled: !!user,
+  });
+  const alreadyApplied = useMemo(
+    () => applications.some((app) => app.job_id === id),
+    [applications, id],
+  );
+
   const isSaved = useMemo(
     () => savedJobs.some((savedJob) => savedJob.job_id === id),
     [savedJobs, id],
@@ -157,7 +169,15 @@ export default function JobDetailPage() {
       }),
     onSuccess: () => {
       toast.success("Added to tracker");
+      qc.invalidateQueries({ queryKey: ["applications"] });
       navigate("/tracker");
+    },
+    onError: (error) => {
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
+      if (detail?.includes("already applied")) {
+        toast.error("You have already applied to this job");
+        qc.invalidateQueries({ queryKey: ["applications"] });
+      }
     },
   });
 
@@ -395,12 +415,14 @@ export default function JobDetailPage() {
                     <button
                       className="btn-primary w-full justify-center"
                       onClick={() => trackMutation.mutate()}
-                      disabled={trackMutation.isPending}
+                      disabled={trackMutation.isPending || alreadyApplied}
                     >
                       <Briefcase size={14} />
-                      {trackMutation.isPending
-                        ? "Adding…"
-                        : "Track application"}
+                      {alreadyApplied
+                        ? "Already applied"
+                        : trackMutation.isPending
+                          ? "Adding…"
+                          : "Track application"}
                     </button>
                   </div>
                 </div>

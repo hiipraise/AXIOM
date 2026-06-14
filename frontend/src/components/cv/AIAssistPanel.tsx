@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
 import { CVData } from "../../types";
 import { X, Sparkles, Wand2, FileSearch, Send } from "lucide-react";
@@ -20,6 +21,7 @@ export default function AIAssistPanel({
   onClose,
   cvId,
 }: Props) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("chat");
   const [chatHistory, setChatHistory] = useState<
     { role: string; content: string }[]
@@ -213,6 +215,7 @@ export default function AIAssistPanel({
             cvId={cvId}
             cvData={{ ...cvData, job_description: jobDesc }}
             onClose={onClose}
+            navigate={navigate}
           />
         </div>
 

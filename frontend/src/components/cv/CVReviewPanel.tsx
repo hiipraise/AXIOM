@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -29,6 +31,7 @@ interface Props {
   cvData: CVData;
   cvId: string;
   onClose: () => void;
+  navigate?: (path: string) => void;
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -84,7 +87,7 @@ function ReviewSection({
   defaultOpen = false,
 }: {
   title: string;
-  icon: any;
+  icon: LucideIcon;
   iconClass?: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
@@ -438,7 +441,7 @@ function CVAnalyticsPanel({ cvId }: { cvId: string }) {
   );
 }
 
-export default function CVReviewPanel({ cvData, cvId, onClose }: Props) {
+export default function CVReviewPanel({ cvData, cvId, onClose, navigate }: Props) {
   const [reviewRaw, setReviewRaw] = useState("");
   const [loading, setLoading] = useState(false);
   const [jd, setJd] = useState(cvData.job_description || "");
@@ -615,6 +618,15 @@ export default function CVReviewPanel({ cvData, cvId, onClose }: Props) {
                 <p className="text-xs leading-relaxed">
                   {sections[verdictKey]}
                 </p>
+                {navigate && (
+                  <button
+                    className="mt-3 flex items-center gap-1 text-xs font-medium text-violet-300 hover:text-violet-200"
+                    onClick={() => navigate(`/cv/${cvId}/skill-gap`)}
+                  >
+                    See your skill gaps
+                    <ArrowRight size={12} />
+                  </button>
+                )}
               </div>
             )}
 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
+from app.utils.errors import not_found
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def get_public_feed(skip: int = 0, limit: int = 20, db=Depends(get_db)):
 async def get_public_cv(username: str, slug: str, db=Depends(get_db)):
     cv = await db.cvs.find_one({"owner_username": username, "slug": slug, "is_public": True})
     if not cv:
-        raise HTTPException(404, "CV not found or not public")
+        raise not_found("CV")
     return {
         "id": str(cv["_id"]),
         "owner_username": cv["owner_username"],
@@ -59,7 +60,7 @@ async def get_public_cv(username: str, slug: str, db=Depends(get_db)):
 async def get_public_profile(username: str, db=Depends(get_db)):
     user = await db.users.find_one({"username": username})
     if not user:
-        raise HTTPException(404, "User not found")
+        raise not_found("User")
     cursor = db.cvs.find({"owner_id": str(user["_id"]), "is_public": True}).sort("updated_at", -1)
     cvs = await cursor.to_list(50)
     company = await db.company_profiles.find_one({"user_id": str(user["_id"])})

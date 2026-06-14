@@ -494,3 +494,84 @@ def interview_system_prompt(
 
 def review_system_prompt() -> str:
     return REVIEW_SYSTEM_PROMPT + "\n" + TEXT_RESPONSE_RULE
+
+
+# ─── Re-export from new modular prompts for backwards compatibility ────────
+# These imports allow existing code to continue working without changes
+
+from app.prompts.cv_generation import (
+    build_prompt as cv_build_prompt,
+    MODEL_NAME as CV_MODEL_NAME,
+    TEMPERATURE as CV_TEMPERATURE,
+    MAX_TOKENS as CV_MAX_TOKENS,
+)
+from app.prompts.interview import (
+    build_prompt as interview_build_prompt,
+    MODEL_NAME as INTERVIEW_MODEL_NAME,
+    TEMPERATURE as INTERVIEW_TEMPERATURE,
+    MAX_TOKENS as INTERVIEW_MAX_TOKENS,
+)
+from app.prompts.cover_letter import (
+    build_prompt as cover_letter_build_prompt,
+    MODEL_NAME as COVER_LETTER_MODEL_NAME,
+    TEMPERATURE as COVER_LETTER_TEMPERATURE,
+    MAX_TOKENS as COVER_LETTER_MAX_TOKENS,
+)
+from app.prompts.review import (
+    build_prompt as review_build_prompt,
+    MODEL_NAME as REVIEW_MODEL_NAME,
+    TEMPERATURE as REVIEW_TEMPERATURE,
+    MAX_TOKENS as REVIEW_MAX_TOKENS,
+)
+
+# Backwards-compatible aliases for existing code
+# Note: These use the old function signatures but delegate to new modules
+def text_system_prompt(
+    career_level: str = "",
+    industry: str = "",
+    target_role: str = "",
+) -> str:
+    """Backwards-compatible text prompt. Delegates to cv_generation."""
+    from app.prompts.cv_generation import build_prompt
+    return build_prompt(
+        career_level=career_level,
+        industry=industry,
+        target_role=target_role,
+        response_format="text",
+    )
+
+
+def json_system_prompt(
+    career_level: str = "",
+    industry: str = "",
+    target_role: str = "",
+) -> str:
+    """Backwards-compatible JSON prompt. Delegates to cv_generation."""
+    from app.prompts.cv_generation import build_prompt
+    return build_prompt(
+        career_level=career_level,
+        industry=industry,
+        target_role=target_role,
+        response_format="json",
+    )
+
+
+def interview_system_prompt(
+    career_level: str = "",
+    industry: str = "",
+    target_role: str = "",
+) -> str:
+    """Backwards-compatible interview prompt. Delegates to interview module."""
+    from app.prompts.interview import build_prompt
+    return build_prompt(
+        career_level=career_level,
+        industry=industry,
+        target_role=target_role,
+        response_format="text",
+    )
+
+
+def review_system_prompt() -> str:
+    """Backwards-compatible review prompt. Delegates to review module."""
+    from app.prompts.review import build_prompt
+    return build_prompt(response_format="text")

@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 
+// JitsiMeetExternalAPI is a third-party global from jitsi.org embed scripts
+// No @types/jitsi-meet package exists, so we use a minimal type
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   interface Window {
     JitsiMeetExternalAPI?: any;
   }

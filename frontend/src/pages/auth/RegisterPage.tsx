@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { authApi } from "../../api";
+import { authApi, getErrorDetail } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { useAnnouncement } from "../../context/announcement";
 import toast from "react-hot-toast";
@@ -17,6 +17,14 @@ const QUESTIONS = [
 
 export default function RegisterPage() {
   const { bannerH } = useAnnouncement();
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) navigate("/dashboard");
+  }, [user, navigate]);
+
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -28,7 +36,6 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuthStore();
-  const navigate = useNavigate();
 
   const f =
     (k: string) =>
@@ -54,8 +61,8 @@ export default function RegisterPage() {
       setAuth(res.user, res.token); // ← token saved to sessionStorage
       toast.success("Account created!");
       navigate("/dashboard");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Registration failed");
+    } catch (err) {
+      toast.error(getErrorDetail(err) || "Registration failed");
     } finally {
       setLoading(false);
     }

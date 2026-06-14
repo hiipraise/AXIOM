@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bookmark, Brain, CalendarClock, Target, Trash2, TrendingUp } from "lucide-react";
+import { ArrowLeft, Bookmark, Brain, CalendarClock, CalendarDays, Target, Trash2, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiomApplicationsApi, jobsApi } from "../../api";
 import {
@@ -10,6 +10,13 @@ import {
   JobResult,
 } from "../../types";
 import { Link, useNavigate } from "react-router-dom";
+import { Calendar, momentLocalizer, Views } from "react-big-calendar";
+import moment from "moment";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+
+// Create moment localizer for react-big-calendar
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const localizer = momentLocalizer(moment as any);
 
 const STATUSES: ApplicationStatus[] = [
   "saved",
@@ -27,7 +34,7 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
   rejected: "Rejected",
 };
 
-type TrackerTab = "applications" | "saved";
+type TrackerTab = "applications" | "saved" | "calendar";
 
 interface SavedJobEntry {
   id: string;
@@ -237,6 +244,45 @@ export default function ApplicationTrackerPage() {
       .slice(0, 16);
   };
 
+  // Calendar state and events
+  const [calendarView, setCalendarView] = useState<"month" | "week" | "day">("month");
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
+
+  // Create calendar events from applications with follow-up dates
+  const calendarEvents = useMemo(() => {
+    return applications
+      .filter((app) => app.follow_up_at)
+      .map((app) => {
+        const job = getApplicationJob(app);
+        const followUpDate = new Date(app.follow_up_at!);
+        return {
+          id: app.id,
+          title: `${job?.title || "Follow-up"}${app.status === "rejected" ? " (Rejected)" : ""}`,
+          start: followUpDate,
+          end: moment(followUpDate).add(1, "hour").toDate(),
+          allDay: false,
+          resource: { application: app, job },
+        };
+      });
+  }, [applications]);
+
+  const eventStyleGetter = (event: { resource?: { application: ApplicationEntry } }) => {
+    const status = event.resource?.application?.status;
+    let backgroundColor = "#64748b"; // default ash-dark
+    if (status === "rejected") backgroundColor = "#ef4444"; // red
+    else if (status === "offer") backgroundColor = "#22c55e"; // green
+    else if (status === "interview") backgroundColor = "#f59e0b"; // amber
+    else if (status === "applied") backgroundColor = "#3b82f6"; // blue
+    return { style: { backgroundColor } };
+  };
+
+  const handleSelectEvent = (event: { resource?: { application: ApplicationEntry; job: JobResult | null } }) => {
+    const app = event.resource?.application;
+    if (app && !app.id.startsWith("saved-")) {
+      navigate(getApplicationJobUrl(app));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-ash">
       <div className="mx-auto max-w-7xl px-4 py-6 lg:py-10">
@@ -279,7 +325,60 @@ export default function ApplicationTrackerPage() {
           >
             Saved jobs
           </button>
+          <button
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === "calendar"
+                ? "bg-ink text-white"
+                : "text-ink-muted hover:text-ink"
+            }`}
+            onClick={() => setActiveTab("calendar")}
+          >
+            <CalendarDays size={14} className="inline mr-1" />
+            Calendar
+          </button>
         </div>
+
+        {activeTab === "calendar" && (
+          <div className="mb-6 rounded-2xl border border-ash-border bg-white p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-lg font-bold text-ink">
+                Follow-up Schedule
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-ghost text-xs"
+                  onClick={() => setCalendarDate(moment(calendarDate).subtract(1, "month").toDate())}
+                >
+                  ← Prev
+                </button>
+                <span className="text-sm font-medium text-ink">
+                  {moment(calendarDate).format("MMMM YYYY")}
+                </span>
+                <button
+                  className="btn-ghost text-xs"
+                  onClick={() => setCalendarDate(moment(calendarDate).add(1, "month").toDate())}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: 500 }}
+              view={calendarView}
+              onView={(v) => setCalendarView(v as "month" | "week" | "day")}
+              date={calendarDate}
+              onNavigate={setCalendarDate}
+              eventPropGetter={eventStyleGetter}
+              onSelectEvent={handleSelectEvent}
+              popup
+              selectable
+            />
+          </div>
+        )}
 
         {activeTab === "applications" && (
           <div className="mb-6 grid gap-3 md:grid-cols-4">
@@ -522,8 +621,8 @@ export default function ApplicationTrackerPage() {
                       );
                     })}
                     {grouped[status].length === 0 && (
-                      <p className="text-sm text-ink-muted py-6 text-center">
-                        No items
+                      <p className="text-xs text-ink-muted py-6 text-center">
+                        No applications
                       </p>
                     )}
                   </div>

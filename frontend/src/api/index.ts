@@ -4,7 +4,7 @@ import { useAuthStore } from "../store/auth";
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const api = axios.create({
-  baseURL: `${BASE}/api`,
+  baseURL: `${BASE}/api/v1`,
   withCredentials: true,
 });
 
@@ -17,12 +17,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401 → clear auth
+// Guard against 401 infinite loops
+let _isHandling401 = false;
+
+// On 401 → clear auth with best-effort revocation
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    if (err.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
+  async (err) => {
+    if (err.response?.status === 401 && !_isHandling401) {
+      _isHandling401 = true;
+      try {
+        await api.post("/auth/logout");
+      } finally {
+        useAuthStore.getState().clearAuth();
+        _isHandling401 = false;
+      }
     }
     return Promise.reject(err);
   },
@@ -32,6 +41,14 @@ api.interceptors.response.use(
 export const trackEvent = (eventType: string, detail?: object) => {
   api.post("/analytics/page-event", { event_type: eventType, ...detail }).catch(() => {});
 };
+
+// Extract error detail from axios error - properly typed
+export function getErrorDetail(error: unknown): string | null {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.detail ?? null;
+  }
+  return null;
+}
 
 export const authApi = {
   register: (data: object) =>
@@ -47,7 +64,13 @@ export const authApi = {
         headers: { "X-Return-Token": "true" },
       })
       .then((r) => r.data),
-  logout: () => api.post("/auth/logout"),
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      useAuthStore.getState().clearAuth();
+    }
+  },
   me: () => api.get("/auth/me").then((r) => r.data),
   changePassword: (data: object) =>
     api.put("/auth/change-password", data).then((r) => r.data),
@@ -58,6 +81,9 @@ export const authApi = {
   recoverAccount: (data: object) =>
     api.post("/auth/recover-account", data).then((r) => r.data),
   deleteAccount: () => api.delete("/auth/delete-account").then((r) => r.data),
+  getRoadmapProgress: () => api.get("/auth/roadmap-progress").then((r) => r.data),
+  completeRoadmapStep: (stepId: string) =>
+    api.post("/auth/roadmap-progress", { step_id: stepId }).then((r) => r.data),
 };
 
 export const cvApi = {
@@ -154,7 +180,7 @@ export const exportApi = {
       .then((r) => r.data),
   downloadPublicPDF: (username: string, slug: string): Promise<Blob> =>
     axios
-      .get(`${BASE}/api/export/public-pdf/${username}/${slug}`, {
+      .get(`${BASE}/api/v1/export/public-pdf/${username}/${slug}`, {
         responseType: "blob",
       })
       .then((r) => r.data),
@@ -164,9 +190,9 @@ export const publicApi = {
   getFeed: (skip = 0, limit = 12) =>
     api.get(`/public/feed?skip=${skip}&limit=${limit}`).then((r) => r.data),
   getCV: (username: string, slug: string) =>
-    axios.get(`${BASE}/api/public/cv/${username}/${slug}`).then((r) => r.data),
+    axios.get(`${BASE}/api/v1/public/cv/${username}/${slug}`).then((r) => r.data),
   getProfile: (username: string) =>
-    axios.get(`${BASE}/api/public/profile/${username}`).then((r) => r.data),
+    axios.get(`${BASE}/api/v1/public/profile/${username}`).then((r) => r.data),
   getCompany: (slug: string) =>
     api.get(`/recruiter/company/${slug}`).then((r) => r.data),
 };
@@ -306,6 +332,11 @@ export const notificationsApi = {
   list: () => api.get("/notifications").then((r) => r.data as import("../types").NotificationItem[]),
   read: (id: string) => api.put(`/notifications/${id}/read`).then((r) => r.data as import("../types").NotificationItem),
   readAll: () => api.put("/notifications/read-all").then((r) => r.data),
+};
+
+export const searchApi = {
+  global: (q: string, limit: number = 10) =>
+    api.get("/search", { params: { q, limit } }).then((r) => r.data as import("../types").SearchResults),
 };
 
 

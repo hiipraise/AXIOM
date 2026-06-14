@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authApi } from '../../api'
+import { authApi, getErrorDetail } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
 import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle } from 'lucide-react'
@@ -26,8 +26,8 @@ export default function AccountPage() {
       await authApi.changePassword({ old_password: pwForm.old_password, new_password: pwForm.new_password })
       toast.success('Password updated')
       setPwForm({ old_password: '', new_password: '', confirm: '' })
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Failed to update password')
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Failed to update password')
     } finally {
       setLoading(false)
     }
@@ -37,7 +37,7 @@ export default function AccountPage() {
     e?.preventDefault()
     setLoading(true)
     try {
-      const payload: any = {}
+      const payload: { email?: string; email_notifications?: boolean; secret_question?: string; secret_answer?: string } = {};
       if (profileForm.email) payload.email = profileForm.email
       payload.email_notifications = Boolean(profileForm.email && emailNotifications)
       if (profileForm.secret_question) payload.secret_question = profileForm.secret_question
@@ -45,8 +45,8 @@ export default function AccountPage() {
       const updated = await authApi.updateProfile(payload)
       setUser(updated)
       toast.success('Profile updated')
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Update failed')
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Update failed')
     } finally {
       setLoading(false)
     }

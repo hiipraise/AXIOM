@@ -5,7 +5,17 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { recruiterApi } from "../../api";
 
-const EMPTY = { company_name: "", website: "", description: "", logo_url: "", industry: "", size: "", location: "" };
+interface CompanyForm {
+  company_name: string;
+  website: string;
+  description: string;
+  logo_url: string;
+  industry: string;
+  size: string;
+  location: string;
+}
+
+const EMPTY: CompanyForm = { company_name: "", website: "", description: "", logo_url: "", industry: "", size: "", location: "" };
 
 function CompanyProfileSkeleton() {
   return (
@@ -98,7 +108,7 @@ export default function CompanyProfilePage() {
           ].map(([key, label]) => (
             <div key={key}>
               <label className="label">{label}</label>
-              <input className="input" value={(form as any)[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required={key === "company_name"} />
+              <input className="input" value={form[key as keyof CompanyForm]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required={key === "company_name"} />
             </div>
           ))}
         </div>

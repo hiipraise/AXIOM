@@ -1,13 +1,14 @@
-from __future__ import annotations
-
 import re
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.requests import Request as StarletteRequest
 
 from app.database import get_db
+from app.limiter import limiter, DEFAULT_LIMIT, AI_LIMIT
 from app.middleware.auth import get_current_user, get_optional_user
+from app.middleware.validation import valid_object_id
 from app.models.schemas import (
     ApplicationCreate,
     ApplicationEntry,
@@ -51,7 +52,9 @@ def escape_mongo_regex(value: str) -> str:
 
 
 @router.get("/search", response_model=JobSearchResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def search_jobs(
+    request: Request,
     q: str = "",
     location: str = "",
     remote: bool | None = None,
@@ -111,7 +114,8 @@ async def search_jobs(
 
 
 @router.post("/match-cv", response_model=JobMatchResponse)
-async def match_cv(body: JobMatchRequest, current_user=Depends(get_current_user)):
+@limiter.limit(AI_LIMIT)
+async def match_cv(request: Request, body: JobMatchRequest, current_user=Depends(get_current_user)):
     analysis = await ai_service.keyword_gap_analysis(
         body.cv_data.model_dump(),
         body.job_description,
@@ -134,7 +138,8 @@ async def match_cv(body: JobMatchRequest, current_user=Depends(get_current_user)
 
 
 @router.post("/cover-letter", response_model=CoverLetterResponse)
-async def cover_letter(body: CoverLetterRequest, current_user=Depends(get_current_user)):
+@limiter.limit(AI_LIMIT)
+async def cover_letter(request: Request, body: CoverLetterRequest, current_user=Depends(get_current_user)):
     letter = await ai_service.generate_cover_letter(
         body.cv_data.model_dump(),
         body.job_title,
@@ -215,37 +220,37 @@ async def list_applications(current_user=Depends(get_current_user), db=Depends(g
 
 @router.post("/applications")
 async def create_application(body: ApplicationCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from pymongo.errors import DuplicateKeyError
     if body.job_id.startswith("axiom:"):
         raise HTTPException(status_code=400, detail="Use the AXIOM application flow for AXIOM jobs")
     job_doc = await db.job_cache.find_one({"job_id": body.job_id})
     if not job_doc:
         raise HTTPException(status_code=404, detail="Job not found")
     now = _utcnow()
-    await db.applications.update_one(
-        {"user_id": str(current_user["_id"]), "job_id": body.job_id},
-        {
-            "$set": {
-                "user_id": str(current_user["_id"]),
-                "job_id": body.job_id,
-                "status": body.status.value,
-                "cv_id": body.cv_id,
-                "notes": body.notes,
-                "applied_url": body.applied_url,
-                "follow_up_at": body.follow_up_at,
-                "updated_at": now,
-                "job": job_doc.get("payload"),
-            },
-            "$setOnInsert": {"created_at": now},
-        },
-        upsert=True,
-    )
+    try:
+        await db.applications.insert_one({
+            "user_id": str(current_user["_id"]),
+            "job_id": body.job_id,
+            "status": body.status.value,
+            "cv_id": body.cv_id,
+            "notes": body.notes,
+            "applied_url": body.applied_url,
+            "follow_up_at": body.follow_up_at,
+            "created_at": now,
+            "updated_at": now,
+            "job": job_doc.get("payload"),
+        })
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="You have already applied to this job")
     created = await db.applications.find_one({"user_id": str(current_user["_id"]), "job_id": body.job_id})
     return _application_doc(created).model_dump(mode="json")
 
 
 @router.put("/applications/{application_id}")
-async def update_application(application_id: str, body: ApplicationUpdate, current_user=Depends(get_current_user), db=Depends(get_db)):
-    doc = await db.applications.find_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])} )
+async def update_application(body: ApplicationUpdate, application_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    doc = await db.applications.find_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])})
     if not doc:
         raise HTTPException(status_code=404, detail="Application not found")
     updates = {"updated_at": _utcnow()}
@@ -259,14 +264,16 @@ async def update_application(application_id: str, body: ApplicationUpdate, curre
         updates["applied_url"] = body.applied_url
     if body.follow_up_at is not None:
         updates["follow_up_at"] = body.follow_up_at
-    await db.applications.update_one({"_id": ObjectId(application_id)}, {"$set": updates})
-    updated = await db.applications.find_one({"_id": ObjectId(application_id)})
+    await db.applications.update_one({"_id": application_id}, {"$set": updates})
+    updated = await db.applications.find_one({"_id": application_id})
     return _application_doc(updated).model_dump(mode="json")
 
 
 @router.delete("/applications/{application_id}")
 async def delete_application(application_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
-    result = await db.applications.delete_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])} )
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    result = await db.applications.delete_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Application not found")
     return {"deleted": True}

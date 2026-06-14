@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default_factory=lambda: secrets.token_hex(32))
 
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+    jwt_expire_minutes: int = 60 * 24  # 24 hours
     groq_api_key: str = ""
     groq_model: str
     frontend_url: str = "http://localhost:5173"
@@ -41,9 +41,23 @@ class Settings(BaseSettings):
     @property
     def origins_list(self) -> List[str]:
         raw = self.allowed_origins.strip()
-        if not raw or raw == "*":
-            return ["*"]
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        if not raw:
+            raise ValueError(
+                "CORS allowed_origins is empty. "
+                "Set ALLOWED_ORIGINS to comma-separated origins (e.g., 'https://axiomcv.site,https://www.axiomcv.site')."
+            )
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        if "*" in origins:
+            raise ValueError(
+                "CORS wildcard '*' is not allowed. "
+                "Set ALLOWED_ORIGINS to explicit origins (e.g., 'https://axiomcv.site,https://www.axiomcv.site')."
+            )
+        if not origins:
+            raise ValueError(
+                "CORS allowed_origins is empty after parsing. "
+                "Set ALLOWED_ORIGINS to comma-separated origins."
+            )
+        return origins
 
     @property
     def credentials_allowed(self) -> bool:

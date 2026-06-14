@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
 from app.middleware.auth import require_admin
+from app.middleware.validation import valid_object_id
+from app.models.schemas import AnnouncementCreate
+from app.utils.errors import bad_request
 from bson import ObjectId
 from datetime import datetime, timezone
 
@@ -35,15 +38,12 @@ async def list_announcements(admin=Depends(require_admin), db=Depends(get_db)):
 
 
 @router.post("")
-async def create_announcement(body: dict, admin=Depends(require_admin), db=Depends(get_db)):
-    text = (body.get("text") or "").strip()
-    if not text:
-        raise HTTPException(400, "text is required")
+async def create_announcement(body: AnnouncementCreate, admin=Depends(require_admin), db=Depends(get_db)):
     # deactivate all others first so only one is active at a time
     await db.announcements.update_many({}, {"$set": {"active": False}})
     doc = {
-        "text":       text,
-        "type":       body.get("type", "info"),
+        "text":       body.text.strip(),
+        "type":       body.type,
         "active":     True,
         "created_at": datetime.now(timezone.utc),
     }
@@ -54,6 +54,8 @@ async def create_announcement(body: dict, admin=Depends(require_admin), db=Depen
 
 @router.put("/{ann_id}/activate")
 async def activate(ann_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(ann_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     await db.announcements.update_many({}, {"$set": {"active": False}})
     await db.announcements.update_one({"_id": ObjectId(ann_id)}, {"$set": {"active": True}})
     return {"ok": True}
@@ -61,11 +63,15 @@ async def activate(ann_id: str, admin=Depends(require_admin), db=Depends(get_db)
 
 @router.put("/{ann_id}/deactivate")
 async def deactivate(ann_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(ann_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     await db.announcements.update_one({"_id": ObjectId(ann_id)}, {"$set": {"active": False}})
     return {"ok": True}
 
 
 @router.delete("/{ann_id}")
 async def delete_announcement(ann_id: str, admin=Depends(require_admin), db=Depends(get_db)):
+    if not ObjectId.is_valid(ann_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     await db.announcements.delete_one({"_id": ObjectId(ann_id)})
     return {"ok": True}

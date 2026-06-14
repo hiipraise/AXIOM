@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +27,9 @@ QUESTION_TARGETS = {
     InterviewMode.technical: 6,
     InterviewMode.full: 7,
 }
+
+# Session expires after 24 hours of inactivity
+SESSION_TTL_HOURS = 24
 
 
 def _utcnow() -> datetime:
@@ -115,6 +118,7 @@ async def start_interview(body: InterviewStartRequest, current_user=Depends(get_
         "summary": None,
         "created_at": now,
         "updated_at": now,
+        "expires_at": now + timedelta(hours=SESSION_TTL_HOURS),
     }
     result = await db.interview_sessions.insert_one(session_doc)
     session_id = str(result.inserted_id)
@@ -147,6 +151,9 @@ async def answer_interview(body: InterviewAnswerRequest, current_user=Depends(ge
     session = await db.interview_sessions.find_one({"_id": _oid(body.session_id), "user_id": user_id})
     if not session:
         raise HTTPException(status_code=404, detail="Interview session not found")
+    # Check if session has expired
+    if session.get("expires_at") and session["expires_at"] < _utcnow():
+        raise HTTPException(status_code=410, detail="Interview session expired")
     if session.get("status") == "completed":
         raise HTTPException(status_code=400, detail="Interview session is already completed")
 
@@ -228,6 +235,10 @@ async def list_interview_sessions(current_user=Depends(get_current_user), db=Dep
 @router.get("/sessions/{session_id}", response_model=InterviewSessionDetail)
 async def get_interview_session(session_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
     session = await db.interview_sessions.find_one({"_id": _oid(session_id), "user_id": str(current_user["_id"])})
+    # Check if session has expired
+    if session and session.get("expires_at"):
+        if session["expires_at"] < _utcnow():
+            raise HTTPException(status_code=410, detail="Interview session expired")
     if not session:
         raise HTTPException(status_code=404, detail="Interview session not found")
     cursor = db.interview_messages.find({"session_id": session_id}).sort("created_at", 1)

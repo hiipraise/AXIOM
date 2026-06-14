@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from app.database import get_db
 from app.middleware.auth import get_optional_user, require_staff
 from app.config import settings
+from app.models.schemas import AnalyticsEvent
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
@@ -16,7 +17,7 @@ IS_PROD = settings.env.lower() == "production"
 # ─── Ingest ──────────────────────────────────────────────────────────────────
 
 @router.post("/event")
-async def track_event(body: dict, request: Request, db=Depends(get_db), user=Depends(get_optional_user)):
+async def track_event(body: AnalyticsEvent, request: Request, db=Depends(get_db), user=Depends(get_optional_user)):
     """
     Called by the frontend on every page navigation.
     Body: { path: string, referrer?: string, session_id: string }
@@ -25,9 +26,9 @@ async def track_event(body: dict, request: Request, db=Depends(get_db), user=Dep
         return {"ok": True, "skipped": "non-production"}
 
     event = {
-        "path":       body.get("path", "/"),
-        "referrer":   body.get("referrer", ""),
-        "session_id": body.get("session_id", ""),
+        "path":       request.url.path if body.event_type == "pageview" else body.event_type,
+        "referrer":   body.page_url or "",
+        "session_id":  body.event_data.get("session_id", "") if body.event_data else "",
         "user_id":    str(user["_id"]) if user else None,
         "ts":         datetime.now(timezone.utc),
     }
@@ -36,15 +37,15 @@ async def track_event(body: dict, request: Request, db=Depends(get_db), user=Dep
 
 
 @router.post("/page-event")
-async def track_page_event(body: dict, db=Depends(get_db), user=Depends(get_optional_user)):
+async def track_page_event(body: AnalyticsEvent, db=Depends(get_db), user=Depends(get_optional_user)):
     """
     Track generic page events (announcement clicks, dismisses, etc).
-    Body: { event_type: string, announcement_id?: string, ...detail }
+    Body: { event_type: string, ...detail }
     """
     event = {
-        "event_type":     body.get("event_type", ""),
-        "announcement_id": body.get("announcement_id"),
-        "session_id":    body.get("session_id"),
+        "event_type":     body.event_type,
+        "announcement_id": body.event_data.get("announcement_id") if body.event_data else None,
+        "session_id":    body.event_data.get("session_id", "") if body.event_data else "",
         "user_id":       str(user["_id"]) if user else None,
         "ts":            datetime.now(timezone.utc),
     }

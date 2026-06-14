@@ -28,7 +28,11 @@ export default function AxiomJobBoardPage() {
   const [q, setQ] = useState("");
   const [region, setRegion] = useState("");
   const [shareJob, setShareJob] = useState<AxiomJob | null>(null);
-  const { data = [], isLoading } = useQuery({ queryKey: ["axiom-jobs", q, region], queryFn: () => axiomJobsApi.list({ q, region }) });
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["axiom-jobs", q, region],
+    queryFn: () => axiomJobsApi.list({ q, region }),
+    staleTime: 0, // Job listings need fresh data
+  });
   const { data: cvs = [] } = useQuery({
     queryKey: ["cvs"],
     queryFn: cvApi.list,

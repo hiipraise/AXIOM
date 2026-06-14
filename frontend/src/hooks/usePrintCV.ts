@@ -1,7 +1,12 @@
 import { useState, useCallback } from "react";
 import { cvApi, publicApi, api } from "../api";
 import { renderCVtoHTML } from "../utils/renderCVtoHTML";
+import type { CVData } from "../types";
 import toast from "react-hot-toast";
+
+interface CVWithData {
+  data: CVData;
+}
 
 /**
  * Generates PDFs by:
@@ -26,13 +31,13 @@ function download(blob: Blob, filename: string) {
 }
 
 async function generateAndDownload(
-  cvDataObj: object,
+  cvDataObj: CVWithData,
   theme: string,
   template: string,
   filename: string,
 ) {
   // Render the React component to HTML in the current browser
-  const { cvData } = cvDataObj as any;
+  const { data: cvData } = cvDataObj;
   const html = await renderCVtoHTML(cvData, theme, template, 1.16);
 
   // Send to backend for Playwright PDF generation

@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { authApi } from '../../api'
+import { authApi, getErrorDetail } from '../../api'
+import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
 
 type Mode = 'username' | 'password'
@@ -14,6 +15,14 @@ const slide = {
 } as const
 
 export default function ForgotPage() {
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) navigate("/dashboard");
+  }, [user, navigate]);
+
   const [mode, setMode]                 = useState<Mode>('username')
   const [email, setEmail]               = useState('')
   const [username, setUsername]         = useState('')
@@ -49,8 +58,8 @@ export default function ForgotPage() {
       await authApi.recoverAccount({ username, secret_answer: secretAnswer, new_password: newPassword })
       toast.success('Password reset! You can now sign in.')
       setDone(true)
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Recovery failed')
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Recovery failed')
     } finally {
       setLoading(false)
     }

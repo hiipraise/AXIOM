@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 
 from app.database import get_db
+from app.services import job_service
 from app.middleware.auth import get_current_user, get_optional_user
 from app.models.schemas import AxiomJobCreate, AxiomJobOut, AxiomJobUpdate
 
@@ -118,7 +119,10 @@ async def create_axiom_job(body: AxiomJobCreate, current_user=Depends(get_curren
         }
     )
     result = await db.axiom_jobs.insert_one(doc)
+    job_id = str(result.inserted_id)
     created = await db.axiom_jobs.find_one({"_id": result.inserted_id})
+    # Invalidate job cache for AXIOM jobs
+    await job_service.invalidate_job_cache(db, f"axiom:{job_id}", "axiom")
     return _job_out(created)
 
 
@@ -143,6 +147,8 @@ async def update_axiom_job(job_id: str, body: AxiomJobUpdate, current_user=Depen
     updates["updated_at"] = _utcnow()
     await db.axiom_jobs.update_one({"_id": doc["_id"]}, {"$set": updates})
     updated = await db.axiom_jobs.find_one({"_id": doc["_id"]})
+    # Invalidate job cache for AXIOM jobs
+    await job_service.invalidate_job_cache(db, f"axiom:{job_id}", "axiom")
     return _job_out(updated)
 
 
@@ -154,6 +160,8 @@ async def delete_axiom_job(job_id: str, current_user=Depends(get_current_user), 
     if doc["employer_id"] != str(current_user["_id"]) and current_user.get("role") not in ("admin", "superadmin", "staff"):
         raise HTTPException(status_code=403, detail="Not your job")
     await db.axiom_jobs.update_one({"_id": doc["_id"]}, {"$set": {"is_active": False, "updated_at": _utcnow()}})
+    # Invalidate job cache for AXIOM jobs
+    await job_service.invalidate_job_cache(db, f"axiom:{job_id}", "axiom")
     return {"deleted": True}
 
 

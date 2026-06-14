@@ -6,7 +6,17 @@ import toast from "react-hot-toast";
 import { recruiterApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 
-const EMPTY = { company_name: "", website: "", description: "", logo_url: "", industry: "", size: "", location: "" };
+interface CompanyForm {
+  company_name: string;
+  website: string;
+  description: string;
+  logo_url: string;
+  industry: string;
+  size: string;
+  location: string;
+}
+
+const EMPTY: CompanyForm = { company_name: "", website: "", description: "", logo_url: "", industry: "", size: "", location: "" };
 
 export default function RecruiterRegisterPage() {
   const navigate = useNavigate();
@@ -50,7 +60,7 @@ export default function RecruiterRegisterPage() {
           ].map(([key, label]) => (
             <div key={key}>
               <label className="label">{label}</label>
-              <input className="input" value={(form as any)[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required={key === "company_name"} />
+              <input className="input" value={form[key as keyof CompanyForm]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required={key === "company_name"} />
             </div>
           ))}
         </div>

@@ -16,6 +16,7 @@ import {
   Bell,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
@@ -23,6 +24,8 @@ import { authApi } from "../../api";
 import { useAnnouncement } from "../../context/announcement";
 import NotificationBell from "../notifications/NotificationBell";
 import ConfirmDialog from "../UI/ConfirmDialog";
+import Breadcrumb from "../Breadcrumb";
+import CommandPalette from "../UI/CommandPalette";
 import clsx from "clsx";
 
 const NAV = [
@@ -39,10 +42,12 @@ function SidebarContent({
   onNav,
   collapsed,
   onToggleCollapse,
+  onSearch,
 }: {
   onNav?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onSearch?: () => void;
 }) {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
@@ -122,6 +127,17 @@ function SidebarContent({
         >
           <Plus size={15} className="flex-shrink-0" />
           {!collapsed && "New CV"}
+        </button>
+        <button
+          onClick={() => onSearch?.()}
+          className={clsx(
+            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-muted hover:bg-ash hover:text-ink transition-all",
+            collapsed ? "justify-center px-2" : "",
+          )}
+          title={collapsed ? "Search" : undefined}
+        >
+          <Search size={15} className="flex-shrink-0" />
+          {!collapsed && "Search"}
         </button>
         <NavLink
           to={canRecruit ? "/recruiter" : "/recruiter/register"}
@@ -225,12 +241,14 @@ const COLLAPSED_W = 56; // w-14
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { bannerH } = useAnnouncement();
 
   const sidebarW = collapsed ? COLLAPSED_W : SIDEBAR_W;
 
   return (
     <div className="min-h-screen bg-ash flex">
+      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       {/* Desktop sidebar */}
       <aside
         className="hidden md:flex flex-col fixed z-20 bg-white border-r border-ash-border overflow-visible"
@@ -244,6 +262,7 @@ export default function Layout() {
         <SidebarContent
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((v) => !v)}
+          onSearch={() => setSearchOpen(true)}
         />
       </aside>
 
@@ -296,7 +315,7 @@ export default function Layout() {
               >
                 <X size={18} />
               </button>
-              <SidebarContent onNav={() => setMobileOpen(false)} />
+              <SidebarContent onNav={() => setMobileOpen(false)} onSearch={() => { setMobileOpen(false); setSearchOpen(true); }} />
             </motion.aside>
           </>
         )}
@@ -320,11 +339,13 @@ export default function Layout() {
           }}
         >
           <div style={{ marginTop: -56 }}>
+            <Breadcrumb />
             <Outlet />
           </div>
         </div>
         {/* Mobile: no sidebar offset */}
         <div className="md:hidden">
+          <Breadcrumb />
           <Outlet />
         </div>
       </main>

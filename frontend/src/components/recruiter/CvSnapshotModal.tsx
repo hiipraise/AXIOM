@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, Download, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import CVRenderer from "../cv/CVRenderer";
+import { api } from "../../api";
 import { CVData, normalizeCVData } from "../../types";
 
 interface CvSnapshotModalProps {
@@ -46,13 +47,9 @@ export default function CvSnapshotModal({
   const download = async () => {
     setDownloading(true);
     try {
-      const res = await fetch("/api/export/html-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cv_data: cvData, theme, template }),
-      });
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
+      const blob = await api
+        .post("/export/html-pdf", { cv_data: cvData, theme, template }, { responseType: "blob" })
+        .then((r) => r.data as Blob);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

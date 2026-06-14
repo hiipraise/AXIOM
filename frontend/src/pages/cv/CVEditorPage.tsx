@@ -1,7 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cvApi } from "../../api";
 import { CV, CVData, EMPTY_CV_DATA, normalizeCVData } from "../../types";
 import { usePrintCV } from "../../hooks/usePrintCV";
@@ -31,8 +48,14 @@ import {
   Info,
   PencilLine,
   SlidersHorizontal,
+  GripVertical,
+  Check,
+  Circle,
+  ArrowRight,
+  Undo2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
-import { useRef } from "react";
 import { useAnnouncement } from "../../context/announcement";
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
 import CVContextSelector from "../../components/cv/CVContextSelector";
@@ -51,10 +74,28 @@ import CVPreview from "../../components/cv/CVPreview";
 import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 import { CV_TEMPLATE_OPTIONS } from "../../lib/cvTemplateRegistry";
 import HistoryDrawer from "../../components/cv/HistoryDrawer";
+import DiffViewer from "../../components/cv/DiffViewer";
 import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
+import Breadcrumb from "../../components/Breadcrumb";
+import { useCVUndoStore } from "../../store/cvUndo";
 
-const SECTIONS = [
+// Recommended fill order for progressive disclosure
+const RECOMMENDED_ORDER = [
+  "personal",
+  "targeting",
+  "summary",
+  "experience",
+  "education",
+  "skills",
+  "certifications",
+  "projects",
+  "awards",
+  "languages",
+  "volunteer",
+];
+
+const DEFAULT_SECTIONS = [
   { id: "personal", label: "Personal Info", icon: User },
   { id: "targeting", label: "Targeting", icon: Target },
   { id: "summary", label: "Summary", icon: AlignLeft },
@@ -67,6 +108,74 @@ const SECTIONS = [
   { id: "languages", label: "Languages", icon: Languages },
   { id: "volunteer", label: "Volunteer", icon: Heart },
 ];
+
+// Sortable section item component
+function SortableSectionItem({
+  id,
+  label,
+  icon: Icon,
+  isActive,
+  isCompleted,
+  orderIndex,
+  onClick,
+}: {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  isActive: boolean;
+  isCompleted: boolean;
+  orderIndex: number;
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-all text-left ${
+        isActive
+          ? "bg-ink text-white font-medium"
+          : "text-ink-muted hover:bg-ash hover:text-ink"
+      }`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing touch-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical size={13} className="text-ink-muted" />
+      </span>
+      <Icon size={13} />
+      <span className="flex-1 truncate">{label}</span>
+      {isCompleted ? (
+        <Check size={12} className="text-emerald-500" />
+      ) : (
+        <span className="text-[10px] text-ink-muted">{orderIndex + 1}</span>
+      )}
+    </button>
+  );
+}
+
+// Helper to format time since last save
+function formatTimeSince(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 function SectionDrawer({
   activeSection,
@@ -101,7 +210,7 @@ function SectionDrawer({
           </button>
         </div>
         <div className="overflow-y-auto max-h-[60vh] py-2">
-          {SECTIONS.map(({ id, label, icon: Icon }) => (
+          {DEFAULT_SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => {
@@ -276,9 +385,15 @@ function MobileSettingsSheet({
 export default function CVEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { printCV, isPrinting } = usePrintCV();
+  const openSkillGap = searchParams.get("skill_gap") === "true";
 
+  // Section order state (default order)
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() =>
+    DEFAULT_SECTIONS.map((s) => s.id),
+  );
   const [activeSection, setActiveSection] = useState("personal");
   const [cvData, setCvData] = useState<CVData>(EMPTY_CV_DATA);
   const [title, setTitle] = useState("");
@@ -287,24 +402,171 @@ export default function CVEditorPage() {
   const [template, setTemplate] = useState("standard");
   const [pageCount, setPageCount] = useState(1);
   const [showAI, setShowAI] = useState(false);
-  const [showSkillGap, setShowSkillGap] = useState(false);
+  const [showSkillGap, setShowSkillGap] = useState(openSkillGap);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [showSettings, setShowSettings] = useState(false); // 8a
+  const [showSettings, setShowSettings] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [currentRating, setCurrentRating] = useState<number | undefined>(
-    undefined,
-  );
+  const [currentRating, setCurrentRating] = useState<number | undefined>(undefined);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAction, setPendingAction] = useState<null | {
-    action: "leave" | "rate" | "restore"; // 8b: added "restore"
+    action: "leave" | "rate" | "restore";
     run: () => void;
   }>(null);
 
+  // Undo state
+  const { stack, push: pushUndo, undoTo, clear: clearUndo } = useCVUndoStore();
+  const [pendingAIDiff, setPendingAIDiff] = useState<{
+    before: CVData;
+    after: CVData;
+  } | null>(null);
+
+  // Auto-save state
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { bannerH } = useAnnouncement();
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  // Helper: Check if a section is completed
+  const isSectionCompleted = useCallback(
+    (sectionId: string, data: CVData): boolean => {
+      switch (sectionId) {
+        case "personal":
+          return !!data.personal_info.full_name || !!data.personal_info.email;
+        case "targeting":
+          return !!data.target_role || !!data.industry;
+        case "summary":
+          return !!data.summary;
+        case "skills":
+          return data.skills.length > 0;
+        case "experience":
+          return data.experience.length > 0 && data.experience.some((e) => e.company || e.role);
+        case "education":
+          return data.education.length > 0 && data.education.some((e) => e.institution || e.degree);
+        case "certifications":
+          return data.certifications.length > 0 && data.certifications.some((c) => c.name);
+        case "projects":
+          return data.projects.length > 0 && data.projects.some((p) => p.name);
+        case "awards":
+          return data.awards.length > 0 && data.awards.some((a) => a.title);
+        case "languages":
+          return data.languages.length > 0 && data.languages.some((l) => l.language);
+        case "volunteer":
+          return data.volunteer.length > 0 && data.volunteer.some((v) => v.organization);
+        default:
+          return false;
+      }
+    },
+    [],
+  );
+
+  // Calculate completed sections count
+  const completedCount = useMemo(() => {
+    return sectionOrder.filter((sid) => isSectionCompleted(sid, cvData)).length;
+  }, [sectionOrder, cvData, isSectionCompleted]);
+
+  // Get the first incomplete section
+  const firstIncompleteSection = useMemo(() => {
+    return sectionOrder.find((sid) => !isSectionCompleted(sid, cvData));
+  }, [sectionOrder, cvData, isSectionCompleted]);
+
+  // Map section IDs to their SECTIONS objects
+  const sectionsMap = useMemo(() => {
+    const map: Record<string, (typeof DEFAULT_SECTIONS)[0]> = {};
+    DEFAULT_SECTIONS.forEach((s) => {
+      map[s.id] = s;
+    });
+    return map;
+  }, []);
+
+  // Auto-save function
+  const triggerAutoSave = useCallback(async () => {
+    if (!id || !isDirty) return;
+    setAutoSaveStatus("saving");
+    try {
+      await cvApi.update(id, {
+        title,
+        data: cvData,
+        is_public: isPublic,
+        theme,
+        template,
+        page_count: pageCount,
+      });
+      setIsDirty(false);
+      setAutoSaveStatus("saved");
+      setLastSaved(new Date());
+      // Skip query invalidation on auto-save - it causes a refetch that can overwrite
+      // the current state and create a confusing UX. Invalidation happens on
+      // manual save or page navigation instead.
+    } catch {
+      setAutoSaveStatus("idle");
+    }
+  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount, qc]);
+
+  // Debounced auto-save on data change
+  useEffect(() => {
+    if (!isDirty) return;
+    setAutoSaveStatus("idle");
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      triggerAutoSave();
+    }, 2000);
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [cvData, title, isDirty, triggerAutoSave]);
+
+  // Clear auto-save status after delay
+  useEffect(() => {
+    if (autoSaveStatus === "saved") {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus("idle");
+      }, 3000);
+      return () => {
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+        }
+      };
+    }
+  }, [autoSaveStatus]);
+
+  // Handle drag end
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      setSectionOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    },
+    [],
+  );
 
   const { data: cv, isLoading } = useQuery<CV>({
     queryKey: ["cv", id],
@@ -312,6 +574,7 @@ export default function CVEditorPage() {
     enabled: !!id,
   });
 
+  // Load CV data and set initial section to first incomplete
   useEffect(() => {
     if (cv) {
       setCvData(normalizeCVData(cv.data));
@@ -321,8 +584,19 @@ export default function CVEditorPage() {
       setTemplate(cv.template || "standard");
       setPageCount(cv.page_count);
       setCurrentRating(cv.rating ?? undefined);
+      // Auto-highlight first incomplete section on load
+      if (firstIncompleteSection) {
+        setActiveSection(firstIncompleteSection);
+      }
     }
-  }, [cv]);
+  }, [cv, firstIncompleteSection]);
+
+  // Clear undo stack when loading a new CV
+  useEffect(() => {
+    if (id) {
+      clearUndo();
+    }
+  }, [id, clearUndo]);
 
   const confirmDiscard = useCallback(
     (action: "leave" | "rate" | "restore", run: () => void) => {
@@ -378,6 +652,30 @@ export default function CVEditorPage() {
     }
   };
 
+  // Keyboard shortcuts: Ctrl+Z / Cmd+Z undo, Ctrl+S / Cmd+S save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S = save
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (saving) return;
+        handleSave();
+      }
+      // Ctrl+Z / Cmd+Z = undo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        const prev = undoTo(cvData);
+        if (prev) {
+          setCvData(prev);
+          setIsDirty(true);
+          toast.success("Undone");
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cvData, undoTo, saving, handleSave]);
+
   const handleDownloadPDF = async () => {
     if (!id) return;
     if (isDirty) {
@@ -401,7 +699,7 @@ export default function CVEditorPage() {
   };
 
   const activeSectionLabel =
-    SECTIONS.find((s) => s.id === activeSection)?.label ?? "";
+    DEFAULT_SECTIONS.find((s) => s.id === activeSection)?.label ?? "";
 
   if (isLoading)
     return (
@@ -412,17 +710,17 @@ export default function CVEditorPage() {
 
   return (
     <>
+      <Breadcrumb />
       <div
         className="flex bg-ash overflow-hidden"
         style={{
-          height: `calc(100vh - ${bannerH}px)`,
-          paddingTop: bannerH,
-          transition:
-            "height 0.28s cubic-bezier(0.4,0,0.2,1), padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
+          height: "calc(100vh - 56px)",
+          marginTop: bannerH + 44,
+          transition: "margin-top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         {/* Sidebar */}
-        <div className="hidden md:flex w-44 bg-white border-r border-ash-border flex-col flex-shrink-0">
+        <div className="hidden md:flex w-52 bg-white border-r border-ash-border flex-col flex-shrink-0">
           <div className="px-3 py-3 border-b border-ash-border flex-shrink-0">
             <button
               onClick={handleLeaveEditor}
@@ -431,20 +729,100 @@ export default function CVEditorPage() {
               <ChevronLeft size={13} /> Back
             </button>
           </div>
+
+          {/* Progress bar */}
+          <div className="px-3 py-2 border-b border-ash-border">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-ink">Progress</span>
+              <span className="text-xs text-ink-muted">
+                {completedCount}/{sectionOrder.length}
+              </span>
+            </div>
+            <div className="h-1.5 bg-ash-border rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-emerald-500 rounded-full"
+                initial={{ width: 0 }}
+                animate={{
+                  width: `${(completedCount / sectionOrder.length) * 100}%`,
+                }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              />
+            </div>
+            {/* Auto-save indicator */}
+            <div className="mt-2 text-[10px] flex items-center gap-1">
+              {autoSaveStatus === "saving" && (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <motion.span
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    className="block w-2 h-2 border border-amber-600 border-t-transparent rounded-full"
+                  />
+                  Saving...
+                </span>
+              )}
+              {autoSaveStatus === "saved" && (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <Check size={10} /> Saved
+                </span>
+              )}
+              {autoSaveStatus === "idle" && lastSaved && (
+                <span className="text-ink-muted">
+                  Saved {formatTimeSince(lastSaved)}
+                </span>
+              )}
+              {autoSaveStatus === "idle" && !lastSaved && (
+                <span className="text-ink-muted">Auto-save enabled</span>
+              )}
+            </div>
+          </div>
+
+          {/* Recommended fill order */}
+          <div className="px-3 py-2 border-b border-ash-border bg-ash/30">
+            <div className="text-[10px] font-medium text-ink-muted uppercase tracking-wide mb-1">
+              Suggested Order
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-ink-muted">
+              {RECOMMENDED_ORDER.slice(0, 3).map((sid, i) => (
+                <React.Fragment key={sid}>
+                  <span className="truncate">{sectionsMap[sid]?.label || sid}</span>
+                  {i < 2 && <ArrowRight size={8} />}
+                </React.Fragment>
+              ))}
+              <span className="text-ink-muted/50">+{RECOMMENDED_ORDER.length - 3}</span>
+            </div>
+          </div>
+
+          {/* Draggable sections list */}
           <div className="flex-1 overflow-y-auto py-2">
-            {SECTIONS.map(({ id: sid, label, icon: Icon }) => (
-              <button
-                key={sid}
-                onClick={() => setActiveSection(sid)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-all text-left ${
-                  activeSection === sid
-                    ? "bg-ink text-white font-medium"
-                    : "text-ink-muted hover:bg-ash hover:text-ink"
-                }`}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sectionOrder}
+                strategy={verticalListSortingStrategy}
               >
-                <Icon size={13} /> {label}
-              </button>
-            ))}
+                {sectionOrder.map((sid, idx) => {
+                  const section = sectionsMap[sid];
+                  if (!section) return null;
+                  const isCompleted = isSectionCompleted(sid, cvData);
+                  const recommendedIdx = RECOMMENDED_ORDER.indexOf(sid);
+                  return (
+                    <SortableSectionItem
+                      key={sid}
+                      id={sid}
+                      label={section.label}
+                      icon={section.icon}
+                      isActive={activeSection === sid}
+                      isCompleted={isCompleted}
+                      orderIndex={recommendedIdx >= 0 ? recommendedIdx : idx}
+                      onClick={() => setActiveSection(sid)}
+                    />
+                  );
+                })}
+              </SortableContext>
+            </DndContext>
           </div>
           <div className="p-3 border-t border-ash-border space-y-1 flex-shrink-0">
             <button
@@ -665,6 +1043,7 @@ export default function CVEditorPage() {
               <button
                 onClick={handleSave}
                 disabled={saving || !isDirty}
+                title="Save (Ctrl+S)"
                 className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                   isDirty
                     ? "bg-ink text-white hover:bg-ink-light"
@@ -766,9 +1145,8 @@ export default function CVEditorPage() {
             <AIAssistPanel
               cvData={cvData}
               onApply={(d) => {
-                setCvData(d);
-                setIsDirty(true);
-                toast.success("AI edits applied");
+                pushUndo(cvData);
+                setPendingAIDiff({ before: cvData, after: d });
               }}
               onClose={() => setShowAI(false)}
               cvId={id!}
@@ -788,9 +1166,8 @@ export default function CVEditorPage() {
               <AIAssistPanel
                 cvData={cvData}
                 onApply={(d) => {
-                  setCvData(d);
-                  setIsDirty(true);
-                  toast.success("AI edits applied");
+                  pushUndo(cvData);
+                  setPendingAIDiff({ before: cvData, after: d });
                   setShowAI(false);
                 }}
                 onClose={() => setShowAI(false)}
@@ -871,9 +1248,78 @@ export default function CVEditorPage() {
           />
         )}
 
+        {/* AI Edit Diff Preview Modal */}
+        <AnimatePresence>
+          {pendingAIDiff && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => {
+                setCvData(pendingAIDiff.before);
+                setPendingAIDiff(null);
+                toast("AI edits discarded");
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-5 py-4 border-b border-ash-border flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={18} className="text-axiom" />
+                    <span className="font-semibold text-ink">AI Edit Preview</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCvData(pendingAIDiff.before);
+                      setPendingAIDiff(null);
+                      toast("AI edits discarded");
+                    }}
+                    className="text-ink-muted hover:text-ink"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="p-5 overflow-y-auto max-h-[60vh]">
+                  <DiffViewer before={pendingAIDiff.before} after={pendingAIDiff.after} />
+                </div>
+                <div className="px-5 py-4 border-t border-ash-border flex gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setCvData(pendingAIDiff.before);
+                      setPendingAIDiff(null);
+                      toast("AI edits undone");
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                  >
+                    <XCircle size={16} /> Undo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCvData(pendingAIDiff.after);
+                      setPendingAIDiff(null);
+                      setIsDirty(true);
+                      toast.success("AI edits applied");
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-axiom text-white rounded-lg hover:bg-axiom-dark transition-colors"
+                  >
+                    <CheckCircle size={16} /> Accept
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {showHistory && id && (
           <HistoryDrawer
             cvId={id}
+            currentData={cvData}
             onRestore={handleRestoreFromHistory} // 8b: guarded restore
             onClose={() => setShowHistory(false)}
           />
