@@ -302,7 +302,10 @@ export default function JobBoardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+      <main
+        className="mx-auto max-w-6xl px-4 py-6 lg:py-8"
+        style={{ paddingTop: `calc(1.5rem + ${bannerH}px)` }}
+      >
         {/* ── Search bar ── */}
         <section className="card mb-4 bg-white shadow-sm">
           <div className="grid gap-3 md:grid-cols-[1.3fr_0.85fr_0.65fr_0.65fr_auto]">

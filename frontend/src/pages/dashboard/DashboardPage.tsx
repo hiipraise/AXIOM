@@ -194,14 +194,34 @@ function KebabMenu({
     const fitsAbove = spaceAbove >= MENU_ESTIMATED_HEIGHT;
 
     if (fitsBelow) {
-      return { top: btn.bottom + 4, right, maxHeight: spaceBelow, openUpward: false };
+      return {
+        top: btn.bottom + 4,
+        right,
+        maxHeight: spaceBelow,
+        openUpward: false,
+      };
     } else if (fitsAbove) {
-      return { bottom: vh - btn.top + 4, right, maxHeight: spaceAbove, openUpward: true };
+      return {
+        bottom: vh - btn.top + 4,
+        right,
+        maxHeight: spaceAbove,
+        openUpward: true,
+      };
     } else {
       const useBelow = spaceBelow >= spaceAbove;
       return useBelow
-        ? { top: btn.bottom + 4, right, maxHeight: spaceBelow, openUpward: false }
-        : { bottom: vh - btn.top + 4, right, maxHeight: spaceAbove, openUpward: true };
+        ? {
+            top: btn.bottom + 4,
+            right,
+            maxHeight: spaceBelow,
+            openUpward: false,
+          }
+        : {
+            bottom: vh - btn.top + 4,
+            right,
+            maxHeight: spaceAbove,
+            openUpward: true,
+          };
     }
   }, []);
 
@@ -290,31 +310,50 @@ function KebabMenu({
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onRename(); closeMenu(); }}
+              onClick={() => {
+                onRename();
+                closeMenu();
+              }}
             >
               <PencilLine size={14} /> Rename
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onRate(); closeMenu(); }}
+              onClick={() => {
+                onRate();
+                closeMenu();
+              }}
             >
-              <Star size={14} className={cv.rating ? "text-amber-400 fill-amber-400" : ""} />
+              <Star
+                size={14}
+                className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
+              />
               Rate
             </button>
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => { onEdit(); closeMenu(); }}
+              onClick={() => {
+                onEdit();
+                closeMenu();
+              }}
             >
               <Edit size={14} /> Edit
             </button>
             <button
               role="menuitem"
               className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm ${
-                duplicating ? "text-ink-muted cursor-wait" : "text-ink hover:bg-ash-dark"
+                duplicating
+                  ? "text-ink-muted cursor-wait"
+                  : "text-ink hover:bg-ash-dark"
               }`}
-              onClick={() => { if (!duplicating) { onDuplicate(); closeMenu(); } }}
+              onClick={() => {
+                if (!duplicating) {
+                  onDuplicate();
+                  closeMenu();
+                }
+              }}
               disabled={duplicating}
             >
               <Copy size={14} /> {duplicating ? "Duplicating..." : "Duplicate"}
@@ -323,7 +362,10 @@ function KebabMenu({
             <button
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50"
-              onClick={() => { onDelete(); closeMenu(); }}
+              onClick={() => {
+                onDelete();
+                closeMenu();
+              }}
             >
               <Trash2 size={14} /> Delete
             </button>
@@ -387,11 +429,13 @@ export default function DashboardPage() {
     enabled: !!user,
   });
 
-  const { data: interviewSessions = [] } = useQuery<InterviewSessionListItem[]>({
-    queryKey: ["interview-sessions"],
-    queryFn: interviewApi.sessions,
-    enabled: !!user,
-  });
+  const { data: interviewSessions = [] } = useQuery<InterviewSessionListItem[]>(
+    {
+      queryKey: ["interview-sessions"],
+      queryFn: interviewApi.sessions,
+      enabled: !!user,
+    },
+  );
 
   const commandCenter = useMemo(() => {
     const cv = primaryCv;
@@ -456,13 +500,15 @@ export default function DashboardPage() {
 
     if (!primaryCv) {
       suggestedNextAction = {
-        message: "You haven't created a CV yet — create your first one to get started.",
+        message:
+          "You haven't created a CV yet — create your first one to get started.",
         action: "/cv/new",
         icon: <FileText size={16} />,
       };
     } else if (profileStrength < 50) {
       suggestedNextAction = {
-        message: "Your profile is incomplete — add more details to improve visibility.",
+        message:
+          "Your profile is incomplete — add more details to improve visibility.",
         action: `/cv/${primaryCv.id}`,
         icon: <Edit size={16} />,
       };
@@ -486,7 +532,8 @@ export default function DashboardPage() {
       };
     } else if (completedSessions.length === 0) {
       suggestedNextAction = {
-        message: "You haven't started an interview yet — practise now to build confidence.",
+        message:
+          "You haven't started an interview yet — practise now to build confidence.",
         action: "/interview",
         icon: <CalendarClock size={16} />,
       };
@@ -498,7 +545,8 @@ export default function DashboardPage() {
       };
     } else {
       suggestedNextAction = {
-        message: "Great progress! Keep applying and practising to stay job-ready.",
+        message:
+          "Great progress! Keep applying and practising to stay job-ready.",
         action: "/jobs",
         icon: <Search size={16} />,
       };
@@ -601,7 +649,10 @@ export default function DashboardPage() {
             {cvs.length} {cvs.length === 1 ? "resume" : "resumes"} saved
           </p>
         </div>
-        <button className="btn-primary flex-shrink-0" onClick={() => navigate("/cv/new")}>
+        <button
+          className="btn-primary flex-shrink-0"
+          onClick={() => navigate("/cv/new")}
+        >
           <Plus size={14} /> New CV
         </button>
       </div>
@@ -611,10 +662,8 @@ export default function DashboardPage() {
           lg+:     [left col: Profile+Interview 2-up, then Next action] | [right col: Weekly goals]
       ── */}
       <section className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.25fr] lg:items-start">
-
         {/* Left column */}
         <div className="flex flex-col gap-4">
-
           {/* Profile + Interview — single col on mobile, 2-col from sm */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <MetricCard
@@ -626,7 +675,8 @@ export default function DashboardPage() {
               tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
             >
               <p className="mt-2 text-xs text-ink-muted">
-                Based on CV completeness, public profile, targeting, and ratings.
+                Based on CV completeness, public profile, targeting, and
+                ratings.
               </p>
             </MetricCard>
 
@@ -639,7 +689,8 @@ export default function DashboardPage() {
               tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
             >
               <p className="mt-2 text-xs text-ink-muted">
-                Practice sessions and interview-stage applications raise this score.
+                Practice sessions and interview-stage applications raise this
+                score.
               </p>
             </MetricCard>
           </div>
@@ -648,7 +699,10 @@ export default function DashboardPage() {
           {user && commandCenter.suggestedNextAction && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-4 flex flex-col gap-3">
               <div className="flex items-start gap-3">
-                <Lightbulb size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <Lightbulb
+                  size={18}
+                  className="text-amber-500 flex-shrink-0 mt-0.5"
+                />
                 <div className="min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700 font-medium">
                     What to do next
@@ -659,8 +713,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                className="btn-primary self-start !px-4 !py-2 text-sm"
-                onClick={() => navigate(commandCenter.suggestedNextAction!.action)}
+                className="btn-primary self-start w-full sm:w-auto !px-4 !py-2 text-sm"
+                onClick={() =>
+                  navigate(commandCenter.suggestedNextAction!.action)
+                }
               >
                 {commandCenter.suggestedNextAction.icon}
                 Take action
@@ -692,7 +748,13 @@ export default function DashboardPage() {
                 key={goal}
                 className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm cursor-pointer select-none"
               >
-                <span className={weeklyGoals[goal] ? "text-ink-muted line-through" : "text-ink"}>
+                <span
+                  className={
+                    weeklyGoals[goal]
+                      ? "text-ink-muted line-through"
+                      : "text-ink"
+                  }
+                >
                   {goal}
                 </span>
                 <input
@@ -715,7 +777,6 @@ export default function DashboardPage() {
 
       {/* ── Skill Gap + Roadmap ── */}
       <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-
         {/* Skill Gap Analysis */}
         <div
           className={`card bg-violet-50/30${
@@ -731,7 +792,8 @@ export default function DashboardPage() {
                 Skill Gap Engine
               </p>
               <p className="text-sm text-ink mt-1">
-                Discover what skills you need for your target role and get a learning roadmap.
+                Discover what skills you need for your target role and get a
+                learning roadmap.
               </p>
 
               {cvs.length > 0 ? (
@@ -786,7 +848,10 @@ export default function DashboardPage() {
         {user && user.roadmap_progress && user.roadmap_progress.length > 0 && (
           <div className="card border-l-4 border-l-emerald-500 bg-emerald-50/30">
             <div className="flex items-start gap-3">
-              <TrendingUp size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+              <TrendingUp
+                size={20}
+                className="text-emerald-600 flex-shrink-0 mt-0.5"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-xs uppercase tracking-[0.18em] text-emerald-700 font-medium">
                   Your Progress
@@ -794,7 +859,9 @@ export default function DashboardPage() {
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-ink mb-1">
                     <span>Steps completed</span>
-                    <span className="font-medium">{user.roadmap_progress.length}</span>
+                    <span className="font-medium">
+                      {user.roadmap_progress.length}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
@@ -826,8 +893,8 @@ export default function DashboardPage() {
                 Based on {matchSeed || "your latest CV"}
               </h2>
               <p className="text-sm text-ink-muted mt-1">
-                Quick matches pulled from live job sources. Open the board to refine filters or
-                start tracking.
+                Quick matches pulled from live job sources. Open the board to
+                refine filters or start tracking.
               </p>
             </div>
             {/* Button pair: stretch to fill on mobile, natural on sm+ */}
@@ -864,14 +931,20 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium text-ink truncate">{job.title}</p>
-                      <p className="text-sm text-ink-muted truncate mt-0.5">{job.company}</p>
+                      <p className="font-medium text-ink truncate">
+                        {job.title}
+                      </p>
+                      <p className="text-sm text-ink-muted truncate mt-0.5">
+                        {job.company}
+                      </p>
                     </div>
                     <span className="badge bg-ash-dark text-ink-muted capitalize flex-shrink-0">
                       {job.source}
                     </span>
                   </div>
-                  <p className="text-xs text-ink-muted mt-3 line-clamp-2">{job.location}</p>
+                  <p className="text-xs text-ink-muted mt-3 line-clamp-2">
+                    {job.location}
+                  </p>
                 </button>
               ))}
             </div>
@@ -879,7 +952,8 @@ export default function DashboardPage() {
             <div className="text-center py-8">
               <Info size={24} className="mx-auto text-ink-muted/30 mb-2" />
               <p className="text-sm text-ink-muted">
-                No matches yet. Add a target role or skills to your latest CV and try again.
+                No matches yet. Add a target role or skills to your latest CV
+                and try again.
               </p>
               <button
                 className="btn-secondary mt-3"
@@ -896,7 +970,9 @@ export default function DashboardPage() {
       {!isLoading && cvs.length === 0 && (
         <div className="card text-center py-16 border-dashed">
           <FileText size={32} className="mx-auto text-ink-muted/40 mb-3" />
-          <p className="text-sm text-ink-muted mb-4">No CVs yet. Create your first one.</p>
+          <p className="text-sm text-ink-muted mb-4">
+            No CVs yet. Create your first one.
+          </p>
           <button className="btn-primary" onClick={() => navigate("/cv/new")}>
             <Plus size={14} /> Create CV
           </button>
@@ -907,7 +983,6 @@ export default function DashboardPage() {
       <div className="space-y-2">
         {cvs.map((cv) => (
           <div key={cv.id} className="card !p-4">
-
             {/* ── MOBILE LAYOUT (hidden on sm+) ── */}
             <div className="sm:hidden">
               {/* Row 1: title + kebab */}
@@ -964,19 +1039,31 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span
                   className={`badge text-[10px] ${
-                    cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"
+                    cv.is_public
+                      ? "bg-green-50 text-green-700"
+                      : "bg-ash-dark text-ink-muted"
                   }`}
                 >
                   {cv.is_public ? (
-                    <><Globe size={9} className="inline mr-0.5" />Public</>
+                    <>
+                      <Globe size={9} className="inline mr-0.5" />
+                      Public
+                    </>
                   ) : (
-                    <><Lock size={9} className="inline mr-0.5" />Private</>
+                    <>
+                      <Lock size={9} className="inline mr-0.5" />
+                      Private
+                    </>
                   )}
                 </span>
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
+                      <Star
+                        key={i}
+                        size={10}
+                        className="text-amber-400 fill-amber-400"
+                      />
                     ))}
                   </div>
                 )}
@@ -988,9 +1075,11 @@ export default function DashboardPage() {
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
+                <span>
+                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
+                </span>
                 {cv.data.personal_info.job_title && (
-                  <span className="truncate max-w-[180px]">
+                  <span className="truncate max-w-[120px] sm:max-w-[180px]">
                     {cv.data.personal_info.job_title}
                   </span>
                 )}
@@ -1054,20 +1143,32 @@ export default function DashboardPage() {
 
                 <span
                   className={`badge text-[10px] flex-shrink-0 ${
-                    cv.is_public ? "bg-green-50 text-green-700" : "bg-ash-dark text-ink-muted"
+                    cv.is_public
+                      ? "bg-green-50 text-green-700"
+                      : "bg-ash-dark text-ink-muted"
                   }`}
                 >
                   {cv.is_public ? (
-                    <><Globe size={9} className="inline mr-0.5" />Public</>
+                    <>
+                      <Globe size={9} className="inline mr-0.5" />
+                      Public
+                    </>
                   ) : (
-                    <><Lock size={9} className="inline mr-0.5" />Private</>
+                    <>
+                      <Lock size={9} className="inline mr-0.5" />
+                      Private
+                    </>
                   )}
                 </span>
 
                 {cv.rating != null && (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star key={i} size={10} className="text-amber-400 fill-amber-400" />
+                      <Star
+                        key={i}
+                        size={10}
+                        className="text-amber-400 fill-amber-400"
+                      />
                     ))}
                   </div>
                 )}
@@ -1082,7 +1183,9 @@ export default function DashboardPage() {
                   >
                     <Star
                       size={13}
-                      className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
+                      className={
+                        cv.rating ? "text-amber-400 fill-amber-400" : ""
+                      }
                     />
                   </button>
                   <button
@@ -1116,9 +1219,11 @@ export default function DashboardPage() {
                   <Clock size={10} /> {fmt(cv.updated_at)}
                 </span>
                 <span className="capitalize">{cv.theme}</span>
-                <span>{cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}</span>
+                <span>
+                  {cv.page_count === 1 ? "1 page" : `${cv.page_count} pages`}
+                </span>
                 {cv.data.personal_info.job_title && (
-                  <span className="truncate max-w-[160px]">
+                  <span className="truncate max-w-[100px] sm:max-w-[160px]">
                     {cv.data.personal_info.job_title}
                   </span>
                 )}
@@ -1151,7 +1256,9 @@ export default function DashboardPage() {
         description={
           <>
             Delete{" "}
-            <span className="font-medium text-ink">"{deleteTarget?.title}"</span>
+            <span className="font-medium text-ink">
+              "{deleteTarget?.title}"
+            </span>
             ? This cannot be undone.
           </>
         }

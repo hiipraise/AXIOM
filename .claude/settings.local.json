@@ -16,7 +16,8 @@
       "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts --max-warnings 0)",
       "Bash(python -c \"from app.routers import auth; print\\(''auth router OK''\\)\")",
       "Bash(pip install passlib python-jose python-multipart -q)",
-      "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts)"
+      "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts)",
+      "Bash(node -e \"console.log\\(''syntax ok''\\)\")"
     ]
   }
 }
