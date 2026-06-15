@@ -20,7 +20,6 @@ const PublicCVPage = lazy(() => import("./pages/public/PublicCVPage"));
 const PublicProfilePage = lazy(
   () => import("./pages/public/PublicProfilePage"),
 );
-const PublicFeedPage = lazy(() => import("./pages/public/PublicFeedPage"));
 const CompanyPublicPage = lazy(
   () => import("./pages/public/CompanyPublicPage"),
 );
@@ -75,7 +74,6 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminCVs = lazy(() => import("./pages/admin/AdminCVs"));
-const AdminRatings = lazy(() => import("./pages/admin/AdminRatings"));
 const AdminFeedback = lazy(() => import("./pages/admin/AdminFeedback"));
 const AdminAnnouncements = lazy(
   () => import("./pages/admin/AdminAnnouncements"),
@@ -147,7 +145,6 @@ export default function App() {
           <Route path="/jobs/axiom/:id" element={<AxiomJobDetailPage />} />
           <Route path="/jobs" element={<JobBoardPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
-          <Route path="/explore" element={<PublicFeedPage />} />
           <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
           <Route path="/profile/:username" element={<PublicProfilePage />} />
           <Route path="/company/:slug" element={<CompanyPublicPage />} />
@@ -230,7 +227,6 @@ export default function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="audit" element={<AdminAuditLog />} />
             <Route path="cvs" element={<AdminCVs />} />
-            <Route path="ratings" element={<AdminRatings />} />
             <Route path="feedback" element={<AdminFeedback />} />
             <Route path="announcements" element={<AdminAnnouncements />} />
           </Route>

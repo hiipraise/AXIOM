@@ -93,7 +93,10 @@ export default function PublicCVPage() {
       </div>
 
       {/* CV content — fills the screen width then scales on mobile */}
-      <div className="max-w-[700px] mx-auto my-6 sm:my-8 bg-white shadow-sm rounded-xl overflow-hidden">
+      <main
+        className="max-w-[700px] mx-auto my-6 sm:my-8 bg-white shadow-sm rounded-xl overflow-hidden"
+        style={{ paddingTop: `calc(1.5rem + ${bannerH}px)` }}
+      >
         <CVScaleWrapper>
           <CVRenderer
             cvData={cv.data}
@@ -101,7 +104,7 @@ export default function PublicCVPage() {
             template={cv.template || "standard"}
           />
         </CVScaleWrapper>
-      </div>
+      </main>
     </div>
   );
 }

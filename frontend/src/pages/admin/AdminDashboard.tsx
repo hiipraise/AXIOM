@@ -28,8 +28,6 @@ interface Stats {
   total_users: number
   total_cvs: number
   public_cvs: number
-  total_ratings: number
-  avg_rating: number | null
   total_axiom_jobs: number
   active_axiom_jobs: number
   closed_axiom_jobs: number
@@ -225,11 +223,9 @@ export default function AdminDashboard() {
         <StatCard label="Total users"    value={stats?.total_users}   icon={Users} />
         <StatCard label="Total CVs"      value={stats?.total_cvs}     icon={FileText} />
         <StatCard label="Public CVs"     value={stats?.public_cvs}    icon={Globe} />
-        <StatCard label="Avg rating"     value={stats?.avg_rating ? `${stats.avg_rating}/5` : '—'} icon={Star} />
         <StatCard label="Page views"     value={overview?.views}      icon={Eye}              sub="last 30 days" />
         <StatCard label="Sessions"       value={overview?.sessions}   icon={MonitorSmartphone} sub="unique browser sessions" />
         <StatCard label="Signed-in visits" value={overview?.authenticated_users} icon={UserCheck} sub="distinct logged-in users" />
-        <StatCard label="Ratings total"  value={stats?.total_ratings} icon={TrendingUp} />
 
         {/* Job & Application stats */}
         <StatCard label="Total jobs"     value={stats?.total_axiom_jobs}   icon={Briefcase} sub="all time" />
@@ -346,7 +342,6 @@ export default function AdminDashboard() {
             {[
               { label: 'Total CVs created',  value: stats?.total_cvs ?? 0,     max: stats?.total_cvs ?? 1 },
               { label: 'Public CVs',         value: stats?.public_cvs ?? 0,    max: stats?.total_cvs ?? 1 },
-              { label: 'Ratings submitted',  value: stats?.total_ratings ?? 0, max: stats?.total_cvs ?? 1 },
             ].map(({ label, value, max }) => (
               <div key={label}>
                 <div className="flex items-center justify-between mb-1">

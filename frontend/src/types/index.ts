@@ -115,7 +115,6 @@ export interface CV {
   slug?: string;
   created_at: string;
   updated_at: string;
-  rating?: number;
 }
 
 export const EMPTY_CV_DATA: CVData = {

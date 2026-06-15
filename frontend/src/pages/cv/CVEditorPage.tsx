@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -30,7 +36,6 @@ import {
   ChevronLeft,
   Globe,
   Lock,
-  Star,
   Briefcase,
   GraduationCap,
   Award,
@@ -55,6 +60,10 @@ import {
   Undo2,
   CheckCircle,
   XCircle,
+  Search,
+  FileText,
+  ChevronDown,
+  Star,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
@@ -71,11 +80,11 @@ import VolunteerSection from "../../components/cv/VolunteerSection";
 import AIAssistPanel from "../../components/cv/AIAssistPanel";
 import SkillGapEngine from "../../components/cv/SkillGapEngine";
 import CVPreview from "../../components/cv/CVPreview";
+import ATSPreviewModal from "../../components/cv/ATSPreviewModal";
 import { CV_THEME_OPTIONS } from "../../lib/cvThemes";
 import { CV_TEMPLATE_OPTIONS } from "../../lib/cvTemplateRegistry";
 import HistoryDrawer from "../../components/cv/HistoryDrawer";
 import DiffViewer from "../../components/cv/DiffViewer";
-import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
 import Breadcrumb from "../../components/Breadcrumb";
 import { useCVUndoStore } from "../../store/cvUndo";
@@ -127,8 +136,14 @@ function SortableSectionItem({
   orderIndex: number;
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -387,7 +402,11 @@ export default function CVEditorPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
-  const { printCV, isPrinting } = usePrintCV();
+  const { printCV, exportCV, isPrinting } = usePrintCV();
+  const [exportFormat, setExportFormat] = useState<"pdf" | "docx" | "txt">(
+    "pdf",
+  );
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const openSkillGap = searchParams.get("skill_gap") === "true";
 
   // Section order state (default order)
@@ -404,16 +423,15 @@ export default function CVEditorPage() {
   const [showAI, setShowAI] = useState(false);
   const [showSkillGap, setShowSkillGap] = useState(openSkillGap);
   const [showPreview, setShowPreview] = useState(false);
+  const [showATS, setShowATS] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [showRating, setShowRating] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [currentRating, setCurrentRating] = useState<number | undefined>(undefined);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAction, setPendingAction] = useState<null | {
-    action: "leave" | "rate" | "restore";
+    action: "leave" | "restore";
     run: () => void;
   }>(null);
 
@@ -426,7 +444,9 @@ export default function CVEditorPage() {
 
   // Auto-save state
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    "idle" | "saving" | "saved"
+  >("idle");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -457,19 +477,33 @@ export default function CVEditorPage() {
         case "skills":
           return data.skills.length > 0;
         case "experience":
-          return data.experience.length > 0 && data.experience.some((e) => e.company || e.role);
+          return (
+            data.experience.length > 0 &&
+            data.experience.some((e) => e.company || e.role)
+          );
         case "education":
-          return data.education.length > 0 && data.education.some((e) => e.institution || e.degree);
+          return (
+            data.education.length > 0 &&
+            data.education.some((e) => e.institution || e.degree)
+          );
         case "certifications":
-          return data.certifications.length > 0 && data.certifications.some((c) => c.name);
+          return (
+            data.certifications.length > 0 &&
+            data.certifications.some((c) => c.name)
+          );
         case "projects":
           return data.projects.length > 0 && data.projects.some((p) => p.name);
         case "awards":
           return data.awards.length > 0 && data.awards.some((a) => a.title);
         case "languages":
-          return data.languages.length > 0 && data.languages.some((l) => l.language);
+          return (
+            data.languages.length > 0 && data.languages.some((l) => l.language)
+          );
         case "volunteer":
-          return data.volunteer.length > 0 && data.volunteer.some((v) => v.organization);
+          return (
+            data.volunteer.length > 0 &&
+            data.volunteer.some((v) => v.organization)
+          );
         default:
           return false;
       }
@@ -555,18 +589,15 @@ export default function CVEditorPage() {
   }, [autoSaveStatus]);
 
   // Handle drag end
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      setSectionOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    },
-    [],
-  );
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setSectionOrder((items) => {
+      const oldIndex = items.indexOf(active.id as string);
+      const newIndex = items.indexOf(over.id as string);
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  }, []);
 
   const { data: cv, isLoading } = useQuery<CV>({
     queryKey: ["cv", id],
@@ -583,7 +614,6 @@ export default function CVEditorPage() {
       setTheme(cv.theme);
       setTemplate(cv.template || "standard");
       setPageCount(cv.page_count);
-      setCurrentRating(cv.rating ?? undefined);
       // Auto-highlight first incomplete section on load
       if (firstIncompleteSection) {
         setActiveSection(firstIncompleteSection);
@@ -599,7 +629,7 @@ export default function CVEditorPage() {
   }, [id, clearUndo]);
 
   const confirmDiscard = useCallback(
-    (action: "leave" | "rate" | "restore", run: () => void) => {
+    (action: "leave" | "restore", run: () => void) => {
       if (!isDirty) {
         run();
         return;
@@ -611,8 +641,6 @@ export default function CVEditorPage() {
 
   const handleLeaveEditor = () =>
     confirmDiscard("leave", () => navigate("/dashboard"));
-  const handleOpenRating = () =>
-    confirmDiscard("rate", () => setShowRating(true));
 
   // 8b: wrap history restore with the same unsaved-changes guard
   const handleRestoreFromHistory = (snap: CVData) => {
@@ -676,7 +704,7 @@ export default function CVEditorPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [cvData, undoTo, saving, handleSave]);
 
-  const handleDownloadPDF = async () => {
+  const handleExport = async () => {
     if (!id) return;
     if (isDirty) {
       toast("Saving first…", { icon: "💾" });
@@ -691,11 +719,16 @@ export default function CVEditorPage() {
         });
         setIsDirty(false);
       } catch {
-        toast.error("Save failed — cannot generate PDF");
+        toast.error("Save failed — cannot export");
         return;
       }
     }
-    printCV(id);
+    if (exportFormat === "pdf") {
+      printCV(id);
+    } else {
+      setShowExportMenu(false);
+      await exportCV(id, exportFormat);
+    }
   };
 
   const activeSectionLabel =
@@ -754,7 +787,11 @@ export default function CVEditorPage() {
                 <span className="text-amber-600 flex items-center gap-1">
                   <motion.span
                     animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1,
+                      ease: "linear",
+                    }}
                     className="block w-2 h-2 border border-amber-600 border-t-transparent rounded-full"
                   />
                   Saving...
@@ -784,11 +821,15 @@ export default function CVEditorPage() {
             <div className="flex items-center gap-1 text-[10px] text-ink-muted">
               {RECOMMENDED_ORDER.slice(0, 3).map((sid, i) => (
                 <React.Fragment key={sid}>
-                  <span className="truncate">{sectionsMap[sid]?.label || sid}</span>
+                  <span className="truncate">
+                    {sectionsMap[sid]?.label || sid}
+                  </span>
                   {i < 2 && <ArrowRight size={8} />}
                 </React.Fragment>
               ))}
-              <span className="text-ink-muted/50">+{RECOMMENDED_ORDER.length - 3}</span>
+              <span className="text-ink-muted/50">
+                +{RECOMMENDED_ORDER.length - 3}
+              </span>
             </div>
           </div>
 
@@ -844,24 +885,16 @@ export default function CVEditorPage() {
               <Eye size={13} /> Preview
             </button>
             <button
+              onClick={() => setShowATS(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors"
+            >
+              <Search size={13} /> ATS Preview
+            </button>
+            <button
               onClick={() => setShowHistory(true)}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border border-ash-border text-ink-muted hover:bg-ash transition-colors"
             >
               <History size={13} /> History
-            </button>
-            <button
-              onClick={handleOpenRating}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-colors ${
-                currentRating
-                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  : "border-ash-border text-ink-muted hover:bg-ash"
-              }`}
-            >
-              <Star
-                size={13}
-                className={currentRating ? "fill-amber-400 text-amber-400" : ""}
-              />
-              {currentRating ? `Rated ${currentRating}/5` : "Rate CV"}
             </button>
           </div>
         </div>
@@ -1030,16 +1063,54 @@ export default function CVEditorPage() {
                 {isPublic ? <Globe size={12} /> : <Lock size={12} />}
                 {isPublic ? "Public" : "Private"}
               </button>
-              <button
-                onClick={handleDownloadPDF}
-                disabled={isPrinting}
-                className="p-1.5 sm:flex sm:items-center sm:gap-1.5 sm:text-xs sm:px-3 sm:py-1.5 sm:rounded-lg sm:border sm:border-ash-border sm:text-ink-muted sm:hover:bg-ash sm:transition-colors text-ink-muted hover:text-ink disabled:opacity-50"
-              >
-                <Download size={14} />
-                <span className="hidden sm:inline text-xs ml-1">
-                  {isPrinting ? "Preparing…" : "PDF"}
-                </span>
-              </button>
+              {/* Export Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={isPrinting}
+                  className="p-1.5 sm:flex sm:items-center sm:gap-1 sm:text-xs sm:px-3 sm:py-1.5 sm:rounded-lg sm:border sm:border-ash-border sm:text-ink-muted sm:hover:bg-ash sm:transition-colors text-ink-muted hover:text-ink disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  <span className="hidden sm:inline text-xs">
+                    {isPrinting ? "Preparing…" : exportFormat.toUpperCase()}
+                  </span>
+                  <ChevronDown size={12} className="hidden sm:block" />
+                </button>
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-ash-border rounded-lg shadow-lg z-50 py-1 min-w-24">
+                    <button
+                      onClick={() => {
+                        setExportFormat("pdf");
+                        setShowExportMenu(false);
+                        handleExport();
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
+                    >
+                      <FileText size={12} /> PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExportFormat("docx");
+                        setShowExportMenu(false);
+                        handleExport();
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
+                    >
+                      <FileText size={12} /> Word
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExportFormat("txt");
+                        setShowExportMenu(false);
+                        handleExport();
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
+                    >
+                      <FileText size={12} /> Plain Text
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleSave}
                 disabled={saving || !isDirty}
@@ -1248,6 +1319,11 @@ export default function CVEditorPage() {
           />
         )}
 
+        {/* ATS Preview Modal */}
+        {showATS && (
+          <ATSPreviewModal cvData={cvData} onClose={() => setShowATS(false)} />
+        )}
+
         {/* AI Edit Diff Preview Modal */}
         <AnimatePresence>
           {pendingAIDiff && (
@@ -1272,7 +1348,9 @@ export default function CVEditorPage() {
                 <div className="px-5 py-4 border-b border-ash-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles size={18} className="text-axiom" />
-                    <span className="font-semibold text-ink">AI Edit Preview</span>
+                    <span className="font-semibold text-ink">
+                      AI Edit Preview
+                    </span>
                   </div>
                   <button
                     onClick={() => {
@@ -1286,7 +1364,10 @@ export default function CVEditorPage() {
                   </button>
                 </div>
                 <div className="p-5 overflow-y-auto max-h-[60vh]">
-                  <DiffViewer before={pendingAIDiff.before} after={pendingAIDiff.after} />
+                  <DiffViewer
+                    before={pendingAIDiff.before}
+                    after={pendingAIDiff.after}
+                  />
                 </div>
                 <div className="px-5 py-4 border-t border-ash-border flex gap-3 justify-end">
                   <button
@@ -1324,37 +1405,20 @@ export default function CVEditorPage() {
             onClose={() => setShowHistory(false)}
           />
         )}
-        {showRating && id && (
-          <RatingModal
-            cvId={id}
-            cvTitle={title}
-            currentRating={currentRating}
-            onClose={() => setShowRating(false)}
-            onSaved={(score) => {
-              setCurrentRating(score);
-              qc.invalidateQueries({ queryKey: ["cv", id] });
-              qc.invalidateQueries({ queryKey: ["cvs"] });
-            }}
-          />
-        )}
 
-        {/* 8b: Extended confirm dialog covers leave / rate / restore */}
+        {/* 8b: Extended confirm dialog covers leave / restore */}
         <ConfirmDialog
           open={!!pendingAction}
           title="Discard unsaved changes?"
           description={
-            pendingAction?.action === "rate"
-              ? "You have unsaved edits. Open the rating dialog now and your current changes will be lost unless you save first."
-              : pendingAction?.action === "restore"
-                ? "You have unsaved edits. Restoring a version will overwrite them. Save first if you want to keep your current changes."
-                : "You have unsaved edits. Leave the editor now and your current changes will be lost unless you save first."
+            pendingAction?.action === "restore"
+              ? "You have unsaved edits. Restoring a version will overwrite them. Save first if you want to keep your current changes."
+              : "You have unsaved edits. Leave the editor now and your current changes will be lost unless you save first."
           }
           confirmLabel={
-            pendingAction?.action === "rate"
-              ? "Discard and rate"
-              : pendingAction?.action === "restore"
-                ? "Discard and restore"
-                : "Discard and leave"
+            pendingAction?.action === "restore"
+              ? "Discard and restore"
+              : "Discard and leave"
           }
           variant="danger"
           onClose={() => setPendingAction(null)}

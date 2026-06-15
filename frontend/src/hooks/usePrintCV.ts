@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { cvApi, publicApi, api } from "../api";
+import { cvApi, publicApi, api, exportApi } from "../api";
 import { renderCVtoHTML } from "../utils/renderCVtoHTML";
 import type { CVData } from "../types";
 import toast from "react-hot-toast";
@@ -103,5 +103,74 @@ export function usePrintCV() {
     }
   }, []);
 
-  return { printCV, printPublicCV, printJob, clearJob, isPrinting };
+  const exportCV = useCallback(async (cvId: string, format: "pdf" | "docx" | "txt") => {
+    setIsPrinting(true);
+    const tid = toast.loading(`Rendering ${format.toUpperCase()}…`);
+    try {
+      await cvApi.update(cvId, {
+        data: (await cvApi.get(cvId)).data,
+      });
+      let blob: Blob;
+      let filename: string;
+      const cv = await cvApi.get(cvId);
+      const name = cv.data.personal_info.full_name || cv.owner_username;
+
+      if (format === "docx") {
+        blob = await exportApi.downloadDOCX(cvId);
+        filename = `${name}-${cv.title}.docx`;
+      } else if (format === "txt") {
+        blob = await exportApi.downloadTXT(cvId);
+        filename = `${name}-${cv.title}.txt`;
+        download(blob, filename);
+        toast.success(`${format.toUpperCase()} downloaded`, { id: tid });
+        return;
+      } else {
+        blob = await exportApi.downloadPDF(cvId);
+        filename = `${name}-${cv.title}.pdf`;
+      }
+
+      download(blob, filename);
+      toast.success(`${format.toUpperCase()} downloaded`, { id: tid });
+    } catch (e) {
+      console.error(e);
+      toast.error(`Could not generate ${format.toUpperCase()}`, { id: tid });
+    } finally {
+      setIsPrinting(false);
+    }
+  }, []);
+
+  const exportPublicCV = useCallback(async (username: string, slug: string, format: "pdf" | "docx" | "txt") => {
+    setIsPrinting(true);
+    const tid = toast.loading(`Rendering ${format.toUpperCase()}…`);
+    try {
+      let blob: Blob;
+      let filename: string;
+      const cv = await publicApi.getCV(username, slug);
+      const name = cv.data.personal_info.full_name || username;
+
+      if (format === "docx") {
+        blob = await exportApi.downloadPublicDOCX(username, slug);
+        filename = `${name}-${slug}.docx`;
+      } else if (format === "txt") {
+        blob = await exportApi.downloadPublicTXT(username, slug);
+        filename = `${name}-${slug}.txt`;
+        download(blob, filename);
+        toast.success(`${format.toUpperCase()} downloaded`, { id: tid });
+        return;
+      } else {
+        blob = await exportApi.downloadPublicPDF(username, slug);
+        filename = `${name}-${slug}.pdf`;
+      }
+
+      download(blob, filename);
+      toast.success(`${format.toUpperCase()} downloaded`, { id: tid });
+    } catch (e) {
+      console.error(e);
+      toast.error(`Could not generate ${format.toUpperCase()}`, { id: tid });
+    } finally {
+      setIsPrinting(false);
+    }
+  }, []);
+
+  return { printCV, printPublicCV, exportCV, exportPublicCV, printJob, clearJob, isPrinting };
 }

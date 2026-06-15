@@ -99,10 +99,6 @@ export const cvApi = {
   analytics: (id: string) => api.get(`/cv/${id}/analytics`).then((r) => r.data as import("../types").CVAnalytics),
   createAnalyticsEvent: (id: string, body: object) =>
     api.post(`/cv/${id}/analytics`, body).then((r) => r.data as import("../types").CVAnalyticsEvent),
-  rate: (id: string, score: number, comment?: string) =>
-    api
-      .post(`/cv/${id}/rate`, { cv_id: id, score, comment })
-      .then((r) => r.data),
   aiChat: (message: string, cvData?: object, context?: string) =>
     api
       .post("/cv/ai/chat", { message, cv_data: cvData, context })
@@ -151,6 +147,13 @@ export const cvApi = {
         job_description: jobDescription,
       })
       .then((r) => r.data),
+  atsPreview: (cvData: object, jobDescription?: string) =>
+    api
+      .post("/cv/ai/ats-preview", {
+        cv_data: cvData,
+        job_description: jobDescription || null,
+      })
+      .then((r) => r.data),
   skillGap: (cvData: object, targetRole: string) =>
     api
       .post("/cv/ai/skill-gap", {
@@ -176,11 +179,34 @@ export const exportApi = {
       .then((r) => r.data as Blob),
   downloadPDF: (cvId: string): Promise<Blob> =>
     api
-      .get(`/export/pdf/${cvId}`, { responseType: "blob" })
+      .get(`/export/export/${cvId}`, { params: { format: "pdf" }, responseType: "blob" })
+      .then((r) => r.data),
+  downloadDOCX: (cvId: string): Promise<Blob> =>
+    api
+      .get(`/export/export/${cvId}`, { params: { format: "docx" }, responseType: "blob" })
+      .then((r) => r.data),
+  downloadTXT: (cvId: string): Promise<Blob> =>
+    api
+      .get(`/export/export/${cvId}`, { params: { format: "txt" }, responseType: "blob" })
       .then((r) => r.data),
   downloadPublicPDF: (username: string, slug: string): Promise<Blob> =>
     axios
-      .get(`${BASE}/api/v1/export/public-pdf/${username}/${slug}`, {
+      .get(`${BASE}/api/v1/export/export-public/${username}/${slug}`, {
+        params: { format: "pdf" },
+        responseType: "blob",
+      })
+      .then((r) => r.data),
+  downloadPublicDOCX: (username: string, slug: string): Promise<Blob> =>
+    axios
+      .get(`${BASE}/api/v1/export/export-public/${username}/${slug}`, {
+        params: { format: "docx" },
+        responseType: "blob",
+      })
+      .then((r) => r.data),
+  downloadPublicTXT: (username: string, slug: string): Promise<Blob> =>
+    axios
+      .get(`${BASE}/api/v1/export/export-public/${username}/${slug}`, {
+        params: { format: "txt" },
         responseType: "blob",
       })
       .then((r) => r.data),
@@ -218,8 +244,6 @@ export const adminApi = {
     api.delete(`/admin/users/${id}`).then((r) => r.data),
   cvs: (skip = 0, limit = 50) =>
     api.get(`/admin/cvs?skip=${skip}&limit=${limit}`).then((r) => r.data),
-  ratings: (skip = 0, limit = 50) =>
-    api.get(`/admin/ratings?skip=${skip}&limit=${limit}`).then((r) => r.data),
   auditLog: (skip = 0, limit = 100) =>
     api.get(`/admin/audit-log?skip=${skip}&limit=${limit}`).then((r) => r.data),
   engagementStats: () => api.get("/admin/engagement-stats").then((r) => r.data),

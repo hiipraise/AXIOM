@@ -222,7 +222,6 @@ class CVOut(BaseModel):
     slug: Optional[str]
     created_at: datetime
     updated_at: datetime
-    rating: Optional[float]
 
 
 class AIPromptRequest(BaseModel):
@@ -266,12 +265,6 @@ class OptimizeBulletsRequest(BaseModel):
 class KeywordGapRequest(BaseModel):
     cv_data: CVData
     job_description: str
-
-
-class CVRating(BaseModel):
-    cv_id: str
-    score: int = Field(..., ge=1, le=5)
-    comment: Optional[str] = None
 
 
 class JobResult(BaseModel):

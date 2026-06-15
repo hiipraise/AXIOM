@@ -115,10 +115,10 @@ export default function ExploreTeaserSection() {
           transition={{ duration: 0.45, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
         >
           <Link
-            to="/explore"
+            to="/jobs"
             className="inline-flex items-center gap-2 px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:bg-ink-light transition-colors"
           >
-            Explore public CVs
+            Browse jobs
             <motion.span
               animate={{ x: [0, 4, 0] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}

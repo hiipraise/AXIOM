@@ -1,10 +1,11 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.middleware.validation import valid_object_id
 from app.services.pdf_service import generate_pdf
+from app.services.docx_export import generate_docx, generate_plain_text
 from app.services.html_pdf import html_to_pdf
 from app.models.schemas import CVData, ExportRequest
 from app.config import settings
@@ -160,3 +161,196 @@ async def export_pdf_preview(body: dict, current_user=Depends(get_current_user),
 @router.post("/preview", include_in_schema=False)
 async def export_preview_alias(body: dict, current_user=Depends(get_current_user), db=Depends(get_db)):
     return await export_pdf_preview(body, current_user, db)
+
+
+# ─── DOCX and Plain Text Export ────────────────────────────────────────────────────────
+
+
+@router.get("/export/{cv_id}")
+async def export_cv(
+    cv_id: str,
+    format: str = Query("pdf", regex="^(pdf|docx|txt)$"),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Export CV in specified format: pdf, docx, or txt."""
+    if not ObjectId.is_valid(cv_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
+    if not cv:
+        raise not_found("CV")
+    if cv["owner_id"] != str(current_user["_id"]) and not cv.get("is_public"):
+        raise forbidden("Access denied")
+
+    cv_data = CVData(**cv["data"])
+    fname = safe_filename(
+        f"{cv_data.personal_info.full_name or cv['owner_username']}_{cv['title']}"
+    )
+
+    public_url = ""
+    if cv.get("is_public") and cv.get("slug"):
+        public_url = f"{settings.frontend_url}/cv/{cv['owner_username']}/{cv['slug']}"
+
+    if format == "docx":
+        docx_bytes = generate_docx(
+            cv_data=cv_data,
+            owner_username=cv["owner_username"],
+            cv_title=cv["title"],
+            theme_name=cv.get("theme", "minimal"),
+            public_url=public_url,
+        )
+        await db.export_events.insert_one({
+            "user_id": str(current_user["_id"]),
+            "type": "cv-docx",
+            "size_bytes": len(docx_bytes),
+            "ts": datetime.now(timezone.utc),
+        })
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}.docx"',
+                "Content-Length": str(len(docx_bytes)),
+            },
+        )
+
+    if format == "txt":
+        plain_text = generate_plain_text(
+            cv_data=cv_data,
+            owner_username=cv["owner_username"],
+            cv_title=cv["title"],
+        )
+        text_bytes = plain_text.encode("utf-8")
+        await db.export_events.insert_one({
+            "user_id": str(current_user["_id"]),
+            "type": "cv-txt",
+            "size_bytes": len(text_bytes),
+            "ts": datetime.now(timezone.utc),
+        })
+        return StreamingResponse(
+            io.BytesIO(text_bytes),
+            media_type="text/plain; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}.txt"',
+                "Content-Length": str(len(text_bytes)),
+            },
+        )
+
+    # Default to PDF
+    pdf_bytes = generate_pdf(
+        cv_data=cv_data,
+        owner_username=cv["owner_username"],
+        cv_title=cv["title"],
+        theme_name=cv.get("theme", "minimal"),
+        page_count=cv.get("page_count", 1),
+        public_url=public_url,
+        template=cv.get("template", "standard"),
+    )
+    enforce_pdf_size_limit(pdf_bytes)
+    await db.export_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "type": "cv-pdf",
+        "size_bytes": len(pdf_bytes),
+        "ts": datetime.now(timezone.utc),
+    })
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}.pdf"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
+@router.get("/export-public/{username}/{slug}")
+async def export_public_cv(
+    username: str,
+    slug: str,
+    format: str = Query("pdf", regex="^(pdf|docx|txt)$"),
+    db=Depends(get_db),
+):
+    """Export public CV in specified format: pdf, docx, or txt."""
+    cv = await db.cvs.find_one(
+        {"owner_username": username, "slug": slug, "is_public": True}
+    )
+    if not cv:
+        raise not_found("CV")
+
+    cv_data = CVData(**cv["data"])
+    fname = safe_filename(
+        f"{cv_data.personal_info.full_name or username}_{cv['title']}"
+    )
+
+    public_url = f"{settings.frontend_url}/cv/{username}/{slug}"
+
+    if format == "docx":
+        docx_bytes = generate_docx(
+            cv_data=cv_data,
+            owner_username=cv["owner_username"],
+            cv_title=cv["title"],
+            theme_name=cv.get("theme", "minimal"),
+            public_url=public_url,
+        )
+        await db.export_events.insert_one({
+            "user_id": cv["owner_id"],
+            "type": "public-docx",
+            "size_bytes": len(docx_bytes),
+            "ts": datetime.now(timezone.utc),
+        })
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}.docx"',
+                "Content-Length": str(len(docx_bytes)),
+            },
+        )
+
+    if format == "txt":
+        plain_text = generate_plain_text(
+            cv_data=cv_data,
+            owner_username=cv["owner_username"],
+            cv_title=cv["title"],
+        )
+        text_bytes = plain_text.encode("utf-8")
+        await db.export_events.insert_one({
+            "user_id": cv["owner_id"],
+            "type": "public-txt",
+            "size_bytes": len(text_bytes),
+            "ts": datetime.now(timezone.utc),
+        })
+        return StreamingResponse(
+            io.BytesIO(text_bytes),
+            media_type="text/plain; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}.txt"',
+                "Content-Length": str(len(text_bytes)),
+            },
+        )
+
+    # Default to PDF
+    pdf_bytes = generate_pdf(
+        cv_data=cv_data,
+        owner_username=cv["owner_username"],
+        cv_title=cv["title"],
+        theme_name=cv.get("theme", "minimal"),
+        page_count=cv.get("page_count", 1),
+        public_url=public_url,
+        template=cv.get("template", "standard"),
+    )
+    enforce_pdf_size_limit(pdf_bytes)
+    await db.export_events.insert_one({
+        "user_id": cv["owner_id"],
+        "type": "public-pdf",
+        "size_bytes": len(pdf_bytes),
+        "ts": datetime.now(timezone.utc),
+    })
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}.pdf"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )

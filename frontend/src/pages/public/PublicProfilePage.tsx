@@ -45,7 +45,7 @@ export default function PublicProfilePage() {
           <span className="text-ash-border text-xs">|</span>
           <span className="font-display font-bold text-ink text-sm">AXIOM</span>
         </div>
-        <Link to="/explore" className="text-xs text-ink-muted hover:text-ink transition-colors">Explore CVs</Link>
+        <Link to="/jobs" className="text-xs text-ink-muted hover:text-ink transition-colors">Browse jobs</Link>
       </div>
 
       <div className="max-w-xl mx-auto py-12 px-4">

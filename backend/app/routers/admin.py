@@ -197,7 +197,6 @@ async def delete_user(user_id: str, admin=Depends(require_admin), db=Depends(get
     await db.applications.delete_many({"user_id": user_id})
     await db.axiom_applications.delete_many({"candidate_id": user_id})
     await db.notifications.delete_many({"user_id": user_id})
-    await db.ratings.delete_many({"owner_id": user_id})
     await db.interview_sessions.delete_many({"user_id": user_id})
     await db.interview_messages.delete_many({"user_id": user_id})
     await db.feedback.delete_many({"user_id": user_id})
@@ -487,10 +486,6 @@ async def get_stats(admin=Depends(require_staff), db=Depends(get_db)):
     total_users   = await db.users.count_documents({})
     total_cvs     = await db.cvs.count_documents({})
     public_cvs    = await db.cvs.count_documents({"is_public": True})
-    total_ratings = await db.ratings.count_documents({})
-    pipeline      = [{"$group": {"_id": None, "avg": {"$avg": "$score"}}}]
-    avg_result    = await db.ratings.aggregate(pipeline).to_list(1)
-    avg_rating    = avg_result[0]["avg"] if avg_result else None
     total_axiom_jobs = await db.axiom_jobs.count_documents({})
     active_axiom_jobs = await db.axiom_jobs.count_documents({"is_active": True})
     closed_axiom_jobs = await db.axiom_jobs.count_documents({"is_active": False})
@@ -517,8 +512,6 @@ async def get_stats(admin=Depends(require_staff), db=Depends(get_db)):
         "total_users":      total_users,
         "total_cvs":        total_cvs,
         "public_cvs":      public_cvs,
-        "total_ratings":    total_ratings,
-        "avg_rating":      round(avg_rating, 2) if avg_rating else None,
         "total_axiom_jobs": total_axiom_jobs,
         "active_axiom_jobs": active_axiom_jobs,
         "closed_axiom_jobs": closed_axiom_jobs,
@@ -527,22 +520,6 @@ async def get_stats(admin=Depends(require_staff), db=Depends(get_db)):
         "app_status_breakdown": app_status_breakdown,
         "top_categories": top_categories,
     }
-
-
-@router.get("/ratings")
-async def get_ratings(skip: int = 0, limit: int = 50, admin=Depends(require_staff), db=Depends(get_db)):
-    cursor  = db.ratings.find({}).sort("created_at", -1).skip(skip).limit(limit)
-    ratings = await cursor.to_list(limit)
-    return [
-        {
-            "id":         str(r["_id"]),
-            "cv_id":      r["cv_id"],
-            "score":      r["score"],
-            "comment":    r.get("comment"),
-            "created_at": r["created_at"],
-        }
-        for r in ratings
-    ]
 
 
 @router.get("/cvs")

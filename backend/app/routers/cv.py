@@ -5,13 +5,13 @@ from app.middleware.auth import get_current_user
 from app.middleware.validation import valid_object_id
 from app.utils.errors import not_found, forbidden, bad_request, too_large, conflict
 from app.models.schemas import (
+    CVData,
     CVCreate,
     CVUpdate,
     CVHistoryRequest,
     AIPromptRequest,
     AIEditRequest,
     JobMatchRequest,
-    CVRating,
     CVReviewRequest,
     OptimizeBulletsRequest,
     KeywordGapRequest,
@@ -24,6 +24,7 @@ from app.models.schemas import (
     SkillGapResponse,
 )
 from app.services import ai_service
+from app.services.ats_service import simulateATS
 from datetime import datetime, timezone
 from bson import ObjectId
 import pdfplumber
@@ -64,7 +65,6 @@ def serialize_cv(cv: dict) -> dict:
         "slug": cv.get("slug"),
         "created_at": cv["created_at"],
         "updated_at": cv["updated_at"],
-        "rating": cv.get("rating"),
     }
 
 
@@ -145,7 +145,6 @@ async def create_cv(body: CVCreate, current_user=Depends(get_current_user), db=D
         "slug": slug,
         "created_at": now,
         "updated_at": now,
-        "rating": None,
     }
     result = await db.cvs.insert_one(cv_doc)
     cv_doc["_id"] = result.inserted_id
@@ -263,7 +262,6 @@ async def duplicate_cv(cv_id: str, current_user=Depends(get_current_user), db=De
         "slug": None,
         "created_at": now,
         "updated_at": now,
-        "rating": None,
     }
     result = await db.cvs.insert_one(new_doc)
     new_doc["_id"] = result.inserted_id
@@ -519,31 +517,6 @@ async def upload_cv(file: UploadFile = File(...), current_user=Depends(get_curre
     return {"data": extracted}
 
 
-@router.post("/{cv_id}/rate")
-async def rate_cv(body: CVRating, cv_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
-    from bson import ObjectId
-    from pymongo.errors import DuplicateKeyError
-    if not ObjectId.is_valid(cv_id):
-        raise HTTPException(status_code=400, detail="Invalid ID format")
-    cv = await db.cvs.find_one({"_id": ObjectId(cv_id)})
-    if not cv or cv["owner_id"] != str(current_user["_id"]):
-        raise forbidden("Access denied")
-    rating_doc = {
-        "cv_id": cv_id,
-        "rater_id": str(current_user["_id"]),
-        "owner_id": str(current_user["_id"]),
-        "score": body.score,
-        "comment": body.comment,
-        "created_at": datetime.now(timezone.utc),
-    }
-    try:
-        await db.ratings.insert_one(rating_doc)
-    except DuplicateKeyError:
-        raise HTTPException(status_code=409, detail="You have already rated this CV")
-    await db.cvs.update_one({"_id": ObjectId(cv_id)}, {"$set": {"rating": body.score}})
-    return {"message": "Rating saved"}
-
-
 # Skill Gap Engine
 
 @router.post("/ai/skill-gap", response_model=SkillGapResponse)
@@ -561,3 +534,62 @@ async def analyze_skill_gaps(request: Request, body: SkillGapRequest, current_us
         "ts": datetime.now(timezone.utc),
     })
     return SkillGapResponse(**analysis)
+
+
+# ATS Simulation
+
+from pydantic import BaseModel
+
+
+class ATSRequest(BaseModel):
+    cv_data: dict
+    job_description: str | None = None
+
+
+class ATSFlagOut(BaseModel):
+    severity: str
+    category: str
+    message: str
+    details: str | None = None
+
+
+class ATSResultOut(BaseModel):
+    score: int
+    flags: list[ATSFlagOut]
+    extracted_text: str
+    section_headers_found: list[str]
+    keyword_matches: list[str]
+    keyword_density: dict[str, float]
+    missing_keywords: list[str]
+
+
+@router.post("/ai/ats-preview", response_model=ATSResultOut)
+async def ats_preview(request: Request, body: ATSRequest, current_user=Depends(get_current_user)):
+    """Simulate ATS parsing of a CV and return compatibility score with flagged issues."""
+    # Parse CV data
+    cv_data = CVData(**body.cv_data)
+
+    # Run ATS simulation
+    result = simulateATS(
+        cv_data=cv_data,
+        job_description=body.job_description,
+    )
+
+    # Convert to output model
+    return ATSResultOut(
+        score=result.score,
+        flags=[
+            ATSFlagOut(
+                severity=f.severity,
+                category=f.category,
+                message=f.message,
+                details=f.details,
+            )
+            for f in result.flags
+        ],
+        extracted_text=result.extracted_text,
+        section_headers_found=result.section_headers_found,
+        keyword_matches=result.keyword_matches,
+        keyword_density=result.keyword_density,
+        missing_keywords=result.missing_keywords,
+    )

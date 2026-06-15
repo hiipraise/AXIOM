@@ -31,7 +31,6 @@ const BREADCRUMB_TRAIL: BreadcrumbConfig = {
   "/admin/users": "Users",
   "/admin/audit": "Audit Log",
   "/admin/cvs": "CVs",
-  "/admin/ratings": "Ratings",
   "/admin/feedback": "Feedback",
   "/admin/announcements": "Announcements",
   // Dynamic routes - handled via params

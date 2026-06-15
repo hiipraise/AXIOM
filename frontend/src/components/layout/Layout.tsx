@@ -6,7 +6,6 @@ import {
   Settings,
   LayoutDashboard,
   Shield,
-  Compass,
   Menu,
   X,
   Briefcase,
@@ -34,7 +33,6 @@ const NAV = [
   { to: "/interview", label: "Interview Prep", icon: Brain },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/tracker", label: "Tracker", icon: ClipboardList },
-  { to: "/explore", label: "Explore", icon: Compass },
   { to: "/account", label: "Account", icon: Settings },
 ];
 
@@ -197,7 +195,7 @@ function SidebarContent({
             <div className="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
               {user?.username.charAt(0).toUpperCase()}
             </div>
-            <div className="hidden md:flex">
+            <div className="hidden lg:flex">
               <NotificationBell />
             </div>
             <button
@@ -224,7 +222,7 @@ function SidebarContent({
                   </p>
                 </div>
               </div>
-              <div className="hidden md:flex">
+              <div className="hidden lg:flex">
                 <NotificationBell />
               </div>
             </div>
@@ -271,7 +269,7 @@ export default function Layout() {
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       {/* Desktop sidebar */}
       <aside
-        className="hidden md:flex flex-col fixed z-20 bg-white border-r border-ash-border overflow-visible"
+        className="hidden lg:flex flex-col fixed z-20 bg-white border-r border-ash-border overflow-visible"
         style={{
           top: topOffset,
           bottom: 0,
@@ -289,7 +287,7 @@ export default function Layout() {
 
       {/* Mobile top bar */}
       <div
-        className="md:hidden fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between"
+        className="lg:hidden fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-14 flex items-center justify-between"
         style={{
           top: topOffsetMobile,
           transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
@@ -321,7 +319,7 @@ export default function Layout() {
         {mobileOpen && (
           <>
             <motion.div
-              className="md:hidden fixed inset-0 bg-black/40 z-40"
+              className="lg:hidden fixed inset-0 bg-black/40 z-40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -329,7 +327,7 @@ export default function Layout() {
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              className="md:hidden fixed left-0 w-72 bg-white z-50 flex flex-col shadow-xl"
+              className="lg:hidden fixed left-0 w-72 bg-white z-50 flex flex-col shadow-xl"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
@@ -360,7 +358,7 @@ export default function Layout() {
       >
         {/* Desktop: offset for sidebar width */}
         <div
-          className="hidden md:block"
+          className="hidden lg:block"
           style={{
             marginLeft: sidebarW,
             paddingTop: topOffset + 16,
@@ -372,7 +370,7 @@ export default function Layout() {
         </div>
         {/* Mobile: account for banner + top bar + breadcrumb */}
         <div
-          className="md:hidden"
+          className="lg:hidden"
           style={{
             paddingTop: bannerH + 88,
           }}

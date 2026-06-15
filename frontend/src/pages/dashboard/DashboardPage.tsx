@@ -25,7 +25,6 @@ import {
   Trash2,
   Edit,
   Clock,
-  Star,
   Check,
   X,
   PencilLine,
@@ -41,12 +40,14 @@ import {
   Send,
   Map,
   CheckSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/auth";
-import RatingModal from "../../components/cv/RatingModal";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
 import OnboardingWizard from "../../components/OnboardingWizard";
+import clsx from "clsx";
 
 const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
 
@@ -88,7 +89,7 @@ function MetricCard({
   return (
     <div
       ref={cardRef}
-      className="card relative cursor-help"
+      className="card relative cursor-help overflow-hidden"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowTooltip(false)}
       onFocus={handleMouseEnter}
@@ -143,7 +144,6 @@ interface MenuPosition {
 interface KebabMenuProps {
   cv: CV;
   onRename: () => void;
-  onRate: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
   duplicating?: boolean;
@@ -153,7 +153,7 @@ interface KebabMenuProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MENU_ITEM_HEIGHT = 44;
-const MENU_ITEMS = 5;
+const MENU_ITEMS = 4;
 const MENU_ESTIMATED_HEIGHT = MENU_ITEM_HEIGHT * MENU_ITEMS + 8 + 1;
 const VIEWPORT_MARGIN = 8;
 
@@ -162,7 +162,6 @@ const VIEWPORT_MARGIN = 8;
 function KebabMenu({
   cv,
   onRename,
-  onRate,
   onEdit,
   onDuplicate,
   duplicating,
@@ -321,20 +320,6 @@ function KebabMenu({
               role="menuitem"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
               onClick={() => {
-                onRate();
-                closeMenu();
-              }}
-            >
-              <Star
-                size={14}
-                className={cv.rating ? "text-amber-400 fill-amber-400" : ""}
-              />
-              Rate
-            </button>
-            <button
-              role="menuitem"
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-ink hover:bg-ash-dark"
-              onClick={() => {
                 onEdit();
                 closeMenu();
               }}
@@ -382,7 +367,6 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [ratingCV, setRatingCV] = useState<CV | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CV | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
@@ -390,6 +374,7 @@ export default function DashboardPage() {
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
   const [weeklyGoals, setWeeklyGoals] = useState<Record<string, boolean>>({});
   const [skillGapCV, setSkillGapCV] = useState<CV | null>(null);
+  const [carouselIdx, setCarouselIdx] = useState(0);
 
   const { data: cvs = [], isLoading } = useQuery<CV[]>({
     queryKey: ["cvs"],
@@ -450,7 +435,6 @@ export default function DashboardPage() {
       (data?.education?.length || 0) > 0,
       !!data?.target_role,
       !!cv?.is_public,
-      !!cv?.rating && cv.rating >= 4,
     ];
     const profileStrength = Math.round(
       (profileChecks.filter(Boolean).length / profileChecks.length) * 100,
@@ -518,13 +502,7 @@ export default function DashboardPage() {
         action: `/cv/${primaryCv.id}`,
         icon: <Globe size={16} />,
       };
-    } else if (!primaryCv.rating || primaryCv.rating < 4) {
-      suggestedNextAction = {
-        message: "Your CV needs a higher rating — update and rate it again.",
-        action: `/cv/${primaryCv.id}`,
-        icon: <Star size={16} />,
-      };
-    } else if (overdueFollowUps > 0) {
+    }  else if (overdueFollowUps > 0) {
       suggestedNextAction = {
         message: `You have ${overdueFollowUps} overdue follow-up${overdueFollowUps > 1 ? "s" : ""} — check your tracker.`,
         action: "/tracker",
@@ -664,35 +642,91 @@ export default function DashboardPage() {
       <section className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.25fr] lg:items-start">
         {/* Left column */}
         <div className="flex flex-col gap-4">
-          {/* Profile + Interview — single col on mobile, 2-col from sm */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <MetricCard
-              label="Profile strength"
-              icon={<Target size={17} />}
-              value={`${commandCenter.profileStrength}%`}
-              progress={commandCenter.profileStrength}
-              progressColor="bg-amber-500"
-              tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
-            >
-              <p className="mt-2 text-xs text-ink-muted">
-                Based on CV completeness, public profile, targeting, and
-                ratings.
-              </p>
-            </MetricCard>
+          {/* Profile + Interview — carousel on mobile, 2-col from lg */}
+          <div className="relative">
+            {/* Carousel: hide on lg+ where we show both side by side */}
+            <div className="lg:hidden overflow-hidden">
+              <div className="flex transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${carouselIdx * 100}%)` }}>
+                <div className="w-full flex-shrink-0">
+                  <MetricCard
+                    label="Profile strength"
+                    icon={<Target size={17} />}
+                    value={`${commandCenter.profileStrength}%`}
+                    progress={commandCenter.profileStrength}
+                    progressColor="bg-amber-500"
+                    tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
+                  >
+                    <p className="mt-2 text-xs text-ink-muted break-words">
+                      Based on CV completeness, public profile, and, targeting.
+                    </p>
+                  </MetricCard>
+                </div>
+                <div className="w-full flex-shrink-0">
+                  <MetricCard
+                    label="Interview readiness"
+                    icon={<TrendingUp size={17} />}
+                    value={`${commandCenter.interviewReadiness}%`}
+                    progress={commandCenter.interviewReadiness}
+                    progressColor="bg-[#a0449f]"
+                    tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
+                  >
+                    <p className="mt-2 text-xs text-ink-muted break-words">
+                      Practice sessions and interview-stage applications raise this
+                      score.
+                    </p>
+                  </MetricCard>
+                </div>
+              </div>
+              {/* Carousel dots */}
+              <div className="flex justify-center gap-2 mt-3">
+                <button
+                  onClick={() => setCarouselIdx(0)}
+                  className={clsx(
+                    "w-2 h-2 rounded-full transition-colors",
+                    carouselIdx === 0 ? "bg-amber-500" : "bg-ink-20"
+                  )}
+                  aria-label="Show Profile strength"
+                />
+                <button
+                  onClick={() => setCarouselIdx(1)}
+                  className={clsx(
+                    "w-2 h-2 rounded-full transition-colors",
+                    carouselIdx === 1 ? "bg-[#a0449f]" : "bg-ink-20"
+                  )}
+                  aria-label="Show Interview readiness"
+                />
+              </div>
+            </div>
+            {/* lg+: side by side */}
+            <div className="hidden lg:grid grid-cols-2 gap-4">
+              <MetricCard
+                label="Profile strength"
+                icon={<Target size={17} />}
+                value={`${commandCenter.profileStrength}%`}
+                progress={commandCenter.profileStrength}
+                progressColor="bg-amber-500"
+                tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
+              >
+                <p className="mt-2 text-xs text-ink-muted break-words">
+                  Based on CV completeness, public profile, and targeting.
+                </p>
+              </MetricCard>
 
-            <MetricCard
-              label="Interview readiness"
-              icon={<TrendingUp size={17} />}
-              value={`${commandCenter.interviewReadiness}%`}
-              progress={commandCenter.interviewReadiness}
-              progressColor="bg-[#a0449f]"
-              tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
-            >
-              <p className="mt-2 text-xs text-ink-muted">
-                Practice sessions and interview-stage applications raise this
-                score.
-              </p>
-            </MetricCard>
+              <MetricCard
+                label="Interview readiness"
+                icon={<TrendingUp size={17} />}
+                value={`${commandCenter.interviewReadiness}%`}
+                progress={commandCenter.interviewReadiness}
+                progressColor="bg-[#a0449f]"
+                tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
+              >
+                <p className="mt-2 text-xs text-ink-muted break-words">
+                  Practice sessions and interview-stage applications raise this
+                  score.
+                </p>
+              </MetricCard>
+            </div>
           </div>
 
           {/* What to do next */}
@@ -703,11 +737,12 @@ export default function DashboardPage() {
                   size={18}
                   className="text-amber-500 flex-shrink-0 mt-0.5"
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700 font-medium">
                     What to do next
                   </p>
-                  <p className="text-sm text-ink mt-1 leading-snug">
+                  {/* FIX: break-words ensures long action messages wrap instead of clipping */}
+                  <p className="text-sm text-ink mt-1 leading-snug break-words">
                     {commandCenter.suggestedNextAction.message}
                   </p>
                 </div>
@@ -797,8 +832,8 @@ export default function DashboardPage() {
               </p>
 
               {cvs.length > 0 ? (
-                /* Stack vertically on mobile; row on sm+ */
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                /* FIX: min-w-0 on the row prevents the select from causing overflow on mobile */
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center min-w-0">
                   <select
                     value={skillGapCV?.id || ""}
                     onChange={(e) => {
@@ -889,16 +924,25 @@ export default function DashboardPage() {
               <p className="text-xs uppercase tracking-[0.18em] text-ink-muted">
                 Jobs matching your CV
               </p>
-              <h2 className="mt-1 font-display text-lg font-bold text-ink tracking-tight">
+              {/*
+                FIX: matchSeed can be a long unbroken string (e.g. a full job title).
+                line-clamp-2 caps it at 2 lines; break-words forces wrapping on narrow viewports
+                instead of overflowing the card and triggering horizontal scroll.
+              */}
+              <h2 className="mt-1 font-display text-lg font-bold text-ink tracking-tight break-words line-clamp-2">
                 Based on {matchSeed || "your latest CV"}
               </h2>
-              <p className="text-sm text-ink-muted mt-1">
+              {/* FIX: break-words guards against long unbroken description text */}
+              <p className="text-sm text-ink-muted mt-1 break-words">
                 Quick matches pulled from live job sources. Open the board to
                 refine filters or start tracking.
               </p>
             </div>
-            {/* Button pair: stretch to fill on mobile, natural on sm+ */}
-            <div className="flex gap-2 sm:flex-shrink-0">
+            {/*
+              FIX: w-full sm:w-auto ensures the button pair fills the available width on
+              mobile (so neither button gets clipped) while shrinking to natural size on sm+.
+            */}
+            <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">
               <button
                 className="btn-secondary flex-1 sm:flex-none"
                 onClick={() => navigate("/jobs")}
@@ -1026,7 +1070,6 @@ export default function DashboardPage() {
                   <KebabMenu
                     cv={cv}
                     onRename={() => startTitleEdit(cv)}
-                    onRate={() => setRatingCV(cv)}
                     onEdit={() => navigate(`/cv/${cv.id}`)}
                     onDuplicate={() => handleDuplicate(cv.id)}
                     duplicating={duplicatingId === cv.id}
@@ -1056,17 +1099,7 @@ export default function DashboardPage() {
                     </>
                   )}
                 </span>
-                {cv.rating != null && (
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={10}
-                        className="text-amber-400 fill-amber-400"
-                      />
-                    ))}
-                  </div>
-                )}
+                
               </div>
 
               {/* Row 3: meta */}
@@ -1161,33 +1194,12 @@ export default function DashboardPage() {
                   )}
                 </span>
 
-                {cv.rating != null && (
-                  <div className="flex items-center gap-0.5 flex-shrink-0">
-                    {Array.from({ length: cv.rating }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={10}
-                        className="text-amber-400 fill-amber-400"
-                      />
-                    ))}
-                  </div>
-                )}
+                
 
                 <span className="w-px h-3.5 bg-ash-border flex-shrink-0" />
 
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <button
-                    className="btn-ghost p-1.5"
-                    title="Rate"
-                    onClick={() => setRatingCV(cv)}
-                  >
-                    <Star
-                      size={13}
-                      className={
-                        cv.rating ? "text-amber-400 fill-amber-400" : ""
-                      }
-                    />
-                  </button>
+                  
                   <button
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-ink text-white hover:bg-ink-light text-sm"
                     title="Edit"
@@ -1241,15 +1253,6 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Modals ── */}
-      {ratingCV && (
-        <RatingModal
-          cvId={ratingCV.id}
-          cvTitle={ratingCV.title}
-          currentRating={ratingCV.rating}
-          onClose={() => setRatingCV(null)}
-          onSaved={() => qc.invalidateQueries({ queryKey: ["cvs"] })}
-        />
-      )}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete CV?"

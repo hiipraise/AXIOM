@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  Star,
   ChevronLeft,
   Menu,
   X,
@@ -26,7 +25,6 @@ const NAV = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { to: "/admin/cvs", label: "All CVs", icon: FileText },
-  { to: "/admin/ratings", label: "Ratings", icon: Star },
 ];
 
 function SidebarContent({ onNav }: { onNav?: () => void }) {
