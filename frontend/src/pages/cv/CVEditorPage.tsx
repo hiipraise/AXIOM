@@ -92,20 +92,6 @@ import Breadcrumb from "../../components/Breadcrumb";
 import { useCVUndoStore } from "../../store/cvUndo";
 
 // Recommended fill order for progressive disclosure
-const RECOMMENDED_ORDER = [
-  "personal",
-  "targeting",
-  "summary",
-  "experience",
-  "education",
-  "skills",
-  "certifications",
-  "projects",
-  "awards",
-  "languages",
-  "volunteer",
-];
-
 const DEFAULT_SECTIONS = [
   { id: "personal", label: "Personal Info", icon: User },
   { id: "targeting", label: "Targeting", icon: Target },
@@ -883,25 +869,6 @@ export default function CVEditorPage() {
           </div>
 
           {/* Recommended fill order */}
-          <div className="px-3 py-2 border-b border-ash-border bg-ash/30">
-            <div className="text-[10px] font-medium text-ink-muted uppercase tracking-wide mb-1">
-              Suggested Order
-            </div>
-            <div className="flex items-center gap-1 text-[10px] text-ink-muted">
-              {RECOMMENDED_ORDER.slice(0, 3).map((sid, i) => (
-                <React.Fragment key={sid}>
-                  <span className="truncate">
-                    {sectionsMap[sid]?.label || sid}
-                  </span>
-                  {i < 2 && <ArrowRight size={8} />}
-                </React.Fragment>
-              ))}
-              <span className="text-ink-muted/50">
-                +{RECOMMENDED_ORDER.length - 3}
-              </span>
-            </div>
-          </div>
-
           {/* Draggable sections list */}
           <div className="flex-1 overflow-y-auto py-2">
             <DndContext
@@ -917,7 +884,6 @@ export default function CVEditorPage() {
                   const section = sectionsMap[sid];
                   if (!section) return null;
                   const isCompleted = isSectionCompleted(sid, cvData);
-                  const recommendedIdx = RECOMMENDED_ORDER.indexOf(sid);
                   return (
                     <SortableSectionItem
                       key={sid}
@@ -926,7 +892,7 @@ export default function CVEditorPage() {
                       icon={section.icon}
                       isActive={activeSection === sid}
                       isCompleted={isCompleted}
-                      orderIndex={recommendedIdx >= 0 ? recommendedIdx : idx}
+                      orderIndex={idx}
                       onClick={() => setActiveSection(sid)}
                     />
                   );
