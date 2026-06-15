@@ -161,46 +161,37 @@ def _extractPlainText(cv_data: CVData) -> str:
     return " ".join(parts)
 
 
-def _checkSectionHeaders(text: str) -> tuple[list[str], list[ATSFlag]]:
-    """Check for parseable section headers."""
+def _checkSectionHeaders(cv_data: CVData) -> tuple[list[str], list[ATSFlag]]:
+    """Check for populated sections directly from structured CV data."""
     found_headers = []
     flags = []
 
-    # Split text into lines and look for header-like patterns
-    lines = text.split("\n")
-    for line in lines:
-        line_clean = _normalizeHeader(line.strip())
+    section_checks = {
+        "profile":        cv_data.summary,
+        "experience":     any(e.company or e.role for e in (cv_data.experience or [])),
+        "education":      any(e.institution or e.degree for e in (cv_data.education or [])),
+        "skills":         bool(cv_data.skills),
+        "certifications": any(c.name for c in (cv_data.certifications or [])),
+        "projects":       any(p.name for p in (cv_data.projects or [])),
+        "awards":         any(a.title for a in (cv_data.awards or [])),
+        "languages":      any(l.language for l in (cv_data.languages or [])),
+        "volunteer":      any(v.organization for v in (cv_data.volunteer or [])),
+    }
 
-        # Check if line looks like a header (all caps or title case, short)
-        is_header = False
-        matched_header = ""
+    for section, present in section_checks.items():
+        if present:
+            found_headers.append(section)
 
-        if len(line_clean) < 50 and len(line_clean) > 2:
-            # Check against standard headers
-            for header_name, pattern in STANDARD_HEADERS.items():
-                if re.match(pattern, line_clean, re.IGNORECASE):
-                    is_header = True
-                    matched_header = header_name
-                    break
-
-            # Also detect ALL CAPS headers
-            if not is_header and line.isupper() and len(line_clean) > 2:
-                is_header = True
-                matched_header = "custom"
-
-        if is_header and matched_header:
-            if matched_header not in found_headers:
-                found_headers.append(matched_header)
-
-    # Check for missing critical sections
+    # Flag missing critical sections with correct section name in details
     critical_sections = ["experience", "education", "skills"]
     for section in critical_sections:
         if section not in found_headers:
+            label = section.upper()
             flags.append(ATSFlag(
                 severity="warning",
                 category="structure",
-                message=f"Missing '{section.title()}' section header",
-                details="Consider adding a clear section header like 'EXPERIENCE' or 'WORK EXPERIENCE'"
+                message=f"Missing '{section.title()}' section",
+                details=f"Add content to your {section.title()} section — ATS systems expect a clear '{label}' block"
             ))
 
     return found_headers, flags
@@ -347,7 +338,8 @@ def simulateATS(
     extracted_text = _extractPlainText(cv_data)
 
     # Step 2: Check section headers
-    section_headers, header_flags = _checkSectionHeaders(extracted_text)
+    # Step 2: Check section headers
+    section_headers, header_flags = _checkSectionHeaders(cv_data)  # ← cv_data, not extracted_text
     flags.extend(header_flags)
 
     # Step 3: Check keyword density

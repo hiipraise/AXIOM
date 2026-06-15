@@ -138,6 +138,18 @@ async def _create_completion_with_retry(
     raise service_unavailable("AI service unavailable after multiple attempts. Please try again later.")
 
 
+async def _create_completion_async(
+    system_prompt: str,
+    messages: list,
+    max_tokens: int,
+    temperature: float = 0.2,
+) -> str:
+    """
+    Async version that can be awaited directly. Use this from async functions.
+    """
+    return await _create_completion_with_retry(system_prompt, messages, max_tokens, temperature)
+
+
 def _create_completion(
     system_prompt: str,
     messages: list,
@@ -145,9 +157,9 @@ def _create_completion(
     temperature: float = 0.2,
 ) -> str:
     """
-    Synchronous completion wrapper. Runs the async retry logic in an event loop.
+    Synchronous completion wrapper. Uses asyncio.run() to create a fresh event loop.
     """
-    return asyncio.get_event_loop().run_until_complete(
+    return asyncio.run(
         _create_completion_with_retry(system_prompt, messages, max_tokens, temperature)
     )
 
@@ -252,7 +264,7 @@ Current CV:
 
 Return ONLY the updated JSON object matching the exact same schema. No markdown, no explanation."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
@@ -284,7 +296,7 @@ Current CV:
 
 Return ONLY the updated JSON object. No markdown, no explanation."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=3000,
@@ -319,7 +331,7 @@ CV Text:
 
 Return ONLY valid JSON. No markdown, no explanation."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=4000,
@@ -428,7 +440,7 @@ Rules:
 
 Return the updated experience entry as JSON only. Same schema, no extra keys."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=800,
@@ -468,7 +480,7 @@ Return JSON in this exact format:
 Priority levels: high (will fail ATS without it), medium (differentiator), low (nice to have).
 Return ONLY the JSON."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=1000,
@@ -580,7 +592,7 @@ Already asked:
 
 Return JSON only in this exact shape:
 {{"question":"one tailored question"}}"""
-    text = _create_completion(
+    text = await _create_completion_async(
         _interview_context(cv_data, job_description, mode, use_star),
         [{"role": "user", "content": prompt}],
         max_tokens=400,
@@ -613,7 +625,7 @@ Return JSON only in this exact shape:
   "recruiter_takeaway": "one sentence about what a recruiter would infer",
   "suggested_improvement": "one actionable rewrite instruction"
 }}"""
-    text = _create_completion(
+    text = await _create_completion_async(
         _interview_context(cv_data, job_description, mode, use_star),
         [{"role": "user", "content": prompt}],
         max_tokens=800,
@@ -672,7 +684,7 @@ Priority: high (critical for role), medium (accelerator), low (nice-to-have).
 Readiness score: weighted by high > medium > low priority matches.
 Return ONLY the JSON."""
 
-    text = _create_completion(
+    text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
         max_tokens=2000,
@@ -699,7 +711,7 @@ Return JSON only in this exact shape:
   "top_3_improvements": ["specific improvement 1", "specific improvement 2", "specific improvement 3"],
   "summary": "short paragraph"
 }}"""
-    text = _create_completion(
+    text = await _create_completion_async(
         _interview_context(cv_data, job_description, mode, use_star),
         [{"role": "user", "content": prompt}],
         max_tokens=800,

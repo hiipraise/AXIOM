@@ -24,6 +24,12 @@ export default {
           border: '#E2E8F0',
         },
         accent: '#0F172A',
+        axiom: {
+          DEFAULT: '#6366F1',
+          light: '#818CF8',
+          dark: '#4F46E5',
+          muted: '#A5B4FC',
+        },
         success: {
           50: '#ECFDF5',
           100: '#D1FAE5',

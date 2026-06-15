@@ -735,7 +735,7 @@ class ProfileUpdate(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    cv_id: str = Field(..., min_length=24, max_length=24)
+    cv_id: Optional[str] = Field(default=None, min_length=24, max_length=24)
     format: str = Field(default="pdf", pattern=r"^(pdf|html|markdown)$")
     theme: Optional[str] = None
     html: Optional[str] = Field(None, max_length=5_000_000)

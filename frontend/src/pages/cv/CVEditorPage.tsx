@@ -160,7 +160,6 @@ function SortableSectionItem({
       </span>
       <Icon size={13} />
       <span className="flex-1 truncate">{label}</span>
-      {isCompleted && <Check size={12} className="text-emerald-500" />}
     </button>
   );
 }
@@ -528,7 +527,6 @@ export default function CVEditorPage() {
   const triggerAutoSave = useCallback(async () => {
     if (!id || !isDirty) return;
 
-    // If state has drifted back to what's already saved, just clear the flag
     const persisted = persistedDataRef.current;
     if (
       persisted &&
@@ -553,7 +551,6 @@ export default function CVEditorPage() {
         template,
         page_count: pageCount,
       });
-      // Update the persisted snapshot so future diffs are against this save
       persistedDataRef.current = {
         cvData,
         title,
@@ -562,13 +559,16 @@ export default function CVEditorPage() {
         template,
         pageCount,
       };
+      // ✅ Bust the cache so re-entering the editor loads fresh data
+      qc.invalidateQueries({ queryKey: ["cv", id] });
+      qc.invalidateQueries({ queryKey: ["cvs"] });
       setIsDirty(false);
       setAutoSaveStatus("saved");
       setLastSaved(new Date());
     } catch {
       setAutoSaveStatus("idle");
     }
-  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount]);
+  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount, qc]); // ← qc added
 
   // Debounced auto-save on data change
   useEffect(() => {
@@ -805,24 +805,7 @@ export default function CVEditorPage() {
             </button>
           </div>
 
-          {/* Progress bar */}
           <div className="px-3 py-2 border-b border-ash-border">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-ink">Progress</span>
-              <span className="text-xs text-ink-muted">
-                {completedCount}/{sectionOrder.length}
-              </span>
-            </div>
-            <div className="h-1.5 bg-ash-border rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-emerald-500 rounded-full"
-                initial={{ width: 0 }}
-                animate={{
-                  width: `${(completedCount / sectionOrder.length) * 100}%`,
-                }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              />
-            </div>
             {/* Auto-save indicator */}
             <div className="mt-2 text-[10px] flex items-center gap-1">
               {autoSaveStatus === "saving" && (
@@ -868,7 +851,6 @@ export default function CVEditorPage() {
             </div>
           </div>
 
-          {/* Recommended fill order */}
           {/* Draggable sections list */}
           <div className="flex-1 overflow-y-auto py-2">
             <DndContext

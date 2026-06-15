@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -144,8 +144,11 @@ function extractOverallScore(sections: Record<string, string>): number {
     key.startsWith("OVERALL SCORE"),
   );
   if (!match) return 0;
-  const score = parseInt(match.replace(/[^0-9]/g, ""), 10);
-  return Number.isNaN(score) ? 0 : score;
+  const scoreMatch = match.match(/(\d+)\/10/);
+  if (scoreMatch) return parseInt(scoreMatch[1], 10);
+  // fallback: just grab the first standalone number
+  const fallback = match.match(/\b(\d+)\b/);
+  return fallback ? parseInt(fallback[1], 10) : 0;
 }
 
 function renderInlineMarkdown(text: string): React.ReactNode[] {
@@ -420,14 +423,16 @@ function CVAnalyticsPanel({ cvId }: { cvId: string }) {
               Strengthening keywords
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {(data?.present_keyword_trends || []).slice(0, 10).map((trend) => (
-                <span
-                  key={trend.keyword}
-                  className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700"
-                >
-                  {trend.keyword} · {trend.count}x
-                </span>
-              ))}
+              {(data?.present_keyword_trends || [])
+                .slice(0, 10)
+                .map((trend) => (
+                  <span
+                    key={trend.keyword}
+                    className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700"
+                  >
+                    {trend.keyword} · {trend.count}x
+                  </span>
+                ))}
             </div>
           </div>
         </div>
@@ -441,7 +446,12 @@ function CVAnalyticsPanel({ cvId }: { cvId: string }) {
   );
 }
 
-export default function CVReviewPanel({ cvData, cvId, onClose, navigate }: Props) {
+export default function CVReviewPanel({
+  cvData,
+  cvId,
+  onClose,
+  navigate,
+}: Props) {
   const [reviewRaw, setReviewRaw] = useState("");
   const [loading, setLoading] = useState(false);
   const [jd, setJd] = useState(cvData.job_description || "");
@@ -618,15 +628,6 @@ export default function CVReviewPanel({ cvData, cvId, onClose, navigate }: Props
                 <p className="text-xs leading-relaxed">
                   {sections[verdictKey]}
                 </p>
-                {navigate && (
-                  <button
-                    className="mt-3 flex items-center gap-1 text-xs font-medium text-violet-300 hover:text-violet-200"
-                    onClick={() => navigate(`/cv/${cvId}/skill-gap`)}
-                  >
-                    See your skill gaps
-                    <ArrowRight size={12} />
-                  </button>
-                )}
               </div>
             )}
 
