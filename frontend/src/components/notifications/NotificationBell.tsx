@@ -8,7 +8,11 @@ import { useEffect, useRef, useState } from "react";
 export default function NotificationBell() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  const [dropPos, setDropPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const { data = [] } = useQuery({
@@ -25,21 +29,32 @@ export default function NotificationBell() {
   });
 
   const openBell = () => {
-    if (open) { setOpen(false); return; }
+    if (open) {
+      setOpen(false);
+      return;
+    }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const dropW = 288;
-    // Prefer right-aligned to the button; if that overflows viewport, flip left
-    let left = rect.right - dropW;
-    if (left < 8) left = rect.left;
-    // On mobile top-bar the bell is top-right so open downward; 
-    // in sidebar footer open upward so it doesn't clip
+    const vw = window.innerWidth;
+    const dropW = Math.min(288, vw - 16);
+
+    // If there's room to the right of the button (e.g. sidebar bell on desktop),
+    // open rightward. Otherwise right-align the dropdown to the button and clamp.
+    let left: number;
+    if (vw - rect.right >= dropW + 8) {
+      left = rect.right + 4; // open to the right → clears the sidebar
+    } else {
+      left = rect.right - dropW; // right-align to button edge
+      left = Math.max(8, left); // don't overflow left
+      left = Math.min(vw - dropW - 8, left); // don't overflow right
+    }
+
     const spaceBelow = window.innerHeight - rect.bottom;
-    const dropH = 360; // approximate max height
+    const dropH = 360;
     const top = spaceBelow < dropH ? rect.top - dropH - 6 : rect.bottom + 6;
 
-    setDropPos({ top, left });
+    setDropPos({ top, left, width: dropW });
     setOpen(true);
   };
 
@@ -68,7 +83,7 @@ export default function NotificationBell() {
               top: dropPos.top,
               left: dropPos.left,
               zIndex: 9999,
-              width: 288,
+              width: dropPos.width, // ← was hardcoded 288
             }}
             className="rounded-xl border border-ash-border bg-white shadow-xl p-3"
           >
@@ -91,20 +106,26 @@ export default function NotificationBell() {
                     item.read ? "hover:bg-ash" : "bg-ash hover:bg-ash-dark"
                   }`}
                 >
-                  <p className={`text-sm ${item.read ? "text-ink-muted" : "text-ink font-medium"}`}>
+                  <p
+                    className={`text-sm ${item.read ? "text-ink-muted" : "text-ink font-medium"}`}
+                  >
                     {item.title}
                   </p>
                   {item.body && (
-                    <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">{item.body}</p>
+                    <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">
+                      {item.body}
+                    </p>
                   )}
                 </Link>
               ))}
               {!data.length && (
-                <p className="p-4 text-center text-xs text-ink-muted">No notifications yet</p>
+                <p className="p-4 text-center text-xs text-ink-muted">
+                  No notifications yet
+                </p>
               )}
             </div>
           </div>,
-          document.body
+          document.body,
         )
       : null;
 
