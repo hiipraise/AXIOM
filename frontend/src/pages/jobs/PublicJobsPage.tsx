@@ -147,7 +147,10 @@ export default function PublicJobsPage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-5 py-8">
+      <div
+        className="max-w-6xl mx-auto px-5 py-8"
+        style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
+      >
         {/* ── Hero ── */}
         <div className="mb-8 text-center max-w-xl mx-auto">
           <p className="text-xs uppercase tracking-[0.22em] text-ink-muted mb-2">AXIOM Jobs</p>
@@ -165,7 +168,8 @@ export default function PublicJobsPage() {
           )}
         </div>
 
-        {/* ── Category pills ── */}
+        {/* ── Popular searches ── */}
+        <p className="text-xs uppercase tracking-[0.2em] text-ink-muted text-center mb-3">Popular searches</p>
         <div className="flex flex-wrap gap-2 justify-center mb-6">
           {FEATURED_QUERIES.map((q) => (
             <button

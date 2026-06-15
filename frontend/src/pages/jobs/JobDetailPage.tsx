@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAnnouncement } from "../../context/announcement";
 import {
   ArrowLeft,
   Briefcase,
@@ -30,10 +31,13 @@ function stripHtml(raw: string): string {
     .trim();
 }
 
-function JobDetailSkeleton() {
+function JobDetailSkeleton({ bannerH }: { bannerH: number }) {
   return (
     <div className="min-h-screen bg-ash">
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+      <div
+        className="mx-auto max-w-6xl px-4 py-6 lg:py-8"
+        style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
+      >
         <div className="mb-4 h-9 w-28 rounded-lg bg-ash-dark animate-pulse" />
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] items-start">
           <article className="card animate-pulse">
@@ -80,6 +84,7 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const { bannerH } = useAnnouncement();
   const [selectedCvId, setSelectedCvId] = useState("");
   const [coverLetter, setCoverLetter] = useState("");
   const [coverOpen, setCoverOpen] = useState(false);
@@ -202,14 +207,19 @@ export default function JobDetailPage() {
     onError: () => toast.error("Could not tailor CV"),
   });
 
-  if (isLoading) return <JobDetailSkeleton />;
+  if (isLoading) return <JobDetailSkeleton bannerH={bannerH} />;
   if (!job)
     return (
-      <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">
-        <p className="text-sm text-ink">Job not found or expired from cache.</p>
-        <button className="btn-secondary" onClick={() => navigate("/jobs")}>
-          Back to jobs
-        </button>
+      <div className="min-h-screen bg-ash">
+        <div
+          className="flex flex-col items-center justify-center gap-3"
+          style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
+        >
+          <p className="text-sm text-ink">Job not found or expired from cache.</p>
+          <button className="btn-secondary" onClick={() => navigate("/jobs")}>
+            Back to jobs
+          </button>
+        </div>
       </div>
     );
 
@@ -217,7 +227,10 @@ export default function JobDetailPage() {
 
   return (
     <div className="min-h-screen bg-ash">
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+      <div
+        className="mx-auto max-w-6xl px-4 py-6 lg:py-8"
+        style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
+      >
         {/* Back */}
         <button className="btn-ghost mb-4" onClick={() => navigate(-1)}>
           <ArrowLeft size={14} /> Back to jobs

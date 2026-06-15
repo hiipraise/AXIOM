@@ -235,7 +235,13 @@ export default function GuestCVEditorPage() {
     SECTIONS.find((s) => s.id === activeSection)?.label ?? "";
 
   return (
-    <div className="flex h-screen bg-ash overflow-hidden flex-col">
+    <div
+      className="flex h-screen bg-ash overflow-hidden flex-col"
+      style={{
+        paddingTop: bannerH,
+        transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
+      }}
+    >
       {bannerVisible && (
         <SignUpBanner onDismiss={() => setBannerVisible(false)} />
       )}
@@ -402,7 +408,10 @@ export default function GuestCVEditorPage() {
           </div>
 
           {/* Section content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div
+            className="flex-1 overflow-y-auto p-4 sm:p-6"
+            style={{ paddingTop: `calc(0.75rem + ${bannerH}px)` }}
+          >
             <div className="max-w-2xl mx-auto">
               {activeSection === "personal" && (
                 <PersonalInfoSection

@@ -5,8 +5,16 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 const positions = new Map<string, number>();
+function scrollToHash(hash: string) {
+  if (!hash) return;
+  const id = hash.replace(/^#/, "");
+  const el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth" });
+  }
+}
 export function useScrollRestoration() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   // Track scroll position for the current page
   useEffect(() => {
     const save = () => positions.set(pathname, window.scrollY);
@@ -23,4 +31,10 @@ export function useScrollRestoration() {
       window.scrollTo(0, 0);
     }
   }, [pathname]);
+  // Handle hash navigation - scroll to element after route change
+  useEffect(() => {
+    if (hash) {
+      requestAnimationFrame(() => scrollToHash(hash));
+    }
+  }, [pathname, hash]);
 }
