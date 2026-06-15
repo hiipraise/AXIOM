@@ -89,7 +89,7 @@ function MetricCard({
   return (
     <div
       ref={cardRef}
-      className="card relative cursor-help overflow-hidden"
+      className="card relative cursor-help"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowTooltip(false)}
       onFocus={handleMouseEnter}

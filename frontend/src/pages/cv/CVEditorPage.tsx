@@ -64,6 +64,8 @@ import {
   FileText,
   ChevronDown,
   Star,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
@@ -447,6 +449,7 @@ export default function CVEditorPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<
     "idle" | "saving" | "saved"
   >("idle");
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -556,7 +559,7 @@ export default function CVEditorPage() {
 
   // Debounced auto-save on data change
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty || !autoSaveEnabled) return;
     setAutoSaveStatus("idle");
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -569,7 +572,7 @@ export default function CVEditorPage() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [cvData, title, isDirty, triggerAutoSave]);
+  }, [cvData, title, isDirty, triggerAutoSave, autoSaveEnabled]);
 
   // Clear auto-save status after delay
   useEffect(() => {
@@ -672,6 +675,7 @@ export default function CVEditorPage() {
       qc.invalidateQueries({ queryKey: ["cv", id] });
       qc.invalidateQueries({ queryKey: ["cvs"] });
       setIsDirty(false);
+      setLastSaved(new Date());
       toast.success("CV saved");
     } catch {
       toast.error("Failed to save");
@@ -807,8 +811,37 @@ export default function CVEditorPage() {
                   Saved {formatTimeSince(lastSaved)}
                 </span>
               )}
-              {autoSaveStatus === "idle" && !lastSaved && (
-                <span className="text-ink-muted">Auto-save enabled</span>
+              {autoSaveStatus === "idle" && !lastSaved && !autoSaveEnabled && (
+                <span className="text-ink-muted flex items-center gap-1">
+                  <ToggleRight size={14} className="text-ash-border" /> Auto-save off
+                </span>
+              )}
+              {autoSaveStatus === "idle" && !lastSaved && autoSaveEnabled && (
+                <button
+                  onClick={() => setAutoSaveEnabled(false)}
+                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
+                  title="Turn off auto-save"
+                >
+                  <ToggleRight size={14} className="text-emerald-600" /> Auto-save on
+                </button>
+              )}
+              {autoSaveStatus === "idle" && lastSaved && autoSaveEnabled && (
+                <button
+                  onClick={() => setAutoSaveEnabled(false)}
+                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
+                  title="Turn off auto-save"
+                >
+                  <ToggleRight size={14} className="text-emerald-600" /> Auto
+                </button>
+              )}
+              {autoSaveStatus === "idle" && lastSaved && !autoSaveEnabled && (
+                <button
+                  onClick={() => setAutoSaveEnabled(true)}
+                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
+                  title="Turn on auto-save"
+                >
+                  <ToggleLeft size={14} className="text-ash-border" /> Auto
+                </button>
               )}
             </div>
           </div>
