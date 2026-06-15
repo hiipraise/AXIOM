@@ -174,11 +174,7 @@ function SortableSectionItem({
       </span>
       <Icon size={13} />
       <span className="flex-1 truncate">{label}</span>
-      {isCompleted ? (
-        <Check size={12} className="text-emerald-500" />
-      ) : (
-        <span className="text-[10px] text-ink-muted">{orderIndex + 1}</span>
-      )}
+      {isCompleted && <Check size={12} className="text-emerald-500" />}
     </button>
   );
 }
@@ -452,6 +448,14 @@ export default function CVEditorPage() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistedDataRef = useRef<{
+    cvData: CVData;
+    title: string;
+    isPublic: boolean;
+    theme: string;
+    template: string;
+    pageCount: number;
+  } | null>(null);
 
   const { bannerH } = useAnnouncement();
 
@@ -534,8 +538,25 @@ export default function CVEditorPage() {
   }, []);
 
   // Auto-save function
+  // Update triggerAutoSave to bail out if nothing actually changed
   const triggerAutoSave = useCallback(async () => {
     if (!id || !isDirty) return;
+
+    // If state has drifted back to what's already saved, just clear the flag
+    const persisted = persistedDataRef.current;
+    if (
+      persisted &&
+      JSON.stringify(cvData) === JSON.stringify(persisted.cvData) &&
+      title === persisted.title &&
+      isPublic === persisted.isPublic &&
+      theme === persisted.theme &&
+      template === persisted.template &&
+      pageCount === persisted.pageCount
+    ) {
+      setIsDirty(false);
+      return;
+    }
+
     setAutoSaveStatus("saving");
     try {
       await cvApi.update(id, {
@@ -546,16 +567,22 @@ export default function CVEditorPage() {
         template,
         page_count: pageCount,
       });
+      // Update the persisted snapshot so future diffs are against this save
+      persistedDataRef.current = {
+        cvData,
+        title,
+        isPublic,
+        theme,
+        template,
+        pageCount,
+      };
       setIsDirty(false);
       setAutoSaveStatus("saved");
       setLastSaved(new Date());
-      // Skip query invalidation on auto-save - it causes a refetch that can overwrite
-      // the current state and create a confusing UX. Invalidation happens on
-      // manual save or page navigation instead.
     } catch {
       setAutoSaveStatus("idle");
     }
-  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount, qc]);
+  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount]);
 
   // Debounced auto-save on data change
   useEffect(() => {
@@ -610,14 +637,25 @@ export default function CVEditorPage() {
 
   // Load CV data and set initial section to first incomplete
   // Effect 1: load data ONLY when cv first arrives from the server
+  // Update the load effect to seed the ref
   useEffect(() => {
     if (cv) {
-      setCvData(normalizeCVData(cv.data));
+      const normalized = normalizeCVData(cv.data);
+      setCvData(normalized);
       setTitle(cv.title);
       setIsPublic(cv.is_public);
       setTheme(cv.theme);
       setTemplate(cv.template || "standard");
       setPageCount(cv.page_count);
+      // Seed persisted snapshot so we can diff against it
+      persistedDataRef.current = {
+        cvData: normalized,
+        title: cv.title,
+        isPublic: cv.is_public,
+        theme: cv.theme,
+        template: cv.template || "standard",
+        pageCount: cv.page_count,
+      };
     }
   }, [cv]); // ← cv only, NOT firstIncompleteSection
 
@@ -677,6 +715,15 @@ export default function CVEditorPage() {
         template,
         page_count: pageCount,
       });
+      // Keep persisted snapshot in sync
+      persistedDataRef.current = {
+        cvData,
+        title,
+        isPublic,
+        theme,
+        template,
+        pageCount,
+      };
       qc.invalidateQueries({ queryKey: ["cv", id] });
       qc.invalidateQueries({ queryKey: ["cvs"] });
       setIsDirty(false);
