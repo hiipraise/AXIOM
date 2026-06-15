@@ -609,6 +609,7 @@ export default function CVEditorPage() {
   });
 
   // Load CV data and set initial section to first incomplete
+  // Effect 1: load data ONLY when cv first arrives from the server
   useEffect(() => {
     if (cv) {
       setCvData(normalizeCVData(cv.data));
@@ -617,12 +618,16 @@ export default function CVEditorPage() {
       setTheme(cv.theme);
       setTemplate(cv.template || "standard");
       setPageCount(cv.page_count);
-      // Auto-highlight first incomplete section on load
-      if (firstIncompleteSection) {
-        setActiveSection(firstIncompleteSection);
-      }
     }
-  }, [cv, firstIncompleteSection]);
+  }, [cv]); // ← cv only, NOT firstIncompleteSection
+
+  // Effect 2: set the initial active section ONCE when the CV id loads
+  useEffect(() => {
+    if (cv && firstIncompleteSection) {
+      setActiveSection(firstIncompleteSection);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cv?.id]); // ← keyed on id so it only fires on first load, not on every edit
 
   // Clear undo stack when loading a new CV
   useEffect(() => {
@@ -811,36 +816,20 @@ export default function CVEditorPage() {
                   Saved {formatTimeSince(lastSaved)}
                 </span>
               )}
-              {autoSaveStatus === "idle" && !lastSaved && !autoSaveEnabled && (
-                <span className="text-ink-muted flex items-center gap-1">
-                  <ToggleRight size={14} className="text-ash-border" /> Auto-save off
-                </span>
-              )}
-              {autoSaveStatus === "idle" && !lastSaved && autoSaveEnabled && (
+              {autoSaveStatus === "idle" && (
                 <button
-                  onClick={() => setAutoSaveEnabled(false)}
-                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
-                  title="Turn off auto-save"
+                  onClick={() => setAutoSaveEnabled((v) => !v)}
+                  className="flex items-center gap-1 hover:text-ink transition-colors ml-1"
+                  title={
+                    autoSaveEnabled ? "Turn off auto-save" : "Turn on auto-save"
+                  }
                 >
-                  <ToggleRight size={14} className="text-emerald-600" /> Auto-save on
-                </button>
-              )}
-              {autoSaveStatus === "idle" && lastSaved && autoSaveEnabled && (
-                <button
-                  onClick={() => setAutoSaveEnabled(false)}
-                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
-                  title="Turn off auto-save"
-                >
-                  <ToggleRight size={14} className="text-emerald-600" /> Auto
-                </button>
-              )}
-              {autoSaveStatus === "idle" && lastSaved && !autoSaveEnabled && (
-                <button
-                  onClick={() => setAutoSaveEnabled(true)}
-                  className="flex items-center gap-1 hover:text-ink-primary transition-colors"
-                  title="Turn on auto-save"
-                >
-                  <ToggleLeft size={14} className="text-ash-border" /> Auto
+                  {autoSaveEnabled ? (
+                    <ToggleRight size={14} className="text-emerald-600" />
+                  ) : (
+                    <ToggleLeft size={14} className="text-ash-border" />
+                  )}
+                  Auto
                 </button>
               )}
             </div>
