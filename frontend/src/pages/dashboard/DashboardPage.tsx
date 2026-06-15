@@ -94,6 +94,7 @@ function MetricCard({
       onMouseLeave={() => setShowTooltip(false)}
       onFocus={handleMouseEnter}
       onBlur={() => setShowTooltip(false)}
+      onClick={() => setShowTooltip((v) => !v)}
       tabIndex={0}
       role="button"
       aria-label={`${label}: ${value}. ${tooltip}`}
@@ -502,7 +503,7 @@ export default function DashboardPage() {
         action: `/cv/${primaryCv.id}`,
         icon: <Globe size={16} />,
       };
-    }  else if (overdueFollowUps > 0) {
+    } else if (overdueFollowUps > 0) {
       suggestedNextAction = {
         message: `You have ${overdueFollowUps} overdue follow-up${overdueFollowUps > 1 ? "s" : ""} — check your tracker.`,
         action: "/tracker",
@@ -612,6 +613,7 @@ export default function DashboardPage() {
     });
 
   const showOnboarding = user?.is_first_login;
+  const touchStartX = useRef<number>(0);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto overflow-x-hidden">
@@ -645,9 +647,21 @@ export default function DashboardPage() {
           {/* Profile + Interview — carousel on mobile, 2-col from lg */}
           <div className="relative">
             {/* Carousel: hide on lg+ where we show both side by side */}
-            <div className="lg:hidden overflow-hidden">
-              <div className="flex transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(-${carouselIdx * 100}%)` }}>
+            <div
+              className="lg:hidden overflow-hidden"
+              onTouchStart={(e) => {
+                touchStartX.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={(e) => {
+                const delta = touchStartX.current - e.changedTouches[0].clientX;
+                if (delta > 40) setCarouselIdx(1); // swipe left → next
+                if (delta < -40) setCarouselIdx(0); // swipe right → prev
+              }}
+            >
+              <div
+                className="flex transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${carouselIdx * 100}%)` }}
+              >
                 <div className="w-full flex-shrink-0">
                   <MetricCard
                     label="Profile strength"
@@ -672,8 +686,8 @@ export default function DashboardPage() {
                     tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
                   >
                     <p className="mt-2 text-xs text-ink-muted break-words">
-                      Practice sessions and interview-stage applications raise this
-                      score.
+                      Practice sessions and interview-stage applications raise
+                      this score.
                     </p>
                   </MetricCard>
                 </div>
@@ -684,7 +698,7 @@ export default function DashboardPage() {
                   onClick={() => setCarouselIdx(0)}
                   className={clsx(
                     "w-2 h-2 rounded-full transition-colors",
-                    carouselIdx === 0 ? "bg-amber-500" : "bg-ink-20"
+                    carouselIdx === 0 ? "bg-amber-500" : "bg-ink-20",
                   )}
                   aria-label="Show Profile strength"
                 />
@@ -692,7 +706,7 @@ export default function DashboardPage() {
                   onClick={() => setCarouselIdx(1)}
                   className={clsx(
                     "w-2 h-2 rounded-full transition-colors",
-                    carouselIdx === 1 ? "bg-[#a0449f]" : "bg-ink-20"
+                    carouselIdx === 1 ? "bg-[#a0449f]" : "bg-ink-20",
                   )}
                   aria-label="Show Interview readiness"
                 />
@@ -782,6 +796,7 @@ export default function DashboardPage() {
               <label
                 key={goal}
                 className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm cursor-pointer select-none"
+                onClick={(e) => e.stopPropagation()}
               >
                 <span
                   className={
@@ -1099,7 +1114,6 @@ export default function DashboardPage() {
                     </>
                   )}
                 </span>
-                
               </div>
 
               {/* Row 3: meta */}
@@ -1194,12 +1208,9 @@ export default function DashboardPage() {
                   )}
                 </span>
 
-                
-
                 <span className="w-px h-3.5 bg-ash-border flex-shrink-0" />
 
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  
                   <button
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-ink text-white hover:bg-ink-light text-sm"
                     title="Edit"

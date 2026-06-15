@@ -1242,28 +1242,49 @@ export default function CVEditorPage() {
           </div>
         )}
         {/* Mobile AI panel */}
-        {showAI && (
-          <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-ash-border">
-              <span className="font-semibold text-sm text-ink">AI Assist</span>
-              <button onClick={() => setShowAI(false)}>
-                <X size={16} className="text-ink-muted" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <AIAssistPanel
-                cvData={cvData}
-                onApply={(d) => {
-                  pushUndo(cvData);
-                  setPendingAIDiff({ before: cvData, after: d });
-                  setShowAI(false);
-                }}
-                onClose={() => setShowAI(false)}
-                cvId={id!}
+        {/* Mobile AI panel — bottom sheet */}
+        <AnimatePresence>
+          {showAI && (
+            <>
+              <motion.div
+                className="fixed inset-0 bg-black/40 z-40 md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={() => setShowAI(false)}
               />
-            </div>
-          </div>
-        )}
+              <motion.div
+                className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[85vh]"
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border flex-shrink-0">
+                  <span className="font-semibold text-sm text-ink">
+                    AI Assist
+                  </span>
+                  <button onClick={() => setShowAI(false)}>
+                    <X size={16} className="text-ink-muted" />
+                  </button>
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  <AIAssistPanel
+                    cvData={cvData}
+                    onApply={(d) => {
+                      pushUndo(cvData);
+                      setPendingAIDiff({ before: cvData, after: d });
+                      setShowAI(false);
+                    }}
+                    onClose={() => setShowAI(false)}
+                    cvId={id!}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Desktop Skill Gap panel */}
         {showSkillGap && (
@@ -1276,17 +1297,35 @@ export default function CVEditorPage() {
           </div>
         )}
         {/* Mobile Skill Gap panel */}
-        {showSkillGap && (
-          <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
-            <div className="flex-1 overflow-hidden">
-              <SkillGapEngine
-                cvData={cvData}
-                onClose={() => setShowSkillGap(false)}
-                cvId={id!}
+        <AnimatePresence>
+          {showSkillGap && (
+            <>
+              <motion.div
+                className="fixed inset-0 bg-black/40 z-40 md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={() => setShowSkillGap(false)}
               />
-            </div>
-          </div>
-        )}
+              <motion.div
+                className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[85vh]"
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                <div className="flex-1 flex flex-col min-h-0">
+                  <SkillGapEngine
+                    cvData={cvData}
+                    onClose={() => setShowSkillGap(false)}
+                    cvId={id!}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showDrawer && (

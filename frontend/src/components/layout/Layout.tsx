@@ -217,9 +217,11 @@ function SidebarContent({
                   <p className="text-xs font-medium text-ink truncate">
                     {user?.username}
                   </p>
-                  <p className="text-[10px] text-ink-muted capitalize">
-                    {user?.role}
-                  </p>
+                  {user?.role !== "user" && (
+                    <p className="text-[10px] text-ink-muted capitalize">
+                      {user?.role}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="hidden lg:flex">
@@ -353,9 +355,7 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main
-        className="flex-1 min-h-screen"
-      >
+      <main className="flex-1 min-h-screen">
         {/* Desktop: offset for sidebar width */}
         <div
           className="hidden lg:block"
