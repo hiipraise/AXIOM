@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { Outlet, NavLink, useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import {
+  Outlet,
+  NavLink,
+  useNavigate,
+  Link,
+  useLocation,
+} from "react-router-dom";
 import {
   Plus,
   LogOut,
@@ -261,6 +267,12 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { bannerH } = useAnnouncement();
+
+  const location = useLocation();
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const sidebarW = collapsed ? COLLAPSED_W : SIDEBAR_W;
   const topOffset = bannerH + BREADCRUMB_H;
