@@ -130,110 +130,108 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ErrorBoundary>
-      <LazyRoute>
-        <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot" element={<ForgotPage />} />
-          <Route path="/guest" element={<GuestCVEditorPage />} />
-          <Route path="/jobs/explore" element={<PublicJobsPage />} />
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot" element={<ForgotPage />} />
+        <Route path="/guest" element={<GuestCVEditorPage />} />
+        <Route path="/jobs/explore" element={<PublicJobsPage />} />
+        <Route
+          path="/jobs/axiom"
+          element={<Navigate to="/jobs?source=axiom" replace />}
+        />
+        <Route path="/jobs/axiom/:id" element={<AxiomJobDetailPage />} />
+        <Route path="/jobs" element={<JobBoardPage />} />
+        <Route path="/jobs/:id" element={<JobDetailPage />} />
+        <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
+        <Route path="/profile/:username" element={<PublicProfilePage />} />
+        <Route path="/company/:slug" element={<CompanyPublicPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/why-axiom" element={<WhyAxiomPage />} />
+        <Route path="/terms-privacy" element={<LegalPage />} />
+        <Route path="/recruiter/help" element={<RecruiterHelpPage />} />
+        <Route path="/cv/print/:id" element={<CVPrintPage />} />
+        <Route path="/cv/print" element={<CVPrintPage />} />
+
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="cv/new" element={<CVNewPage />} />
+          <Route path="tracker" element={<ApplicationTrackerPage />} />
+          <Route path="recruiter" element={<RecruiterDashboard />} />
           <Route
-            path="/jobs/axiom"
-            element={<Navigate to="/jobs?source=axiom" replace />}
+            path="recruiter/register"
+            element={<RecruiterRegisterPage />}
           />
-          <Route path="/jobs/axiom/:id" element={<AxiomJobDetailPage />} />
-          <Route path="/jobs" element={<JobBoardPage />} />
-          <Route path="/jobs/:id" element={<JobDetailPage />} />
-          <Route path="/cv/:username/:slug" element={<PublicCVPage />} />
-          <Route path="/profile/:username" element={<PublicProfilePage />} />
-          <Route path="/company/:slug" element={<CompanyPublicPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/why-axiom" element={<WhyAxiomPage />} />
-          <Route path="/terms-privacy" element={<LegalPage />} />
-          <Route path="/recruiter/help" element={<RecruiterHelpPage />} />
-
-          {/* Print route — bare page, no layout, no auth required for public CVs */}
-          <Route path="/cv/print/:id" element={<CVPrintPage />} />
-          <Route path="/cv/print" element={<CVPrintPage />} />
-
+          <Route path="recruiter/profile" element={<CompanyProfilePage />} />
           <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="cv/new" element={<CVNewPage />} />
-            <Route path="tracker" element={<ApplicationTrackerPage />} />
-            <Route path="recruiter" element={<RecruiterDashboard />} />
-            <Route
-              path="recruiter/register"
-              element={<RecruiterRegisterPage />}
-            />
-            <Route path="recruiter/profile" element={<CompanyProfilePage />} />
-            <Route
-              path="recruiter/applications"
-              element={<RecruiterApplicationsPage />}
-            />
-            <Route
-              path="recruiter/talent-pools"
-              element={<TalentPoolsPage />}
-            />
-            <Route path="jobs/axiom/new" element={<CreateJobPage />} />
-            <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
-            <Route path="interview" element={<InterviewStartPage />} />
-            <Route
-              path="interview/:sessionId"
-              element={<InterviewSessionPage />}
-            />
-            <Route
-              path="interview/:sessionId/review"
-              element={<InterviewReviewPage />}
-            />
-            <Route
-              path="interview/live/:sessionId/lobby"
-              element={<LiveInterviewLobbyPage />}
-            />
-            <Route
-              path="interview/live/:sessionId"
-              element={<LiveInterviewPage />}
-            />
-            <Route path="account" element={<AccountPage />} />
-          </Route>
-
+            path="recruiter/applications"
+            element={<RecruiterApplicationsPage />}
+          />
+          <Route path="recruiter/talent-pools" element={<TalentPoolsPage />} />
+          <Route path="jobs/axiom/new" element={<CreateJobPage />} />
+          <Route path="jobs/axiom/:id/edit" element={<EditJobPage />} />
+          <Route path="interview" element={<InterviewStartPage />} />
           <Route
-            path="/cv/:id"
-            element={
-              <ProtectedRoute>
+            path="interview/:sessionId"
+            element={<InterviewSessionPage />}
+          />
+          <Route
+            path="interview/:sessionId/review"
+            element={<InterviewReviewPage />}
+          />
+          <Route
+            path="interview/live/:sessionId/lobby"
+            element={<LiveInterviewLobbyPage />}
+          />
+          <Route
+            path="interview/live/:sessionId"
+            element={<LiveInterviewPage />}
+          />
+          <Route path="account" element={<AccountPage />} />
+        </Route>
+
+        {/* These two are standalone — need their own Suspense */}
+        <Route
+          path="/cv/:id"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={null}>
                 <CVEditorPage />
-              </ProtectedRoute>
-            }
-          />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
 
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Suspense fallback={null}>
                 <AdminLayout />
-              </AdminRoute>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="analytics" element={<AdminAnalytics />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="audit" element={<AdminAuditLog />} />
-            <Route path="cvs" element={<AdminCVs />} />
-            <Route path="feedback" element={<AdminFeedback />} />
-            <Route path="announcements" element={<AdminAnnouncements />} />
-          </Route>
+              </Suspense>
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="audit" element={<AdminAuditLog />} />
+          <Route path="cvs" element={<AdminCVs />} />
+          <Route path="feedback" element={<AdminFeedback />} />
+          <Route path="announcements" element={<AdminAnnouncements />} />
+        </Route>
 
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </LazyRoute>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </ErrorBoundary>
   );
 }

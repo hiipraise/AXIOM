@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   Outlet,
   NavLink,
@@ -378,17 +378,16 @@ export default function Layout() {
           }}
         >
           <Breadcrumb />
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </div>
         {/* Mobile: account for banner + top bar + breadcrumb */}
-        <div
-          className="lg:hidden"
-          style={{
-            paddingTop: bannerH + 88,
-          }}
-        >
+        <div className="lg:hidden" style={{ paddingTop: bannerH + 88 }}>
           <Breadcrumb />
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

@@ -143,14 +143,12 @@ export default function AdminLayout() {
       <main
         className="flex-1 md:ml-52 overflow-auto"
         style={{
-          paddingTop: bannerH + 48,
+          paddingTop: bannerH + 16,
           transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        <div className="md:-mt-12">
-          <Breadcrumb />
-          <Outlet />
-        </div>
+        <Breadcrumb />
+        <Outlet />
       </main>
     </div>
   );
