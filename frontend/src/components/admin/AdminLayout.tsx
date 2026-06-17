@@ -85,7 +85,7 @@ export default function AdminLayout() {
 
       {/* Desktop container */}
       <div
-        className="hidden md:block min-h-screen bg-ash flex"
+        className="hidden min-h-screen bg-ash md:flex"
         style={{
           paddingTop: topOffset,
           transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
