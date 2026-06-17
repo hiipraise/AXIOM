@@ -163,8 +163,8 @@ function SidebarContent({
               "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
               collapsed ? "justify-center px-2" : "",
               isActive
-                ? "bg-purple-600 text-white"
-                : "text-white bg-[#a0449f] hover:text-white hover:bg-purple-600",
+                ? "bg-[#8d3f8c] text-white"
+                : "text-white bg-[#a0449f] hover:text-white hover:bg-[#8d3f8c]",
             )
           }
           title={collapsed ? "Recruiter" : undefined}
