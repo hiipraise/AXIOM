@@ -332,3 +332,136 @@ async def delete_saved_candidate(saved_id: str, current_user=Depends(get_current
     if not result.deleted_count:
         raise HTTPException(status_code=404, detail="Saved candidate not found")
     return {"message": "Candidate removed"}
+
+
+# Interview Results for Recruiters
+
+@router.get("/candidates/{candidate_id}/interviews")
+async def get_candidate_interviews(
+    candidate_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get all interview sessions for a candidate (for recruiter view)."""
+    _require_recruiter(current_user)
+
+    # The candidate_id is actually a user ID - get candidate info
+    candidate = await db.users.find_one({"_id": _oid(candidate_id)})
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    # Find all completed interview sessions for this user
+    cursor = db.interview_sessions.find({
+        "user_id": candidate_id,
+        "status": "completed",
+    }).sort("created_at", -1)
+    sessions = await cursor.to_list(50)
+
+    result = []
+    for session in sessions:
+        result.append({
+            "session_id": str(session["_id"]),
+            "job_title": session.get("job_title", "Unknown role"),
+            "company": session.get("company", "Unknown company"),
+            "mode": session.get("mode", "behavioural"),
+            "question_count": session.get("question_count", 0),
+            "overall_score": session.get("overall_score"),
+            "summary": session.get("summary"),
+            "created_at": session.get("created_at"),
+        })
+
+    return {"candidate_id": candidate_id, "candidate_name": candidate.get("name", ""), "sessions": result}
+
+
+@router.get("/candidates/{candidate_id}/interviews/{session_id}")
+async def get_interview_session_detail(
+    candidate_id: str,
+    session_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Get detailed interview session with questions, answers, and feedback."""
+    _require_recruiter(current_user)
+
+    # Get session
+    session = await db.interview_sessions.find_one({"_id": _oid(session_id), "user_id": candidate_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+
+    # Get all messages with answers
+    cursor = db.interview_messages.find({"session_id": session_id}).sort("created_at", 1)
+    messages = await cursor.to_list(50)
+
+    # Get candidate info
+    candidate = await db.users.find_one({"_id": _oid(candidate_id)})
+
+    return {
+        "session_id": str(session["_id"]),
+        "candidate_id": candidate_id,
+        "candidate_name": candidate.get("name", "") if candidate else "",
+        "job_title": session.get("job_title", ""),
+        "company": session.get("company", ""),
+        "mode": session.get("mode", "behavioural"),
+        "status": session.get("status"),
+        "overall_score": session.get("overall_score"),
+        "summary": session.get("summary"),
+        "created_at": session.get("created_at"),
+        "messages": [
+            {
+                "id": str(msg["_id"]),
+                "question": msg.get("question", ""),
+                "answer": msg.get("answer", ""),
+                "feedback": msg.get("feedback"),
+                "score": msg.get("score"),
+            }
+            for msg in messages
+            if msg.get("answer")
+        ],
+    }
+
+
+# List all candidates who have completed interviews
+
+@router.get("/interview-candidates")
+async def list_interview_candidates(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+    limit: int = 20,
+    skip: int = 0,
+):
+    """List candidates who have completed mock interviews."""
+    _require_recruiter(current_user)
+
+    # Find unique users who have completed interview sessions
+    pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {"_id": "$user_id", "session_count": {"$sum": 1}, "latest": {"$max": "$created_at"}}},
+        {"$sort": {"latest": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+    ]
+
+    cursor = db.interview_sessions.aggregate(pipeline)
+    results = await cursor.to_list(limit)
+
+    candidates = []
+    for r in results:
+        user = await db.users.find_one({"_id": _oid(r["_id"])})
+        if user:
+            # Get their latest interview summary
+            latest_session = await db.interview_sessions.find_one(
+                {"user_id": r["_id"], "status": "completed"},
+                sort=[("created_at", -1)]
+            )
+            candidates.append({
+                "candidate_id": str(r["_id"]),
+                "name": user.get("name", ""),
+                "email": user.get("email", ""),
+                "session_count": r["session_count"],
+                "latest_job_title": latest_session.get("job_title", "") if latest_session else "",
+                "latest_company": latest_session.get("company", "") if latest_session else "",
+                "latest_score": latest_session.get("overall_score") if latest_session else None,
+                "latest_date": latest_session.get("created_at") if latest_session else None,
+            })
+
+    return {"candidates": candidates}

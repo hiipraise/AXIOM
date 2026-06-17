@@ -98,7 +98,9 @@ export interface CVData {
   volunteer: VolunteerItem[];
   job_description: string;
   career_level: string;
+  career_level_custom?: string;
   industry: string;
+  industry_custom?: string;
   target_role: string;
 }
 
@@ -140,7 +142,9 @@ export const EMPTY_CV_DATA: CVData = {
   volunteer: [],
   job_description: "",
   career_level: "",
+  career_level_custom: "",
   industry: "",
+  industry_custom: "",
   target_role: "",
 };
 
@@ -352,6 +356,53 @@ export interface AxiomApplication {
   created_at: string;
   updated_at: string;
   job?: AxiomJob | null;
+}
+
+// Interview candidate types for recruiters
+export interface InterviewCandidate {
+  candidate_id: string;
+  name: string;
+  email: string;
+  session_count: number;
+  latest_job_title: string;
+  latest_company: string;
+  latest_score: number | null;
+  latest_date: string | null;
+}
+
+export interface CandidateInterviewSessions {
+  candidate_id: string;
+  candidate_name: string;
+  sessions: {
+    session_id: string;
+    job_title: string;
+    company: string;
+    mode: string;
+    question_count: number;
+    overall_score: number | null;
+    summary: string | null;
+    created_at: string;
+  }[];
+}
+
+export interface RecruiterInterviewDetail {
+  session_id: string;
+  candidate_id: string;
+  candidate_name: string;
+  job_title: string;
+  company: string;
+  mode: string;
+  status: string;
+  overall_score: number | null;
+  summary: string | null;
+  created_at: string;
+  messages: Array<{
+    id: string;
+    question: string;
+    answer: string;
+    feedback?: InterviewFeedback | null;
+    score?: { clarity: number; specificity: number; evidence: number; length: number } | null;
+  }>;
 }
 
 export interface LiveInterviewSession {

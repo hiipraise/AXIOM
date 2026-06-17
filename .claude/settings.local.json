@@ -18,7 +18,10 @@
       "Bash(pip install passlib python-jose python-multipart -q)",
       "Bash(npx eslint src/pages/dashboard/DashboardPage.tsx src/store/auth.ts src/api/index.ts src/types/index.ts)",
       "Bash(node -e \"console.log\\(''syntax ok''\\)\")",
-      "Bash(python -c \"from app.services.docx_export import generate_docx, generate_plain_text; print\\(''OK''\\)\")"
+      "Bash(python -c \"from app.services.docx_export import generate_docx, generate_plain_text; print\\(''OK''\\)\")",
+      "Bash(ls backend/app/routers/interview*.py)",
+      "Bash(python -c \"exec\\(open\\(''app/routers/interview.py''\\).read\\(\\).replace\\(''from __future__ import annotations'', ''''\\)\\)\")",
+      "Bash(npx tsc --noEmit --skipLibCheck src/pages/dashboard/DashboardPage.tsx)"
     ]
   }
 }

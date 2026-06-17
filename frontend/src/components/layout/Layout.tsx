@@ -163,8 +163,8 @@ function SidebarContent({
               "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
               collapsed ? "justify-center px-2" : "",
               isActive
-                ? "bg-ink text-white"
-                : "text-ink-muted hover:bg-ash hover:text-ink",
+                ? "bg-purple-600 text-white"
+                : "text-white bg-[#a0449f] hover:text-white hover:bg-purple-600",
             )
           }
           title={collapsed ? "Recruiter" : undefined}
@@ -181,8 +181,8 @@ function SidebarContent({
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
                 collapsed ? "justify-center px-2" : "",
                 isActive
-                  ? "bg-ink text-white"
-                  : "text-ink-muted hover:bg-ash hover:text-ink",
+                  ? "bg-amber-500 text-white"
+                  : "text-white bg-amber-400 hover:text-white hover:bg-amber-500",
               )
             }
             title={collapsed ? "Admin" : undefined}

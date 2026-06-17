@@ -98,6 +98,7 @@ export default function Navbar() {
             </div>
             <Link to="/#how-it-works" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">How it works</Link>
             <Link to="/why-axiom" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">Why AXIOM</Link>
+            <Link to="/recruiter" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">For Recruiters</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
@@ -143,6 +144,7 @@ export default function Navbar() {
                 <Link to="/#how-it-works" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">How it works</Link>
                 <Link to="/about" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">About</Link>
                 <Link to="/why-axiom" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Why AXIOM</Link>
+                <Link to="/recruiter" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">For Recruiters</Link>
                 <Link to="/recruiter/help" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Recruiter help</Link>
                 <Link to="/jobs/explore" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Browse jobs</Link>
               </div>

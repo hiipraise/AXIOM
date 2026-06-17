@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { interviewApi } from "../../api";
 import { InterviewFeedback, InterviewSessionDetail } from "../../types";
 import QuestionPlayer from "../../components/interview/QuestionPlayer";
+import SelfRecordingPanel from "../../components/interview/SelfRecordingPanel";
 import VoiceCapturePanel from "../../components/interview/VoiceCapturePanel";
 import VoiceModeToggle from "../../components/interview/VoiceModeToggle";
 
@@ -39,6 +40,8 @@ export default function InterviewSessionPage() {
   const qc = useQueryClient();
   const [answer, setAnswer] = useState("");
   const [voiceMode, setVoiceMode] = useState(() => localStorage.getItem("axiom_voice_mode") === "true");
+  const [recordMode, setRecordMode] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
   const { data: session, isLoading } = useQuery<InterviewSessionDetail>({
     queryKey: ["interview-session", sessionId],
@@ -52,7 +55,15 @@ export default function InterviewSessionPage() {
   );
 
   const answerMutation = useMutation({
-    mutationFn: () => interviewApi.answer(sessionId, answer.trim()),
+    mutationFn: async () => {
+      // Upload recording first if exists
+      if (recordedBlob) {
+        const file = new File([recordedBlob], "interview-recording.webm", { type: "video/webm" });
+        await interviewApi.uploadRecording(sessionId, file);
+        setRecordedBlob(null);
+      }
+      return interviewApi.answer(sessionId, answer.trim());
+    },
     onSuccess: async (data) => {
       setAnswer("");
       await qc.invalidateQueries({ queryKey: ["interview-session", sessionId] });
@@ -62,7 +73,7 @@ export default function InterviewSessionPage() {
     onError: () => toast.error("Could not submit answer"),
   });
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!answer.trim()) return;
     answerMutation.mutate();
@@ -133,8 +144,8 @@ export default function InterviewSessionPage() {
           {session.messages.map((message, index) => (
             <article key={message.id} className="rounded-3xl border border-ash-border bg-white p-5">
               <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-ink-muted"><Target size={13} /> Question {index + 1}</p>
-              {voiceMode && pendingQuestion?.id === message.id ? (
-                <QuestionPlayer question={message.question} autoPlay />
+              {voiceMode ? (
+                <QuestionPlayer question={message.question} autoPlay={!message.answer} />
               ) : (
                 <p className="text-lg font-medium leading-7 text-ink">{message.question}</p>
               )}
@@ -146,7 +157,23 @@ export default function InterviewSessionPage() {
 
         {pendingQuestion && session.status !== "completed" && (
           <form onSubmit={submit} className="sticky bottom-0 mt-6 rounded-t-3xl border border-ash-border bg-white p-4 shadow-lg">
-            <label className="label">Your answer</label>
+            <div className="mb-3 flex items-center justify-between">
+              <label className="label !mb-0">Your answer</label>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={recordMode}
+                  onChange={(e) => setRecordMode(e.target.checked)}
+                  className="rounded border-ash-border"
+                />
+                Video record answer
+              </label>
+            </div>
+            {recordMode && (
+              <div className="mb-3">
+                <SelfRecordingPanel onRecordingComplete={setRecordedBlob} />
+              </div>
+            )}
             {voiceMode ? (
               <VoiceCapturePanel value={answer} onChange={setAnswer} />
             ) : (

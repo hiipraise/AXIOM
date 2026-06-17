@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Building2, ExternalLink, MapPin } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { publicApi } from "../../api";
+import Seo from "../../components/Seo";
 
 interface CompanyPayload {
   profile: {
@@ -70,13 +71,31 @@ export default function CompanyPublicPage() {
     enabled: !!slug,
   });
 
-  if (isLoading) return <CompanyPublicSkeleton />;
-  if (!data) return <div className="p-8 text-sm text-ink-muted">Company not found.</div>;
+  if (isLoading)
+    return (
+      <>
+        <Seo title="Loading..." noindex />
+        <CompanyPublicSkeleton />
+      </>
+    );
+  if (!data)
+    return (
+      <>
+        <Seo title="Company not found" noindex />
+        <div className="p-8 text-sm text-ink-muted">Company not found.</div>
+      </>
+    );
 
   const { profile, jobs } = data;
 
+  // Dynamic SEO for company page
+  const seoTitle = `${profile.company_name} Careers`;
+  const seoDesc = `${profile.company_name} is hiring${profile.location ? ` in ${profile.location}` : ""}.${profile.industry ? ` ${profile.industry}` : ""} View open roles on AXIOM.`;
+
   return (
-    <div className="min-h-screen bg-ash">
+    <>
+      <Seo title={seoTitle} description={seoDesc} url={`https://axiomcv.site/company/${slug}`} />
+      <div className="min-h-screen bg-ash">
       <div className="mx-auto max-w-6xl px-4 py-8">
         <button className="btn-ghost mb-4" onClick={() => navigate(-1)}>
           <ArrowLeft size={14} /> Back
@@ -123,5 +142,6 @@ export default function CompanyPublicPage() {
         </section>
       </div>
     </div>
+    </>
   );
 }

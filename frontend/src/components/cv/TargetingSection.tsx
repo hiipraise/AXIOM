@@ -3,17 +3,42 @@ import { CAREER_LEVELS, INDUSTRIES } from "../../lib/cvContext";
 import { Field, Input, SectionHeader, Card } from "../UI/FormElements";
 
 interface Props {
-  data: Pick<CVData, "career_level" | "industry" | "target_role">;
+  data: Pick<
+    CVData,
+    | "career_level"
+    | "career_level_custom"
+    | "industry"
+    | "industry_custom"
+    | "target_role"
+  >;
   onChange: (
-    v: Pick<CVData, "career_level" | "industry" | "target_role">,
+    v: Pick<
+      CVData,
+      | "career_level"
+      | "career_level_custom"
+      | "industry"
+      | "industry_custom"
+      | "target_role"
+    >,
   ) => void;
 }
 
 export default function TargetingSection({ data, onChange }: Props) {
   const set =
     (key: keyof typeof data) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      onChange({ ...data, [key]: e.target.value });
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      // When switching away from "Other", clear the custom field
+      if (key === "career_level" && e.target.value !== "general") {
+        onChange({ ...data, career_level: e.target.value, career_level_custom: "" });
+      } else if (key === "industry" && e.target.value !== "general") {
+        onChange({ ...data, industry: e.target.value, industry_custom: "" });
+      } else {
+        onChange({ ...data, [key]: e.target.value });
+      }
+    };
+
+  const showCareerCustom = data.career_level === "general";
+  const showIndustryCustom = data.industry === "general";
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -38,6 +63,14 @@ export default function TargetingSection({ data, onChange }: Props) {
                 </option>
               ))}
             </select>
+            {showCareerCustom && (
+              <Input
+                value={data.career_level_custom || ""}
+                onChange={set("career_level_custom")}
+                placeholder="Specify your career level (e.g., Executive, C-Suite)"
+                className="mt-2"
+              />
+            )}
           </Field>
           <Field
             label="Industry"
@@ -54,6 +87,14 @@ export default function TargetingSection({ data, onChange }: Props) {
                 </option>
               ))}
             </select>
+            {showIndustryCustom && (
+              <Input
+                value={data.industry_custom || ""}
+                onChange={set("industry_custom")}
+                placeholder="Specify your industry (e.g., Fintech, Healthcare)"
+                className="mt-2"
+              />
+            )}
           </Field>
         </div>
         <Field

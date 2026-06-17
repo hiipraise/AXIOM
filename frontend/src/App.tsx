@@ -25,6 +25,7 @@ const CompanyPublicPage = lazy(
 );
 const AboutPage = lazy(() => import("./pages/public/AboutPage"));
 const WhyAxiomPage = lazy(() => import("./pages/public/WhyAxiomPage"));
+const RecruiterLandingPage = lazy(() => import("./pages/public/RecruiterLandingPage"));
 const LegalPage = lazy(() => import("./pages/public/LegalPage"));
 const RecruiterHelpPage = lazy(
   () => import("./pages/public/RecruiterHelpPage"),
@@ -65,6 +66,12 @@ const RecruiterRegisterPage = lazy(
 );
 const RecruiterApplicationsPage = lazy(
   () => import("./pages/recruiter/RecruiterApplicationsPage"),
+);
+const RecruiterInterviewsPage = lazy(
+  () => import("./pages/recruiter/RecruiterInterviewsPage"),
+);
+const RecruiterInterviewDetailPage = lazy(
+  () => import("./pages/recruiter/RecruiterInterviewDetailPage"),
 );
 const TalentPoolsPage = lazy(() => import("./pages/recruiter/TalentPoolsPage"));
 const CompanyProfilePage = lazy(
@@ -130,7 +137,8 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ErrorBoundary>
-      <Routes>
+      <Suspense fallback={<AppLoading fullScreen />}>
+        <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -175,6 +183,18 @@ export default function App() {
           <Route
             path="recruiter/applications"
             element={<RecruiterApplicationsPage />}
+          />
+          <Route
+            path="recruiter/interviews"
+            element={<RecruiterInterviewsPage />}
+          />
+          <Route
+            path="recruiter/interviews/:candidateId"
+            element={<RecruiterInterviewDetailPage />}
+          />
+          <Route
+            path="recruiter/interviews/:candidateId/:sessionId"
+            element={<RecruiterInterviewDetailPage />}
           />
           <Route path="recruiter/talent-pools" element={<TalentPoolsPage />} />
           <Route path="jobs/axiom/new" element={<CreateJobPage />} />
@@ -231,7 +251,8 @@ export default function App() {
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }

@@ -7,6 +7,7 @@ import { Download, ArrowLeft, Globe } from "lucide-react";
 import { usePrintCV } from "../../hooks/usePrintCV";
 import CVRenderer from "../../components/cv/CVRenderer";
 import CVScaleWrapper from "../../components/cv/CVScaleWrapper";
+import Seo from "../../components/Seo";
 
 interface PublicCV {
   id: string;
@@ -32,20 +33,32 @@ export default function PublicCVPage() {
     queryFn: () => publicApi.getCV(username!, slug!),
   });
 
+  // Dynamic SEO for public CV page
+  const seoTitle = cv ? `${cv.title} by @${cv.owner_username}` : "CV";
+  const seoDesc = cv
+    ? `View ${cv.title} CV created on AXIOM. ${cv.data.summary || "Professional CV."}`
+    : "Public CV on AXIOM";
+
   if (isLoading)
     return (
-      <div className="min-h-screen bg-ash flex items-center justify-center">
-        <p className="text-sm text-ink-muted animate-pulse">Loading CV…</p>
-      </div>
+      <>
+        <Seo title="Loading..." noindex />
+        <div className="min-h-screen bg-ash flex items-center justify-center">
+          <p className="text-sm text-ink-muted animate-pulse">Loading CV…</p>
+        </div>
+      </>
     );
   if (error || !cv)
     return (
-      <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">
-        <p className="text-sm text-ink">CV not found or not public</p>
-        <Link to="/" className="text-xs text-ink-muted underline">
-          Go home
-        </Link>
-      </div>
+      <>
+        <Seo title="CV not found" noindex />
+        <div className="min-h-screen bg-ash flex flex-col items-center justify-center gap-3">
+          <p className="text-sm text-ink">CV not found or not public</p>
+          <Link to="/" className="text-xs text-ink-muted underline">
+            Go home
+          </Link>
+        </div>
+      </>
     );
 
   return (

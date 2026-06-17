@@ -320,6 +320,13 @@ export const recruiterApi = {
   saveCandidate: (body: object) => api.post("/recruiter/saved-candidates", body).then((r) => r.data as import("../types").SavedCandidate),
   updateSavedCandidate: (id: string, body: object) => api.put(`/recruiter/saved-candidates/${id}`, body).then((r) => r.data as import("../types").SavedCandidate),
   deleteSavedCandidate: (id: string) => api.delete(`/recruiter/saved-candidates/${id}`).then((r) => r.data),
+  // Interview results
+  listInterviewCandidates: (limit = 20, skip = 0) =>
+    api.get("/recruiter/interview-candidates", { params: { limit, skip } }).then((r) => r.data as { candidates: import("../types").InterviewCandidate[] }),
+  candidateInterviews: (candidateId: string) =>
+    api.get(`/recruiter/candidates/${candidateId}/interviews`).then((r) => r.data as import("../types").CandidateInterviewSessions),
+  interviewDetail: (candidateId: string, sessionId: string) =>
+    api.get(`/recruiter/candidates/${candidateId}/interviews/${sessionId}`).then((r) => r.data as import("../types").RecruiterInterviewDetail),
 };
 
 export const axiomJobsApi = {
@@ -383,4 +390,16 @@ export const interviewApi = {
 
   session: (id: string) =>
     api.get(`/interview/sessions/${id}`).then((r) => r.data as import("../types").InterviewSessionDetail),
+
+  uploadRecording: async (sessionId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post(`/interview/upload-recording/${sessionId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data as { recording_id: string; url: string };
+  },
+
+  getRecording: (fileName: string) =>
+    `/api/interview/recordings/${fileName}`,
 };

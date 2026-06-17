@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAnnouncement } from "../../context/announcement";
+import Seo from "../../components/Seo";
 import {
   ArrowLeft,
   Briefcase,
@@ -122,6 +123,14 @@ export default function JobDetailPage() {
     [applications, id],
   );
 
+  // Dynamic SEO for job detail page
+  const seoTitle = job
+    ? `${job.title} at ${job.company}`
+    : "Job Details";
+  const seoDesc = job
+    ? `${job.title} position${job.location ? ` in ${job.location}` : ""}. ${job.remote ? "Remote" : "On-site"}. Apply now on AXIOM.`
+    : "";
+
   const isSaved = useMemo(
     () => savedJobs.some((savedJob) => savedJob.job_id === id),
     [savedJobs, id],
@@ -207,26 +216,41 @@ export default function JobDetailPage() {
     onError: () => toast.error("Could not tailor CV"),
   });
 
-  if (isLoading) return <JobDetailSkeleton bannerH={bannerH} />;
+  if (isLoading)
+    return (
+      <>
+        <Seo title="Loading..." noindex />
+        <JobDetailSkeleton bannerH={bannerH} />
+      </>
+    );
   if (!job)
     return (
-      <div className="min-h-screen bg-ash">
-        <div
-          className="flex flex-col items-center justify-center gap-3"
-          style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
-        >
-          <p className="text-sm text-ink">Job not found or expired from cache.</p>
-          <button className="btn-secondary" onClick={() => navigate("/jobs")}>
-            Back to jobs
-          </button>
+      <>
+        <Seo title="Job not found" noindex />
+        <div className="min-h-screen bg-ash">
+          <div
+            className="flex flex-col items-center justify-center gap-3"
+            style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
+          >
+            <p className="text-sm text-ink">Job not found or expired from cache.</p>
+            <button className="btn-secondary" onClick={() => navigate("/jobs")}>
+              Back to jobs
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
 
   const externalUrl = job.apply_url || "#";
 
   return (
-    <div className="min-h-screen bg-ash">
+    <>
+      <Seo
+        title={seoTitle}
+        description={seoDesc}
+        url={`https://axiomcv.site/jobs/${id}`}
+      />
+      <div className="min-h-screen bg-ash">
       <div
         className="mx-auto max-w-6xl px-4 py-6 lg:py-8"
         style={{ paddingTop: `calc(2rem + ${bannerH}px)` }}
@@ -518,5 +542,6 @@ export default function JobDetailPage() {
         onClose={() => setCoverOpen(false)}
       />
     </div>
+    </>
   );
 }

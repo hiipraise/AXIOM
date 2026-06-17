@@ -1,72 +1,77 @@
 /// <reference lib="DOM" />
 /// <reference lib="DOM.Iterable" />
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from 'react-hot-toast'
-import toast from 'react-hot-toast'
-import App from './App'
-import { authApi } from './api'
-import { useAuthStore } from './store/auth'
-import { usePageTracking } from './components/admin/useAnalytics'
-import { useScrollRestoration } from './hooks/useScrollRestoration'
-import { AnnouncementProvider, announceReady } from './context/announcement'
-import AnnouncementBanner from './components/AnnouncementBanner'
-import { queryClient } from './lib/queryClient'
-import './index.css'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+import App from "./App";
+import { authApi } from "./api";
+import { useAuthStore } from "./store/auth";
+import { usePageTracking } from "./components/admin/useAnalytics";
+import { useScrollRestoration } from "./hooks/useScrollRestoration";
+import { AnnouncementProvider, announceReady } from "./context/announcement";
+import AnnouncementBanner from "./components/AnnouncementBanner";
+import { queryClient } from "./lib/queryClient";
+import "./index.css";
 
 function AppWithTracking() {
-  usePageTracking()
-  useScrollRestoration()
-  return <App />
+  usePageTracking();
+  useScrollRestoration();
+  return <App />;
 }
 
 function emitProgress(pct: number) {
+  const clamped = Math.min(100, Math.round(pct));
+  (window as any).__axiomBootProgress = clamped; // ← persist
   window.dispatchEvent(
-    new CustomEvent('axiom:load-progress', { detail: Math.min(100, Math.round(pct)) })
-  )
+    new CustomEvent("axiom:load-progress", { detail: clamped }),
+  );
 }
 
 async function waitForBackend(): Promise<void> {
-  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-  const healthUrl = `${base}/health`
-  const START = Date.now()
-  const MAX_WAIT = 90_000
-  const POLL_MS  = 3_000
+  const base = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  const healthUrl = `${base}/health`;
+  const START = Date.now();
+  const MAX_WAIT = 90_000;
+  const POLL_MS = 3_000;
 
-  emitProgress(8)
+  emitProgress(8);
 
   while (Date.now() - START < MAX_WAIT) {
     try {
-      const ctrl = new AbortController()
-      const tid  = setTimeout(() => ctrl.abort(), 8_000)
-      const res  = await fetch(healthUrl, { signal: ctrl.signal })
-      clearTimeout(tid)
-      if (res.ok) { emitProgress(88); return }
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 8_000);
+      const res = await fetch(healthUrl, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (res.ok) {
+        emitProgress(88);
+        return;
+      }
     } catch {}
-    const elapsed = Date.now() - START
-    emitProgress(8 + (elapsed / MAX_WAIT) * 74)
-    await new Promise<void>(r => setTimeout(r, POLL_MS))
+    const elapsed = Date.now() - START;
+    emitProgress(8 + (elapsed / MAX_WAIT) * 74);
+    await new Promise<void>((r) => setTimeout(r, POLL_MS));
   }
-  emitProgress(88)
+  emitProgress(88);
 }
 
 async function bootstrap() {
-  await waitForBackend()
-  announceReady(true) // enable announcement fetching after backend is confirmed ready
-  emitProgress(94)
+  await waitForBackend();
+  announceReady(true); // enable announcement fetching after backend is confirmed ready
+  emitProgress(94);
   try {
-    const user = await authApi.me()
-    useAuthStore.getState().setAuth(user)
+    const user = await authApi.me();
+    useAuthStore.getState().setAuth(user);
   } catch {
-    useAuthStore.getState().clearAuth()
+    useAuthStore.getState().clearAuth();
   }
-  emitProgress(100)
+  emitProgress(100);
 }
 
 // Render immediately without waiting for backend - show content first
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -78,19 +83,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           position="top-center"
           toastOptions={{
             style: {
-              borderRadius: '8px',
-              border: '1px solid #E2E8F0',
-              fontSize: '13px',
+              borderRadius: "8px",
+              border: "1px solid #E2E8F0",
+              fontSize: "13px",
               fontFamily: '"DM Sans", system-ui, sans-serif',
-              color: '#0F172A',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.08)',
+              color: "#0F172A",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.08)",
             },
           }}
         />
       </BrowserRouter>
     </QueryClientProvider>
-  </React.StrictMode>
-)
+  </React.StrictMode>,
+);
 
 // Bootstrap auth check in background - doesn't block rendering
-bootstrap()
+bootstrap();

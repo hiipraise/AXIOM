@@ -11,7 +11,9 @@ const LETTER_MS = 500;
 const FULL_MS = 1600;
 
 export function AppLoading({ fullScreen = false, message }: AppLoadingProps) {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<number>(
+    () => (window as any).__axiomBootProgress ?? 0,
+  );
   const [status, setStatus] = useState("");
   const [spellingIndex, setSpellingIndex] = useState(0);
   const [letterKey, setLetterKey] = useState(0); // force re-mount for animation
@@ -36,8 +38,13 @@ export function AppLoading({ fullScreen = false, message }: AppLoadingProps) {
 
   // Progress events
   useEffect(() => {
+    let realMode = false;
+    const startedAt = Date.now();
+
     function onProgress(e: Event) {
-      const pct = (e as CustomEvent<number>).detail ?? 0;
+      realMode = true;
+      const evt = e as CustomEvent;
+      const pct = (evt?.detail as number) ?? 0;
       setProgress(pct);
 
       if (pct < 20) setStatus("Connecting to server…");
@@ -48,7 +55,19 @@ export function AppLoading({ fullScreen = false, message }: AppLoadingProps) {
     }
 
     window.addEventListener("axiom:load-progress", onProgress);
-    return () => window.removeEventListener("axiom:load-progress", onProgress);
+
+    // Fallback crawl when no real events arrive yet (matches index.html)
+    const crawlInterval = setInterval(() => {
+      if (realMode) return;
+      const elapsed = Date.now() - startedAt;
+      const target = Math.min(15, (elapsed / 8000) * 15);
+      setProgress(target);
+    }, 200);
+
+    return () => {
+      window.removeEventListener("axiom:load-progress", onProgress);
+      clearInterval(crawlInterval);
+    };
   }, []);
 
   const radius = 74;

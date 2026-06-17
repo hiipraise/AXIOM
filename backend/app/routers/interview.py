@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
+import os
+import aiofiles
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
@@ -19,6 +22,7 @@ from app.models.schemas import (
     InterviewStartResponse,
 )
 from app.services import ai_service
+from app.config import settings
 
 router = APIRouter()
 
@@ -249,4 +253,68 @@ async def get_interview_session(session_id: str, current_user=Depends(get_curren
         job_description=session.get("job_description", ""),
         summary=session.get("summary"),
         messages=messages,
+    )
+
+
+# Video recording upload
+@router.post("/upload-recording/{session_id}")
+async def upload_recording(
+    session_id: str,
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Upload a video recording for an interview session."""
+    user_id = str(current_user["_id"])
+    # Verify session belongs to user
+    session = await db.interview_sessions.find_one({"_id": _oid(session_id), "user_id": user_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+
+    # Create media directory
+    media_dir = os.path.join(settings.media_dir, "interviews", user_id)
+    os.makedirs(media_dir, exist_ok=True)
+
+    # Save file
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "webm"
+    file_name = f"{session_id}_{ObjectId()}.{file_ext}"
+    file_path = os.path.join(media_dir, file_name)
+
+    content = await file.read()
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(content)
+
+    # Store reference in database
+    await db.interview_recordings.insert_one({
+        "session_id": session_id,
+        "user_id": user_id,
+        "file_name": file_name,
+        "file_path": file_path,
+        "content_type": file.content_type or "video/webm",
+        "size": len(content),
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return {"recording_id": file_name, "url": f"/api/interview/recordings/{file_name}"}
+
+
+@router.get("/recordings/{file_name}")
+async def get_recording(file_name: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Stream a video recording."""
+    # Find the recording
+    recording = await db.interview_recordings.find_one({
+        "file_name": file_name,
+        "user_id": str(current_user["_id"]),
+    })
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    file_path = recording["file_path"]
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Recording file not found")
+
+    return FileResponse(
+        file_path,
+        media_type=recording.get("content_type", "video/webm"),
+        headers={"Accept-Ranges": "bytes"},
     )

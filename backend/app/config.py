@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     rapidapi_host: str = ""
     axiom_auto_approve_recruiters: bool = True
     jitsi_domain: str = "meet.jit.si"
+    media_dir: str = "media"
 
     allowed_origins: str = "http://localhost:5173"
 

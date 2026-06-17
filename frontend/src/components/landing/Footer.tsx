@@ -55,6 +55,7 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted">
               <Link to="/about" className="hover:text-ink">About</Link>
+              <Link to="/recruiter" className="hover:text-ink">For Recruiters</Link>
               <Link to="/recruiter/help" className="hover:text-ink">Recruiter help</Link>
               <Link to="/terms-privacy" className="hover:text-ink">Terms & Privacy</Link>
             </nav>
@@ -64,7 +65,7 @@ export default function Footer() {
 
             {/* action bar */}
             <div className="flex items-center gap-3">
-              <a href="mailto:hello@axiomcv.site"
+              <a href="mailto:info@axiomcv.site"
                 aria-label="Email us"
                 className="text-ink-muted hover:text-ink transition-colors"
               >

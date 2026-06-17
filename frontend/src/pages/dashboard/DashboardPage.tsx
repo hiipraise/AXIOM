@@ -51,6 +51,65 @@ import clsx from "clsx";
 
 const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
 
+// Goal engine: auto-detect goals based on actual activity (weekly)
+function computeGoalStatus(args: {
+  primaryCv: CV | undefined;
+  applications: ApplicationEntry[] | undefined;
+  axiomApplications: AxiomApplication[] | undefined;
+  interviewSessions: InterviewSessionListItem[] | undefined;
+  careerLevel: string;
+}) {
+  const { primaryCv, applications, axiomApplications, interviewSessions, careerLevel } = args;
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Goal 1: Update CV - CV updated within last 7 days
+  let cvUpdated = false;
+  try {
+    cvUpdated = primaryCv?.updated_at
+      ? new Date(primaryCv.updated_at) >= weekAgo
+      : false;
+  } catch {
+    cvUpdated = false;
+  }
+
+  // Goal 2: Apply to jobs - at least 1 application per week (more for exec level)
+  const minApplications = careerLevel?.toLowerCase().includes("executive") ? 3 : 1;
+  const apps = applications || [];
+  const axiomApps = axiomApplications || [];
+  const allApplications = [...apps, ...axiomApps];
+  let recentApplications = [];
+  try {
+    recentApplications = allApplications.filter(
+      (app) => app?.created_at && new Date(app.created_at) >= weekAgo
+    );
+  } catch {
+    recentApplications = [];
+  }
+  const applied = recentApplications.length >= minApplications;
+
+  // Goal 3: Practise interview - at least 1 completed session per week
+  const sessions = interviewSessions || [];
+  let recentSessions = [];
+  try {
+    recentSessions = sessions.filter(
+      (session) =>
+        session?.status === "completed" &&
+        session?.created_at &&
+        new Date(session.created_at) >= weekAgo
+    );
+  } catch {
+    recentSessions = [];
+  }
+  const practiced = recentSessions.length >= 1;
+
+  return {
+    "Update CV": cvUpdated,
+    "Apply to jobs": applied,
+    "Practise interview": practiced,
+  };
+}
+
 // ─── MetricCard ───────────────────────────────────────────────────────────────
 
 interface MetricCardProps {
@@ -373,7 +432,6 @@ export default function DashboardPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
-  const [weeklyGoals, setWeeklyGoals] = useState<Record<string, boolean>>({});
   const [skillGapCV, setSkillGapCV] = useState<CV | null>(null);
   const [carouselIdx, setCarouselIdx] = useState(0);
 
@@ -440,7 +498,7 @@ export default function DashboardPage() {
     const profileStrength = Math.round(
       (profileChecks.filter(Boolean).length / profileChecks.length) * 100,
     );
-    const completedSessions = interviewSessions.filter(
+    const completedSessions = (interviewSessions || []).filter(
       (session) => session.status === "completed",
     );
     const rawLatestScore =
@@ -453,26 +511,36 @@ export default function DashboardPage() {
       Math.round(
         latestScore +
           Math.min(completedSessions.length, 5) * 8 +
-          (applications.some((app) => app.status === "interview") ? 15 : 0) +
-          (axiomApplications.some((app) => app.status === "interview_scheduled")
+          ((applications || []).some((app) => app.status === "interview") ? 15 : 0) +
+          ((axiomApplications || []).some((app) => app.status === "interview_scheduled")
             ? 15
             : 0),
       ),
     );
+    // Goal engine: compute weekly goals from actual activity
+    // Use empty arrays as fallbacks to prevent errors during data loading
+    const careerLevel = cv?.data?.career_level || "";
+    const weeklyGoalsComputed = computeGoalStatus({
+      primaryCv: cv,
+      applications: applications || [],
+      axiomApplications: axiomApplications || [],
+      interviewSessions: interviewSessions || [],
+      careerLevel,
+    });
     const weeklyCompleted = WEEKLY_GOAL_KEYS.filter(
-      (key) => weeklyGoals[key],
+      (key) => weeklyGoalsComputed[key as keyof typeof weeklyGoalsComputed],
     ).length;
 
     const now = new Date();
-    const overdueFollowUps = applications.filter((app) => {
+    const overdueFollowUps = (applications || []).filter((app) => {
       if (!app.follow_up_at) return false;
       return new Date(app.follow_up_at).getTime() <= now.getTime();
     }).length;
 
     const activeApplications =
-      applications.filter((app) => !["offer", "rejected"].includes(app.status))
+      (applications || []).filter((app) => !["offer", "rejected"].includes(app.status))
         .length +
-      axiomApplications.filter(
+      (axiomApplications || []).filter(
         (app) =>
           !["offered", "rejected", "accepted", "declined"].includes(app.status),
       ).length;
@@ -532,23 +600,20 @@ export default function DashboardPage() {
     }
 
     return {
-      profileStrength,
-      interviewReadiness,
-      weeklyCompleted,
-      activeApplications,
-      suggestedNextAction,
-    };
+    profileStrength,
+    interviewReadiness,
+    weeklyCompleted,
+    weeklyGoals: weeklyGoalsComputed,
+    activeApplications,
+    suggestedNextAction,
+  };
   }, [
     applications,
     axiomApplications,
     interviewSessions,
     primaryCv,
-    weeklyGoals,
+    user,
   ]);
-
-  const toggleGoal = (goal: string) => {
-    setWeeklyGoals((current) => ({ ...current, [goal]: !current[goal] }));
-  };
 
   const handleDuplicate = async (id: string) => {
     if (duplicatingId) return;
@@ -792,29 +857,35 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="mt-4 space-y-2">
-            {WEEKLY_GOAL_KEYS.map((goal) => (
-              <label
-                key={goal}
-                className="flex items-center justify-between gap-3 rounded-lg border border-ash-border px-3 py-2 text-sm cursor-pointer select-none"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span
-                  className={
-                    weeklyGoals[goal]
-                      ? "text-ink-muted line-through"
-                      : "text-ink"
-                  }
+            {WEEKLY_GOAL_KEYS.map((goal) => {
+              const isComplete = commandCenter.weeklyGoals[goal as keyof typeof commandCenter.weeklyGoals];
+              return (
+                <div
+                  key={goal}
+                  className={clsx(
+                    "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
+                    isComplete
+                      ? "border-green-500/30 bg-green-500/5"
+                      : "border-ash-border"
+                  )}
                 >
-                  {goal}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={!!weeklyGoals[goal]}
-                  onChange={() => toggleGoal(goal)}
-                  className="h-4 w-4 flex-shrink-0 accent-ink"
-                />
-              </label>
-            ))}
+                  <span
+                    className={
+                      isComplete
+                        ? "text-green-700 dark:text-green-400"
+                        : "text-ink"
+                    }
+                  >
+                    {goal}
+                  </span>
+                  {isComplete ? (
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <span className="text-ink-muted text-xs">pending</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <button
             className="btn-secondary mt-4 !px-3 !py-1.5 !text-xs"
