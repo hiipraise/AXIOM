@@ -1,7 +1,6 @@
-
 # AXIOM — AI CV / Resume Generator
 
-Zero-cliché, ATS-safe, AI-powered CV generator.
+Zero-cliché, ATS-safe, AI-powered CV generator with video interviews and employer job postings.
 
 ## Stack
 - **Frontend**: React + TypeScript + Tailwind CSS (Vite)
@@ -9,6 +8,7 @@ Zero-cliché, ATS-safe, AI-powered CV generator.
 - **Database**: MongoDB
 - **AI**: Groq (Groq API + configurable model)
 - **PDF**: ReportLab + QR code verification
+- **Video**: Jitsi Meet (self-recording + live interviews)
 - **Auth**: HTTP-only cookie JWT session (browser) + optional bearer token for mobile/non-cookie clients
 
 ---
@@ -99,12 +99,43 @@ Settings are loaded from `.env` (Pydantic settings). Key variables:
 ### Zero-Cliché Policy
 The AI is instructed to **never** use: versatile, passionate, dynamic, modern, scalable, specialize, streamline, leveraged, results-driven, team player, detail-oriented, innovative, synergy, cutting-edge, or similar filler language.
 
+### Video Interviews
+- Question player with AI speech-to-text answers
+- Self-recording mode with web cam / microphone
+- Live Jitsi interview rooms (scheduling TBD)
+- Voice capture panel
+
+### AXIOM Jobs (Employer Postings)
+- Employers create and manage job postings
+- Candidates apply with their CV
+- Application status tracking
+- Job cards with shareable links
+- Cover letter generation with AI
+
+### Cover Letters
+- AI-generated tailored cover letters
+- Match CV content to job requirements
+- Tone and style customization
+
+### Recruiter Features
+- Recruiter registration and profiles
+- Talent pools for candidate management
+- CV snapshot previews
+- Saved candidates tracking
+
+### Job Search
+- Search external job APIs
+- Match CV to job postings
+- Save and track job applications
+- Indeed, Adzuna integration (when configured)
+
 ### Account System
 - Username + password only registration (no email required)
 - Optional email + secret question for account recovery
 - No localStorage — token stored in memory only
 - Delete account button wipes all data immediately
 - Session-only mode for unregistered users
+- Feedback widget for user feedback collection
 
 ### Admin Panel (`/admin`)
 - Dashboard with platform stats
@@ -122,41 +153,173 @@ axiom/
 │   ├── main.py
 │   ├── requirements.txt
 │   ├── Dockerfile
+│   ├── ruff.toml
+│   ├── mongo-init.js
 │   └── app/
+│       ├── __init__.py
 │       ├── config.py
 │       ├── database.py
-│       ├── middleware/auth.py
-│       ├── models/schemas.py
-│       ├── routers/
+│       ├── limiter.py
+│       ├── middleware/
+│       │   ├── __init__.py
 │       │   ├── auth.py
+│       │   ├── security_headers.py
+│       │   └── validation.py
+│       ├── models/
+│       │   └── schemas.py
+│       ├── prompts/
+│       │   ├── __init__.py
+│       │   ├── cover_letter.py
+│       │   ├── cv_generation.py
+│       │   ├── interview.py
+│       │   └── review.py
+│       ├── routers/
+│       │   ├── __init__.py
+│       │   ├── admin.py
+│       │   ├── analytics.py
+│       │   ├── announcements.py
+│       │   ├── auth.py
+│       │   ├── axiom_applications.py
+│       │   ├── axiom_jobs.py
 │       │   ├── cv.py
 │       │   ├── export.py
-│       │   ├── admin.py
-│       │   └── public.py
-│       └── services/
-│           ├── ai_service.py
-│           ├── auth_service.py
-│           └── pdf_service.py
+│       │   ├── feedback.py
+│       │   ├── interview.py
+│       │   ├── interview_live.py
+│       │   ├── jobs.py
+│       │   ├── notifications.py
+│       │   ├── public.py
+│       │   ├── recruiter.py
+│       │   └── search.py
+│       ├── services/
+│       │   ├── __init__.py
+│       │   ├── ai_prompts.py
+│       │   ├── ai_service.py
+│       │   ├── ats_service.py
+│       │   ├── auth_service.py
+│       │   ├── docx_export.py
+│       │   ├── html_pdf.py
+│       │   ├── job_service.py
+│       │   ├── notification_service.py
+│       │   └── pdf_service.py
+│       └── utils/
+│           ├── __init__.py
+│           └── errors.py
 ├── frontend/
 │   ├── src/
 │   │   ├── App.tsx
-│   │   ├── api/index.ts
-│   │   ├── store/auth.ts
-│   │   ├── types/index.ts
+│   │   ├── main.tsx
+│   │   ├── index.css
+│   │   ├── api/
+│   │   │   └── index.ts
 │   │   ├── components/
-│   │   │   ├── cv/        (all CV section editors + AI panel)
-│   │   │   ├── UI/        (reusable form elements)
-│   │   │   └── admin/     (admin layout)
-│   │   └── pages/
-│   │       ├── auth/      (login, register, forgot)
-│   │       ├── cv/        (editor, new CV wizard)
-│   │       ├── dashboard/ (main dashboard, account)
-│   │       ├── public/    (public CV + profile views)
-│   │       └── admin/     (dashboard, users, CVs, ratings)
+│   │   │   ├── UI/
+│   │   │   │   └── Badge.tsx
+│   │   │   ├── cv/
+│   │   │   │   ├── AIAssistPanel.tsx
+│   │   │   │   ├── ATSPreviewModal.tsx
+│   │   │   │   ├── AwardsSection.tsx
+│   │   │   │   ├── BulletOptimizer.tsx
+│   │   │   │   ├── CertificationsSection.tsx
+│   │   │   │   ├── CVContextSelector.tsx
+│   │   │   │   ├── CVPreview.tsx
+│   │   │   │   ├── CVRenderer.tsx
+│   │   │   │   ├── CVReviewPanel.tsx
+│   │   │   │   ├── CVScaleWrapper.tsx
+│   │   │   │   ├── DiffViewer.tsx
+│   │   │   │   ├���─ EducationSection.tsx
+│   │   │   │   ├── ExperienceSection.tsx
+│   │   │   │   ├── HistoryDrawer.tsx
+│   │   │   │   ├── LanguagesSection.tsx
+│   │   │   │   ├── PersonalInfoSection.tsx
+│   │   │   │   ├── ProjectsSection.tsx
+│   │   │   │   ├── SkillGapEngine.tsx
+│   │   │   │   ├── SkillsSection.tsx
+│   │   │   │   ├── SummarySection.tsx
+│   │   │   │   ├── TargetingSection.tsx
+│   │   │   │   ├── VolunteerSection.tsx
+│   │   │   │   └── templates/
+│   │   │   ├── interview/
+│   │   │   │   ├── InterviewStageSelector.tsx
+│   │   │   │   ├── JitsiRoom.tsx
+│   │   │   │   ├── MediaControls.tsx
+│   │   │   │   ├── QuestionPlayer.tsx
+│   │   │   │   ├── SelfRecordingPanel.tsx
+│   │   │   │   ├── VoiceCapturePanel.tsx
+│   │   │   │   └── VoiceModeToggle.tsx
+│   │   │   ├── jobs/
+│   │   │   │   ├── ApplyModal.tsx
+│   │   │   │   ├── AxiomJobCard.tsx
+│   │   │   │   ├── CoverLetterModal.tsx
+│   │   │   │   ├── JobCard.tsx
+│   │   │   │   └── ShareJobModal.tsx
+│   │   │   ├── landing/
+│   │   │   │   ├── CTASection.tsx
+│   │   │   │   ├── ExploreTeaserSection.tsx
+│   │   │   │   ├── FeaturesSection.tsx
+│   │   │   │   ├── Footer.tsx
+│   │   │   │   ├── Hero.tsx
+│   │   │   │   ├── HowItWorksSection.tsx
+│   │   │   │   ├── JobsTeaserSection.tsx
+│   │   │   │   ├── Logo.tsx
+│   │   │   │   └── Navbar.tsx
+│   │   │   ├── admin/
+│   │   │   │   ├── AdminLayout.tsx
+│   │   │   │   └── useAnalytics.ts
+│   │   │   ├── recruiter/
+│   │   │   │   ├── CvSnapshotModal.tsx
+│   │   │   ├── Layout.tsx
+│   │   │   ├── Talents.tsx
+│   │   │   │   └── Dashboard.tsx
+│   │   │   ├── notifications/
+│   │   │   ├── feedback/
+│   │   │   ├── layout/
+│   │   │   └── landing/
+│   │   ├── context/
+│   │   │   ├── announcement.tsx
+│   │   │   └── cv.ts
+│   │   ├── hooks/
+│   │   │   ├── useAISpeaker.ts
+│   │   │   ├── useInterviewMedia.ts
+│   │   │   ├── useInterviewTimer.ts
+│   │   │   ├── useJitsi.ts
+│   │   │   ├── usePrintCV.ts
+│   │   │   ├── useScrollRestoration.ts
+│   │   │   ├── useSmartBack.ts
+│   │   │   ├── useVoiceCapture.ts
+│   │   │   ├── useScrollRestoration.ts
+│   │   │   └── useSmartBack.ts
+│   │   ├── lib/
+│   │   │   ├── cvContext.ts
+│   │   │   ├── cvTemplateRegistry.ts
+│   │   │   ├── cvThemes.ts
+│   │   │   └── queryClient.ts
+│   │   ├── pages/
+│   │   │   ├── LandingPage.tsx
+│   │   │   ├── auth/
+│   │   │   ├── cv/
+│   │   │   ├── dashboard/
+│   │   │   ├── interview/
+│   │   │   ├── jobs/
+│   │   │   ├── public/
+│   │   │   ├── admin/
+│   │   │   └── recruiter/
+│   │   ├── store/
+│   │   │   ├── auth.ts
+│   │   │   └── cvUndo.ts
+│   │   ├── types/
+│   │   │   └── index.ts
+│   │   └── utils/
+│   │       └── renderCVtoHTML.ts
 │   ├── package.json
 │   └── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
+├── .gitignore
+├── .pre-commit-config.yaml
+├── LICENSE
+├── package.json
+├── package-lock.json
 └── README.md
 ```
 
@@ -165,8 +328,6 @@ axiom/
 ## API Reference
 
 Full interactive API docs available at `/docs` when the backend is running.
-
-Key endpoints:
 
 ### Auth
 - `POST /api/auth/register`
@@ -182,7 +343,7 @@ Key endpoints:
 ### CV
 - `GET /api/cv` — list your CVs
 - `POST /api/cv` — create a CV
-- `GET /api/cv/{cv_id}` — get a CV (owner-only unless it’s public)
+- `GET /api/cv/{cv_id}` — get a CV (owner-only unless it's public)
 - `PUT /api/cv/{cv_id}` — update (auto-saves history)
 - `DELETE /api/cv/{cv_id}` — delete
 - `POST /api/cv/{cv_id}/duplicate`
@@ -202,12 +363,16 @@ All require auth.
 - `POST /api/cv/ai/keyword-gap`
 - `POST /api/cv/upload-cv` — upload PDF, returns extracted CV JSON
 
+### Cover Letters
+- `POST /api/jobs/cover-letter` — generate AI cover letter for a job
+- `POST /api/jobs/cover-letter/preview`
+
 ### Export / PDF
 - `GET /api/export/pdf/{cv_id}`
 - `GET /api/export/public-pdf/{username}/{slug}`
 - `POST /api/export/pdf-preview`
 - `POST /api/export/html-pdf`
-
+- `GET /api/export/docx/{cv_id}` — export as DOCX
 
 ### Public
 
@@ -216,10 +381,9 @@ All require auth.
 - `GET /api/public/profile/{username}` — public profile + public CVs
 - `GET /api/public/sitemap.xml`
 
-### Jobs
+### Job Search
 - `GET /api/jobs/search`
 - `POST /api/jobs/match-cv`
-- `POST /api/jobs/cover-letter`
 - `GET /api/jobs/saved`
 - `POST /api/jobs/saved/{job_id}`
 - `DELETE /api/jobs/saved/{job_id}`
@@ -239,7 +403,7 @@ All require auth.
 - `POST /api/axiom-jobs/{job_id}/share`
 
 ### Axiom Applications
-- `GET /api/axiom-applications` (candidate’s applications)
+- `GET /api/axiom-applications` (candidate's applications)
 - `POST /api/axiom-applications` (apply to an AXIOM job)
 - `GET /api/axiom-applications/employer`
 - `PUT /api/axiom-applications/{application_id}/status`
@@ -255,6 +419,22 @@ All require auth.
 - `POST /api/recruiter/saved-candidates`
 - `PUT /api/recruiter/saved-candidates/{saved_id}`
 - `DELETE /api/recruiter/saved-candidates/{saved_id}`
+
+### Interview
+- `GET /api/interview/questions` — get interview questions for a CV
+- `POST /api/interview/submit-answer`
+
+### Interview Live
+- `POST /api/interview-live/rooms`
+- `GET /api/interview-live/rooms/{room_id}`
+
+### Search
+- `GET /api/search/candidates` — search public CVs
+- `GET /api/search/jobs` — search jobs
+
+### Feedback
+- `POST /api/feedback`
+- `GET /api/feedback`
 
 ### Notifications
 - `GET /api/notifications`
@@ -276,7 +456,6 @@ All require auth.
 - `GET /api/analytics/top-pages`
 - `GET /api/analytics/top-referrers`
 - `GET /api/analytics/hourly`
-
 
 ---
 

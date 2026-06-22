@@ -59,7 +59,13 @@ function computeGoalStatus(args: {
   interviewSessions: InterviewSessionListItem[] | undefined;
   careerLevel: string;
 }) {
-  const { primaryCv, applications, axiomApplications, interviewSessions, careerLevel } = args;
+  const {
+    primaryCv,
+    applications,
+    axiomApplications,
+    interviewSessions,
+    careerLevel,
+  } = args;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -74,14 +80,16 @@ function computeGoalStatus(args: {
   }
 
   // Goal 2: Apply to jobs - at least 1 application per week (more for exec level)
-  const minApplications = careerLevel?.toLowerCase().includes("executive") ? 3 : 1;
+  const minApplications = careerLevel?.toLowerCase().includes("executive")
+    ? 3
+    : 1;
   const apps = applications || [];
   const axiomApps = axiomApplications || [];
   const allApplications = [...apps, ...axiomApps];
   let recentApplications = [];
   try {
     recentApplications = allApplications.filter(
-      (app) => app?.created_at && new Date(app.created_at) >= weekAgo
+      (app) => app?.created_at && new Date(app.created_at) >= weekAgo,
     );
   } catch {
     recentApplications = [];
@@ -96,7 +104,7 @@ function computeGoalStatus(args: {
       (session) =>
         session?.status === "completed" &&
         session?.created_at &&
-        new Date(session.created_at) >= weekAgo
+        new Date(session.created_at) >= weekAgo,
     );
   } catch {
     recentSessions = [];
@@ -132,15 +140,30 @@ function MetricCard({
   children,
 }: MetricCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const [flipDown, setFlipDown] = useState(false);
-  const [flipRight, setFlipRight] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const cardRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
     if (cardRef.current) {
       const rect = cardRef.current.getBoundingClientRect();
-      setFlipDown(rect.top < 160);
-      setFlipRight(rect.left > window.innerWidth / 2);
+      const flipDown = rect.top < 160;
+      const flipRight = rect.left > window.innerWidth / 2;
+
+      setTooltipStyle({
+        position: "fixed",
+        zIndex: 9999,
+        width: "13rem",
+        maxWidth: "calc(100vw - 2rem)",
+        ...(flipDown
+          ? { top: rect.bottom + 8 }
+          : { top: rect.top - 8, transform: "translateY(-100%)" }),
+        ...(flipRight
+          ? { right: window.innerWidth - rect.right }
+          : {
+              left: rect.left + rect.width / 2,
+              transform: `translateY(${flipDown ? "0" : "-100%"}) translateX(-50%)`,
+            }),
+      });
     }
     setShowTooltip(true);
   };
@@ -153,26 +176,24 @@ function MetricCard({
       onMouseLeave={() => setShowTooltip(false)}
       onFocus={handleMouseEnter}
       onBlur={() => setShowTooltip(false)}
-      onClick={() => setShowTooltip((v) => !v)}
+      onClick={() => {
+        if (showTooltip) setShowTooltip(false);
+        else handleMouseEnter();
+      }}
       tabIndex={0}
       role="button"
       aria-label={`${label}: ${value}. ${tooltip}`}
     >
-      {showTooltip && (
-        <div
-          className={`absolute z-50 w-52 max-w-[calc(100vw-2rem)] rounded-lg bg-ink px-3 py-2 text-xs text-white shadow-lg pointer-events-none
-            ${flipDown ? "top-full mt-2" : "bottom-full mb-2"}
-            ${flipRight ? "right-0" : "left-1/2 -translate-x-1/2"}
-          `}
-        >
-          <p className="font-medium">{tooltip}</p>
+      {showTooltip &&
+        createPortal(
           <div
-            className={`absolute ${flipRight ? "right-4" : "left-1/2 -translate-x-1/2"} w-2 h-2 bg-ink rotate-45
-              ${flipDown ? "-top-1" : "-bottom-1"}
-            `}
-          />
-        </div>
-      )}
+            style={tooltipStyle}
+            className="rounded-lg bg-ink px-3 py-2 text-xs text-white shadow-lg pointer-events-none"
+          >
+            <p className="font-medium">{tooltip}</p>
+          </div>,
+          document.body,
+        )}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-ink">{label}</p>
         {icon}
@@ -511,8 +532,12 @@ export default function DashboardPage() {
       Math.round(
         latestScore +
           Math.min(completedSessions.length, 5) * 8 +
-          ((applications || []).some((app) => app.status === "interview") ? 15 : 0) +
-          ((axiomApplications || []).some((app) => app.status === "interview_scheduled")
+          ((applications || []).some((app) => app.status === "interview")
+            ? 15
+            : 0) +
+          ((axiomApplications || []).some(
+            (app) => app.status === "interview_scheduled",
+          )
             ? 15
             : 0),
       ),
@@ -538,8 +563,9 @@ export default function DashboardPage() {
     }).length;
 
     const activeApplications =
-      (applications || []).filter((app) => !["offer", "rejected"].includes(app.status))
-        .length +
+      (applications || []).filter(
+        (app) => !["offer", "rejected"].includes(app.status),
+      ).length +
       (axiomApplications || []).filter(
         (app) =>
           !["offered", "rejected", "accepted", "declined"].includes(app.status),
@@ -600,20 +626,14 @@ export default function DashboardPage() {
     }
 
     return {
-    profileStrength,
-    interviewReadiness,
-    weeklyCompleted,
-    weeklyGoals: weeklyGoalsComputed,
-    activeApplications,
-    suggestedNextAction,
-  };
-  }, [
-    applications,
-    axiomApplications,
-    interviewSessions,
-    primaryCv,
-    user,
-  ]);
+      profileStrength,
+      interviewReadiness,
+      weeklyCompleted,
+      weeklyGoals: weeklyGoalsComputed,
+      activeApplications,
+      suggestedNextAction,
+    };
+  }, [applications, axiomApplications, interviewSessions, primaryCv, user]);
 
   const handleDuplicate = async (id: string) => {
     if (duplicatingId) return;
@@ -858,7 +878,10 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 space-y-2">
             {WEEKLY_GOAL_KEYS.map((goal) => {
-              const isComplete = commandCenter.weeklyGoals[goal as keyof typeof commandCenter.weeklyGoals];
+              const isComplete =
+                commandCenter.weeklyGoals[
+                  goal as keyof typeof commandCenter.weeklyGoals
+                ];
               return (
                 <div
                   key={goal}
@@ -866,7 +889,7 @@ export default function DashboardPage() {
                     "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
                     isComplete
                       ? "border-green-500/30 bg-green-500/5"
-                      : "border-ash-border"
+                      : "border-ash-border",
                   )}
                 >
                   <span
