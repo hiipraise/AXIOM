@@ -263,7 +263,7 @@ function MobileSettingsSheet({
         onClick={onClose}
       />
       <motion.div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[85vh]"
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
@@ -276,7 +276,7 @@ function MobileSettingsSheet({
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-5">
+        <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1">
           {/* Template */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
@@ -374,7 +374,7 @@ function MobileSettingsSheet({
         </div>
 
         {/* Safe-area spacer for home bar */}
-        <div className="h-safe-bottom pb-4" />
+        <div className="pb-6" />
       </motion.div>
     </>
   );
@@ -595,7 +595,7 @@ export default function CVEditorPage() {
         template: latestTemplate,
         pageCount: latestPageCount,
       };
-     
+
       setIsDirty(false);
       setAutoSaveStatus("saved");
       setLastSaved(new Date());
