@@ -30,7 +30,6 @@ import { CV, CVData, EMPTY_CV_DATA, normalizeCVData } from "../../types";
 import { usePrintCV } from "../../hooks/usePrintCV";
 import toast from "react-hot-toast";
 import {
-  Save,
   Download,
   Sparkles,
   ChevronLeft,
@@ -54,18 +53,12 @@ import {
   PencilLine,
   SlidersHorizontal,
   GripVertical,
-  Check,
-  Circle,
-  ArrowRight,
-  Undo2,
   CheckCircle,
   XCircle,
   Search,
   FileText,
   ChevronDown,
   Star,
-  ToggleLeft,
-  ToggleRight,
 } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
 import PersonalInfoSection from "../../components/cv/PersonalInfoSection";
@@ -91,7 +84,6 @@ import ConfirmDialog from "../../components/UI/ConfirmDialog";
 import Breadcrumb from "../../components/Breadcrumb";
 import { useCVUndoStore } from "../../store/cvUndo";
 
-// Recommended fill order for progressive disclosure
 const DEFAULT_SECTIONS = [
   { id: "personal", label: "Personal Info", icon: User },
   { id: "targeting", label: "Targeting", icon: Target },
@@ -106,7 +98,6 @@ const DEFAULT_SECTIONS = [
   { id: "volunteer", label: "Volunteer", icon: Heart },
 ];
 
-// Sortable section item component
 function SortableSectionItem({
   id,
   label,
@@ -133,16 +124,14 @@ function SortableSectionItem({
     isDragging,
   } = useSortable({ id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   return (
     <button
       ref={setNodeRef}
-      style={style}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
       onClick={onClick}
       className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-all text-left ${
         isActive
@@ -162,17 +151,6 @@ function SortableSectionItem({
       <span className="flex-1 truncate">{label}</span>
     </button>
   );
-}
-
-// Helper to format time since last save
-function formatTimeSince(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function SectionDrawer({
@@ -215,11 +193,7 @@ function SectionDrawer({
                 onSelect(id);
                 onClose();
               }}
-              className={`w-full flex items-center gap-3 px-5 py-3 text-sm text-left transition-colors ${
-                activeSection === id
-                  ? "bg-ink text-white font-medium"
-                  : "text-ink-muted hover:bg-ash hover:text-ink"
-              }`}
+              className={`w-full flex items-center gap-3 px-5 py-3 text-sm text-left transition-colors ${activeSection === id ? "bg-ink text-white font-medium" : "text-ink-muted hover:bg-ash hover:text-ink"}`}
             >
               <Icon size={15} /> {label}
             </button>
@@ -230,7 +204,6 @@ function SectionDrawer({
   );
 }
 
-// ── 8a: Mobile settings bottom sheet ────────────────────────────────────────
 function MobileSettingsSheet({
   theme,
   template,
@@ -269,15 +242,13 @@ function MobileSettingsSheet({
         exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border flex-shrink-0">
           <p className="font-semibold text-sm text-ink">CV Settings</p>
           <button onClick={onClose}>
             <X size={16} className="text-ink-muted" />
           </button>
         </div>
-
         <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1">
-          {/* Template */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
               Template
@@ -287,19 +258,13 @@ function MobileSettingsSheet({
                 <button
                   key={o.value}
                   onClick={() => onTemplateChange(o.value)}
-                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${
-                    template === o.value
-                      ? "border-ink bg-ink text-white font-medium"
-                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
-                  }`}
+                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${template === o.value ? "border-ink bg-ink text-white font-medium" : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"}`}
                 >
                   {o.label}
                 </button>
               ))}
             </div>
           </div>
-
-          {/* Theme */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
               Theme
@@ -309,19 +274,13 @@ function MobileSettingsSheet({
                 <button
                   key={o.value}
                   onClick={() => onThemeChange(o.value)}
-                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${
-                    theme === o.value
-                      ? "border-ink bg-ink text-white font-medium"
-                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
-                  }`}
+                  className={`px-3 py-2.5 rounded-lg text-sm border transition-colors text-left ${theme === o.value ? "border-ink bg-ink text-white font-medium" : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"}`}
                 >
                   {o.label}
                 </button>
               ))}
             </div>
           </div>
-
-          {/* Page count */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
               Page Count
@@ -331,19 +290,13 @@ function MobileSettingsSheet({
                 <button
                   key={n}
                   onClick={() => onPageCountChange(n)}
-                  className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors font-medium ${
-                    pageCount === n
-                      ? "border-ink bg-ink text-white"
-                      : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
-                  }`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors font-medium ${pageCount === n ? "border-ink bg-ink text-white" : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"}`}
                 >
                   {n}
                 </button>
               ))}
             </div>
           </div>
-
-          {/* Visibility */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">
               Visibility
@@ -351,30 +304,63 @@ function MobileSettingsSheet({
             <div className="flex gap-2">
               <button
                 onClick={() => onPublicChange(false)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${
-                  !isPublic
-                    ? "border-ink bg-ink text-white font-medium"
-                    : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${!isPublic ? "border-ink bg-ink text-white font-medium" : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"}`}
               >
                 <Lock size={13} /> Private
               </button>
               <button
                 onClick={() => onPublicChange(true)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${
-                  isPublic
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 font-medium"
-                    : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm border transition-colors ${isPublic ? "border-emerald-300 bg-emerald-50 text-emerald-700 font-medium" : "border-ash-border text-ink-muted hover:bg-ash hover:text-ink"}`}
               >
                 <Globe size={13} /> Public
               </button>
             </div>
           </div>
+          <div className="pb-6" />
         </div>
+      </motion.div>
+    </>
+  );
+}
 
-        {/* Safe-area spacer for home bar */}
-        <div className="pb-6" />
+function MobileSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 bg-black/40 z-40 md:hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[90vh]"
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border flex-shrink-0">
+          <span className="font-semibold text-sm text-ink">{title}</span>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-ash transition-colors"
+          >
+            <X size={18} className="text-ink-muted" />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          {children}
+        </div>
       </motion.div>
     </>
   );
@@ -392,7 +378,6 @@ export default function CVEditorPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const openSkillGap = searchParams.get("skill_gap") === "true";
 
-  // Section order state (default order)
   const [sectionOrder, setSectionOrder] = useState<string[]>(() =>
     DEFAULT_SECTIONS.map((s) => s.id),
   );
@@ -411,28 +396,19 @@ export default function CVEditorPage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAction, setPendingAction] = useState<null | {
     action: "leave" | "restore";
     run: () => void;
   }>(null);
 
-  // Undo state
-  const { stack, push: pushUndo, undoTo, clear: clearUndo } = useCVUndoStore();
+  const { push: pushUndo, undoTo, clear: clearUndo } = useCVUndoStore();
   const [pendingAIDiff, setPendingAIDiff] = useState<{
     before: CVData;
     after: CVData;
   } | null>(null);
 
-  // Auto-save state
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<
-    "idle" | "saving" | "saved"
-  >("idle");
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistedDataRef = useRef<{
     cvData: CVData;
     title: string;
@@ -441,8 +417,8 @@ export default function CVEditorPage() {
     template: string;
     pageCount: number;
   } | null>(null);
+  const hasSetInitialSection = useRef(false);
 
-  // Refs for latest values (avoid stale closures in triggerAutoSave)
   const cvDataRef = useRef(cvData);
   const titleRef = useRef(title);
   const isPublicRef = useRef(isPublic);
@@ -450,7 +426,6 @@ export default function CVEditorPage() {
   const templateRef = useRef(template);
   const pageCountRef = useRef(pageCount);
 
-  // Keep refs in sync with latest values
   useEffect(() => {
     cvDataRef.current = cvData;
   }, [cvData]);
@@ -472,19 +447,13 @@ export default function CVEditorPage() {
 
   const { bannerH } = useAnnouncement();
 
-  // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 
-  // Helper: Check if a section is completed
   const isSectionCompleted = useCallback(
     (sectionId: string, data: CVData): boolean => {
       switch (sectionId) {
@@ -531,17 +500,11 @@ export default function CVEditorPage() {
     [],
   );
 
-  // Calculate completed sections count
-  const completedCount = useMemo(() => {
-    return sectionOrder.filter((sid) => isSectionCompleted(sid, cvData)).length;
-  }, [sectionOrder, cvData, isSectionCompleted]);
+  const firstIncompleteSection = useMemo(
+    () => sectionOrder.find((sid) => !isSectionCompleted(sid, cvData)),
+    [sectionOrder, cvData, isSectionCompleted],
+  );
 
-  // Get the first incomplete section
-  const firstIncompleteSection = useMemo(() => {
-    return sectionOrder.find((sid) => !isSectionCompleted(sid, cvData));
-  }, [sectionOrder, cvData, isSectionCompleted]);
-
-  // Map section IDs to their SECTIONS objects
   const sectionsMap = useMemo(() => {
     const map: Record<string, (typeof DEFAULT_SECTIONS)[0]> = {};
     DEFAULT_SECTIONS.forEach((s) => {
@@ -550,19 +513,14 @@ export default function CVEditorPage() {
     return map;
   }, []);
 
-  // Auto-save function
-  // Update triggerAutoSave to bail out if nothing actually changed
   const triggerAutoSave = useCallback(async () => {
     if (!id) return;
-
-    // Always read latest values from refs — avoid stale closures
     const latestCvData = cvDataRef.current;
     const latestTitle = titleRef.current;
     const latestIsPublic = isPublicRef.current;
     const latestTheme = themeRef.current;
     const latestTemplate = templateRef.current;
     const latestPageCount = pageCountRef.current;
-
     const persisted = persistedDataRef.current;
     if (
       persisted &&
@@ -576,8 +534,6 @@ export default function CVEditorPage() {
       setIsDirty(false);
       return;
     }
-
-    setAutoSaveStatus("saving");
     try {
       await cvApi.update(id, {
         title: latestTitle,
@@ -595,49 +551,24 @@ export default function CVEditorPage() {
         template: latestTemplate,
         pageCount: latestPageCount,
       };
-
+      qc.invalidateQueries({ queryKey: ["cvs"] });
       setIsDirty(false);
-      setAutoSaveStatus("saved");
-      setLastSaved(new Date());
     } catch {
-      setAutoSaveStatus("idle");
+      // silent fail
     }
-  }, [id, qc]); // ← minimal deps — no stale closure risk
+  }, [id, qc]);
 
-  // Debounced auto-save on data change
   useEffect(() => {
-    if (!isDirty || !autoSaveEnabled) return;
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+    if (!isDirty) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       triggerAutoSave();
     }, 2000);
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [cvData, title, isDirty, triggerAutoSave, autoSaveEnabled]);
+  }, [cvData, title, isDirty, triggerAutoSave]);
 
-  // Clear auto-save status after delay
-  useEffect(() => {
-    if (autoSaveStatus === "saved") {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-      autoSaveTimerRef.current = setTimeout(() => {
-        setAutoSaveStatus("idle");
-      }, 3000);
-      return () => {
-        if (autoSaveTimerRef.current) {
-          clearTimeout(autoSaveTimerRef.current);
-        }
-      };
-    }
-  }, [autoSaveStatus]);
-
-  // Handle drag end
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -654,9 +585,6 @@ export default function CVEditorPage() {
     enabled: !!id,
   });
 
-  // Load CV data and set initial section to first incomplete
-  // Effect 1: load data ONLY when cv first arrives from the server
-  // Update the load effect to seed the ref
   useEffect(() => {
     if (cv) {
       const normalized = normalizeCVData(cv.data);
@@ -666,7 +594,6 @@ export default function CVEditorPage() {
       setTheme(cv.theme);
       setTemplate(cv.template || "standard");
       setPageCount(cv.page_count);
-      // Seed persisted snapshot so we can diff against it
       persistedDataRef.current = {
         cvData: normalized,
         title: cv.title,
@@ -676,21 +603,17 @@ export default function CVEditorPage() {
         pageCount: cv.page_count,
       };
     }
-  }, [cv]); // ← cv only, NOT firstIncompleteSection
+  }, [cv]);
 
-  // Effect 2: set the initial active section ONCE when the CV id loads
   useEffect(() => {
-    if (cv && firstIncompleteSection) {
+    if (cv && firstIncompleteSection && !hasSetInitialSection.current) {
+      hasSetInitialSection.current = true;
       setActiveSection(firstIncompleteSection);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cv?.id]); // ← keyed on id so it only fires on first load, not on every edit
+  }, [cv, firstIncompleteSection]);
 
-  // Clear undo stack when loading a new CV
   useEffect(() => {
-    if (id) {
-      clearUndo();
-    }
+    if (id) clearUndo();
   }, [id, clearUndo]);
 
   const confirmDiscard = useCallback(
@@ -707,7 +630,6 @@ export default function CVEditorPage() {
   const handleLeaveEditor = () =>
     confirmDiscard("leave", () => navigate("/dashboard"));
 
-  // 8b: wrap history restore with the same unsaved-changes guard
   const handleRestoreFromHistory = (snap: CVData) => {
     confirmDiscard("restore", () => {
       setCvData(snap);
@@ -722,49 +644,8 @@ export default function CVEditorPage() {
     setIsDirty(true);
   };
 
-  const handleSave = async () => {
-    if (!id) return;
-    setSaving(true);
-    try {
-      await cvApi.update(id, {
-        title,
-        data: cvData,
-        is_public: isPublic,
-        theme,
-        template,
-        page_count: pageCount,
-      });
-      // Keep persisted snapshot in sync
-      persistedDataRef.current = {
-        cvData,
-        title,
-        isPublic,
-        theme,
-        template,
-        pageCount,
-      };
-      qc.invalidateQueries({ queryKey: ["cv", id] });
-      qc.invalidateQueries({ queryKey: ["cvs"] });
-      setIsDirty(false);
-      setLastSaved(new Date());
-      toast.success("CV saved");
-    } catch {
-      toast.error("Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Keyboard shortcuts: Ctrl+Z / Cmd+Z undo, Ctrl+S / Cmd+S save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S / Cmd+S = save
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        if (saving) return;
-        handleSave();
-      }
-      // Ctrl+Z / Cmd+Z = undo
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         const prev = undoTo(cvData);
@@ -777,10 +658,11 @@ export default function CVEditorPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cvData, undoTo, saving, handleSave]);
+  }, [cvData, undoTo]);
 
-  const handleExport = async () => {
+  const handleExport = async (format: "pdf" | "docx" | "txt") => {
     if (!id) return;
+    setShowExportMenu(false);
     if (isDirty) {
       toast("Saving first…", { icon: "💾" });
       try {
@@ -798,11 +680,10 @@ export default function CVEditorPage() {
         return;
       }
     }
-    if (exportFormat === "pdf") {
+    if (format === "pdf") {
       printCV(id);
     } else {
-      setShowExportMenu(false);
-      await exportCV(id, exportFormat);
+      await exportCV(id, format);
     }
   };
 
@@ -827,7 +708,7 @@ export default function CVEditorPage() {
           transition: "margin-top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        {/* Sidebar */}
+        {/* ── Desktop Sidebar ── */}
         <div className="hidden md:flex w-52 bg-white border-r border-ash-border flex-col flex-shrink-0">
           <div className="px-3 py-3 border-b border-ash-border flex-shrink-0">
             <button
@@ -837,54 +718,6 @@ export default function CVEditorPage() {
               <ChevronLeft size={13} /> Back
             </button>
           </div>
-
-          <div className="px-3 py-2 border-b border-ash-border">
-            {/* Auto-save indicator */}
-            <div className="mt-2 text-[10px] flex items-center gap-1">
-              {autoSaveStatus === "saving" && (
-                <span className="text-amber-600 flex items-center gap-1">
-                  <motion.span
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      repeat: Infinity,
-                      duration: 1,
-                      ease: "linear",
-                    }}
-                    className="block w-2 h-2 border border-amber-600 border-t-transparent rounded-full"
-                  />
-                  Saving...
-                </span>
-              )}
-              {autoSaveStatus === "saved" && (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <Check size={10} /> Saved
-                </span>
-              )}
-              {autoSaveStatus === "idle" && lastSaved && (
-                <span className="text-ink-muted">
-                  Saved {formatTimeSince(lastSaved)}
-                </span>
-              )}
-              {autoSaveStatus === "idle" && (
-                <button
-                  onClick={() => setAutoSaveEnabled((v) => !v)}
-                  className="flex items-center gap-1 hover:text-ink transition-colors ml-1"
-                  title={
-                    autoSaveEnabled ? "Turn off auto-save" : "Turn on auto-save"
-                  }
-                >
-                  {autoSaveEnabled ? (
-                    <ToggleRight size={14} className="text-emerald-600" />
-                  ) : (
-                    <ToggleLeft size={14} className="text-ash-border" />
-                  )}
-                  Auto
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Draggable sections list */}
           <div className="flex-1 overflow-y-auto py-2">
             <DndContext
               sensors={sensors}
@@ -898,7 +731,6 @@ export default function CVEditorPage() {
                 {sectionOrder.map((sid, idx) => {
                   const section = sectionsMap[sid];
                   if (!section) return null;
-                  const isCompleted = isSectionCompleted(sid, cvData);
                   return (
                     <SortableSectionItem
                       key={sid}
@@ -906,7 +738,7 @@ export default function CVEditorPage() {
                       label={section.label}
                       icon={section.icon}
                       isActive={activeSection === sid}
-                      isCompleted={isCompleted}
+                      isCompleted={isSectionCompleted(sid, cvData)}
                       orderIndex={idx}
                       onClick={() => setActiveSection(sid)}
                     />
@@ -949,7 +781,7 @@ export default function CVEditorPage() {
           </div>
         </div>
 
-        {/* Main area */}
+        {/* ── Main area ── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Toolbar */}
           <div className="bg-white border-b border-ash-border px-3 sm:px-5 py-2.5 flex items-center gap-2 flex-shrink-0">
@@ -995,16 +827,13 @@ export default function CVEditorPage() {
                         repeat: Infinity,
                       }}
                     >
-                      <span className="pr-8">
-                        {(cvData.personal_info.full_name
-                          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
-                          : title || "CV") + ".pdf"}
-                      </span>
-                      <span className="pr-8">
-                        {(cvData.personal_info.full_name
-                          ? `${cvData.personal_info.full_name} - ${title || "CV"}`
-                          : title || "CV") + ".pdf"}
-                      </span>
+                      {[0, 1].map((i) => (
+                        <span key={i} className="pr-8">
+                          {(cvData.personal_info.full_name
+                            ? `${cvData.personal_info.full_name} - ${title || "CV"}`
+                            : title || "CV") + ".pdf"}
+                        </span>
+                      ))}
                     </motion.div>
                   </div>
                 </div>
@@ -1013,19 +842,14 @@ export default function CVEditorPage() {
                 className="btn-ghost p-1.5 flex-shrink-0"
                 title="Rename title"
                 onClick={() => {
-                  const el = document.querySelector(
-                    'input[placeholder="CV Title"]',
-                  ) as HTMLInputElement | null;
-                  el?.focus();
-                  el?.select();
+                  titleInputRef.current?.focus();
+                  titleInputRef.current?.select();
                 }}
               >
                 <PencilLine size={14} />
               </button>
             </div>
-
             <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
-              {/* Desktop-only selects */}
               <select
                 value={template}
                 onChange={(e) => {
@@ -1067,8 +891,6 @@ export default function CVEditorPage() {
                 <option value={2}>2 Pages</option>
                 <option value={3}>3 Pages</option>
               </select>
-
-              {/* Mobile-only action buttons */}
               <button
                 onClick={() => setShowSkillGap(!showSkillGap)}
                 className="md:hidden p-1.5 text-[#a0449f] hover:text-[#8d3f8c]"
@@ -1090,7 +912,20 @@ export default function CVEditorPage() {
               >
                 <Eye size={15} />
               </button>
-              {/* 8a: Mobile settings button */}
+              <button
+                onClick={() => setShowATS(true)}
+                className="md:hidden p-1.5 text-ink-muted hover:text-ink"
+                title="ATS Preview"
+              >
+                <Search size={15} />
+              </button>
+              <button
+                onClick={() => setShowHistory(true)}
+                className="md:hidden p-1.5 text-ink-muted hover:text-ink"
+                title="History"
+              >
+                <History size={15} />
+              </button>
               <button
                 onClick={() => setShowSettings(true)}
                 className="md:hidden p-1.5 text-ink-muted hover:text-ink"
@@ -1098,84 +933,64 @@ export default function CVEditorPage() {
               >
                 <SlidersHorizontal size={15} />
               </button>
-
               <button
                 onClick={() => {
                   setIsPublic(!isPublic);
                   setIsDirty(true);
                 }}
-                className={`hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                  isPublic
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                    : "border-ash-border text-ink-muted hover:bg-ash"
-                }`}
+                className={`hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isPublic ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-ash-border text-ink-muted hover:bg-ash"}`}
               >
                 {isPublic ? <Globe size={12} /> : <Lock size={12} />}
                 {isPublic ? "Public" : "Private"}
               </button>
-              {/* Export Dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  onClick={() => setShowExportMenu((v) => !v)}
                   disabled={isPrinting}
-                  className="p-1.5 sm:flex sm:items-center sm:gap-1 sm:text-xs sm:px-3 sm:py-1.5 sm:rounded-lg sm:border sm:border-ash-border sm:text-ink-muted sm:hover:bg-ash sm:transition-colors text-ink-muted hover:text-ink disabled:opacity-50"
+                  className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border border-ash-border text-ink-muted hover:bg-ash transition-colors disabled:opacity-50"
                 >
                   <Download size={14} />
-                  <span className="hidden sm:inline text-xs">
+                  <span className="hidden sm:inline">
                     {isPrinting ? "Preparing…" : exportFormat.toUpperCase()}
                   </span>
                   <ChevronDown size={12} className="hidden sm:block" />
                 </button>
-                {showExportMenu && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-ash-border rounded-lg shadow-lg z-50 py-1 min-w-24">
-                    <button
-                      onClick={() => {
-                        setExportFormat("pdf");
-                        setShowExportMenu(false);
-                        handleExport();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
-                    >
-                      <FileText size={12} /> PDF
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExportFormat("docx");
-                        setShowExportMenu(false);
-                        handleExport();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
-                    >
-                      <FileText size={12} /> Word
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExportFormat("txt");
-                        setShowExportMenu(false);
-                        handleExport();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs hover:bg-ash flex items-center gap-2"
-                    >
-                      <FileText size={12} /> Plain Text
-                    </button>
-                  </div>
-                )}
+                <AnimatePresence>
+                  {showExportMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowExportMenu(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute right-0 top-full mt-1 bg-white border border-ash-border rounded-lg shadow-lg z-50 py-1 min-w-[7rem]"
+                      >
+                        {(["pdf", "docx", "txt"] as const).map((fmt) => (
+                          <button
+                            key={fmt}
+                            onClick={() => {
+                              setExportFormat(fmt);
+                              handleExport(fmt);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs hover:bg-ash flex items-center gap-2 text-ink"
+                          >
+                            <FileText size={12} />
+                            {fmt === "pdf"
+                              ? "PDF"
+                              : fmt === "docx"
+                                ? "Word"
+                                : "Plain Text"}
+                          </button>
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
-              <button
-                onClick={handleSave}
-                disabled={saving || !isDirty}
-                title="Save (Ctrl+S)"
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                  isDirty
-                    ? "bg-ink text-white hover:bg-ink-light"
-                    : "bg-ash text-ink-muted cursor-not-allowed"
-                }`}
-              >
-                <Save size={12} />
-                <span className="hidden sm:inline">
-                  {saving ? "Saving…" : "Save"}
-                </span>
-              </button>
             </div>
           </div>
 
@@ -1260,7 +1075,7 @@ export default function CVEditorPage() {
           </div>
         </div>
 
-        {/* Desktop AI panel */}
+        {/* ── Desktop-only side panels (AI + SkillGap are sidebars, not modals) ── */}
         {showAI && (
           <div className="hidden md:block">
             <AIAssistPanel
@@ -1274,52 +1089,6 @@ export default function CVEditorPage() {
             />
           </div>
         )}
-        {/* Mobile AI panel */}
-        {/* Mobile AI panel — bottom sheet */}
-        <AnimatePresence>
-          {showAI && (
-            <>
-              <motion.div
-                className="fixed inset-0 bg-black/40 z-40 md:hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                onClick={() => setShowAI(false)}
-              />
-              <motion.div
-                className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[85vh]"
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-ash-border flex-shrink-0">
-                  <span className="font-semibold text-sm text-ink">
-                    AI Assist
-                  </span>
-                  <button onClick={() => setShowAI(false)}>
-                    <X size={16} className="text-ink-muted" />
-                  </button>
-                </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <AIAssistPanel
-                    cvData={cvData}
-                    onApply={(d) => {
-                      pushUndo(cvData);
-                      setPendingAIDiff({ before: cvData, after: d });
-                      setShowAI(false);
-                    }}
-                    onClose={() => setShowAI(false)}
-                    cvId={id!}
-                  />
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Desktop Skill Gap panel */}
         {showSkillGap && (
           <div className="hidden md:block">
             <SkillGapEngine
@@ -1329,34 +1098,54 @@ export default function CVEditorPage() {
             />
           </div>
         )}
-        {/* Mobile Skill Gap panel */}
+
+        {/*
+          ATSPreviewModal and HistoryDrawer are self-contained modal components —
+          they render their own fixed overlay internally. Render each once,
+          unconditionally, and let them handle both desktop and mobile layout.
+        */}
+        {showATS && (
+          <ATSPreviewModal cvData={cvData} onClose={() => setShowATS(false)} />
+        )}
+        {showHistory && id && (
+          <HistoryDrawer
+            cvId={id}
+            currentData={cvData}
+            onRestore={handleRestoreFromHistory}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
+
+        {/* ── Mobile sheets for sidebar panels ── */}
+        <AnimatePresence>
+          {showAI && (
+            <MobileSheet title="AI Assist" onClose={() => setShowAI(false)}>
+              <AIAssistPanel
+                cvData={cvData}
+                onApply={(d) => {
+                  pushUndo(cvData);
+                  setPendingAIDiff({ before: cvData, after: d });
+                  setShowAI(false);
+                }}
+                onClose={() => setShowAI(false)}
+                cvId={id!}
+              />
+            </MobileSheet>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {showSkillGap && (
-            <>
-              <motion.div
-                className="fixed inset-0 bg-black/40 z-40 md:hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                onClick={() => setShowSkillGap(false)}
+            <MobileSheet
+              title="Skill Gap"
+              onClose={() => setShowSkillGap(false)}
+            >
+              <SkillGapEngine
+                cvData={cvData}
+                onClose={() => setShowSkillGap(false)}
+                cvId={id!}
               />
-              <motion.div
-                className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl md:hidden flex flex-col max-h-[85vh]"
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <div className="flex-1 flex flex-col min-h-0">
-                  <SkillGapEngine
-                    cvData={cvData}
-                    onClose={() => setShowSkillGap(false)}
-                    cvId={id!}
-                  />
-                </div>
-              </motion.div>
-            </>
+            </MobileSheet>
           )}
         </AnimatePresence>
 
@@ -1370,7 +1159,6 @@ export default function CVEditorPage() {
           )}
         </AnimatePresence>
 
-        {/* 8a: Mobile settings sheet */}
         <AnimatePresence>
           {showSettings && (
             <MobileSettingsSheet
@@ -1408,19 +1196,13 @@ export default function CVEditorPage() {
           />
         )}
 
-        {/* ATS Preview Modal */}
-        {showATS && (
-          <ATSPreviewModal cvData={cvData} onClose={() => setShowATS(false)} />
-        )}
-
-        {/* AI Edit Diff Preview Modal */}
         <AnimatePresence>
           {pendingAIDiff && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
               onClick={() => {
                 setCvData(pendingAIDiff.before);
                 setPendingAIDiff(null);
@@ -1431,10 +1213,10 @@ export default function CVEditorPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden"
+                className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-5 py-4 border-b border-ash-border flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-ash-border flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <Sparkles size={18} className="text-axiom" />
                     <span className="font-semibold text-ink">
@@ -1452,13 +1234,13 @@ export default function CVEditorPage() {
                     <X size={18} />
                   </button>
                 </div>
-                <div className="p-5 overflow-y-auto max-h-[60vh]">
+                <div className="p-5 overflow-y-auto flex-1">
                   <DiffViewer
                     before={pendingAIDiff.before}
                     after={pendingAIDiff.after}
                   />
                 </div>
-                <div className="px-5 py-4 border-t border-ash-border flex gap-3 justify-end">
+                <div className="px-5 py-4 border-t border-ash-border flex gap-3 justify-end flex-shrink-0">
                   <button
                     onClick={() => {
                       setCvData(pendingAIDiff.before);
@@ -1486,16 +1268,6 @@ export default function CVEditorPage() {
           )}
         </AnimatePresence>
 
-        {showHistory && id && (
-          <HistoryDrawer
-            cvId={id}
-            currentData={cvData}
-            onRestore={handleRestoreFromHistory} // 8b: guarded restore
-            onClose={() => setShowHistory(false)}
-          />
-        )}
-
-        {/* 8b: Extended confirm dialog covers leave / restore */}
         <ConfirmDialog
           open={!!pendingAction}
           title="Discard unsaved changes?"
