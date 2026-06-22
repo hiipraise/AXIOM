@@ -442,6 +442,34 @@ export default function CVEditorPage() {
     pageCount: number;
   } | null>(null);
 
+  // Refs for latest values (avoid stale closures in triggerAutoSave)
+  const cvDataRef = useRef(cvData);
+  const titleRef = useRef(title);
+  const isPublicRef = useRef(isPublic);
+  const themeRef = useRef(theme);
+  const templateRef = useRef(template);
+  const pageCountRef = useRef(pageCount);
+
+  // Keep refs in sync with latest values
+  useEffect(() => {
+    cvDataRef.current = cvData;
+  }, [cvData]);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  useEffect(() => {
+    isPublicRef.current = isPublic;
+  }, [isPublic]);
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
+  useEffect(() => {
+    templateRef.current = template;
+  }, [template]);
+  useEffect(() => {
+    pageCountRef.current = pageCount;
+  }, [pageCount]);
+
   const { bannerH } = useAnnouncement();
 
   // DnD sensors
@@ -525,17 +553,25 @@ export default function CVEditorPage() {
   // Auto-save function
   // Update triggerAutoSave to bail out if nothing actually changed
   const triggerAutoSave = useCallback(async () => {
-    if (!id || !isDirty) return;
+    if (!id) return;
+
+    // Always read latest values from refs — avoid stale closures
+    const latestCvData = cvDataRef.current;
+    const latestTitle = titleRef.current;
+    const latestIsPublic = isPublicRef.current;
+    const latestTheme = themeRef.current;
+    const latestTemplate = templateRef.current;
+    const latestPageCount = pageCountRef.current;
 
     const persisted = persistedDataRef.current;
     if (
       persisted &&
-      JSON.stringify(cvData) === JSON.stringify(persisted.cvData) &&
-      title === persisted.title &&
-      isPublic === persisted.isPublic &&
-      theme === persisted.theme &&
-      template === persisted.template &&
-      pageCount === persisted.pageCount
+      JSON.stringify(latestCvData) === JSON.stringify(persisted.cvData) &&
+      latestTitle === persisted.title &&
+      latestIsPublic === persisted.isPublic &&
+      latestTheme === persisted.theme &&
+      latestTemplate === persisted.template &&
+      latestPageCount === persisted.pageCount
     ) {
       setIsDirty(false);
       return;
@@ -544,36 +580,33 @@ export default function CVEditorPage() {
     setAutoSaveStatus("saving");
     try {
       await cvApi.update(id, {
-        title,
-        data: cvData,
-        is_public: isPublic,
-        theme,
-        template,
-        page_count: pageCount,
+        title: latestTitle,
+        data: latestCvData,
+        is_public: latestIsPublic,
+        theme: latestTheme,
+        template: latestTemplate,
+        page_count: latestPageCount,
       });
       persistedDataRef.current = {
-        cvData,
-        title,
-        isPublic,
-        theme,
-        template,
-        pageCount,
+        cvData: latestCvData,
+        title: latestTitle,
+        isPublic: latestIsPublic,
+        theme: latestTheme,
+        template: latestTemplate,
+        pageCount: latestPageCount,
       };
-      // ✅ Bust the cache so re-entering the editor loads fresh data
-      qc.invalidateQueries({ queryKey: ["cv", id] });
-      qc.invalidateQueries({ queryKey: ["cvs"] });
+     
       setIsDirty(false);
       setAutoSaveStatus("saved");
       setLastSaved(new Date());
     } catch {
       setAutoSaveStatus("idle");
     }
-  }, [id, isDirty, title, cvData, isPublic, theme, template, pageCount, qc]); // ← qc added
+  }, [id, qc]); // ← minimal deps — no stale closure risk
 
   // Debounced auto-save on data change
   useEffect(() => {
     if (!isDirty || !autoSaveEnabled) return;
-    setAutoSaveStatus("idle");
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
