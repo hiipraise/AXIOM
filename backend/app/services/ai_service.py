@@ -420,7 +420,7 @@ async def interview_user(
 async def review_cv(
     cv_data: dict,
     job_description: str = "",
-) -> str:
+) -> dict:
     ctx = _cv_context(cv_data)
     target_line   = f"\nTarget role: {ctx['target_role']}"   if ctx.get("target_role")   else ""
     career_line   = f"\nCareer level: {ctx['career_level']}" if ctx.get("career_level")  else ""
@@ -437,19 +437,44 @@ CV Data:
 {json.dumps(cv_data, indent=2)}
 
 Score it hard, identify every failure, and tell the person exactly what to fix.
-Do not soften criticism. Prioritise optimisation, relevance, ATS alignment, and evidence."""
+Do not soften criticism. Prioritise optimisation, relevance, ATS alignment, and evidence.
 
-    return await _create_completion_with_retry(
+Return ONLY valid JSON matching the schema specified in the system prompt."""
+
+    text = await _create_completion_with_retry(
         review_build_prompt(
             career_level=ctx.get("career_level", ""),
             industry=ctx.get("industry", ""),
             target_role=ctx.get("target_role", ""),
             job_description=job_description,
-            response_format="text",
+            response_format="json",
         ),
         [{"role": "user", "content": prompt}],
         max_tokens=REVIEW_MAX_TOKENS,
     )
+
+    # Parse and validate the JSON response
+    from app.models.schemas import CVReviewResult
+
+    try:
+        data = _safe_json_object(text)
+        # Validate and coerce through the Pydantic model
+        validated = CVReviewResult(**data)
+        return validated.model_dump()
+    except Exception:
+        logger.warning("Failed to parse review JSON, returning raw text fallback")
+        # Fallback: wrap the raw text as best-effort content
+        # This ensures the frontend always gets a parseable response
+        return {
+            "overall_score": 0,
+            "dimensions": [],
+            "critical_failures": [],
+            "high_impact_improvements": [],
+            "ats_keyword_gaps": [],
+            "section_notes": text[:2000] if isinstance(text, str) else str(text),
+            "what_is_working": [],
+            "verdict": text[:500] if isinstance(text, str) else str(text),
+        }
 
 
 # ─── Targeted optimisation pass ───────────────────────────────────────────────

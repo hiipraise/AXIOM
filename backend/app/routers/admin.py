@@ -191,7 +191,7 @@ async def set_user_role(body: UserRoleUpdate, user_id: str, admin=Depends(requir
         raise not_found("User")
     previous_role = target.get("role")
 
-    await db.users.update_one({"_id": user_id}, {"$set": {"role": role}})
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": role}})
     await audit(db, str(admin["_id"]), "set_role", user_id, {
         "previous_role": previous_role,
         "new_role": role,
@@ -395,13 +395,22 @@ async def export_stats(admin=Depends(require_staff), db=Depends(get_db)):
 
 @router.get("/stats")
 async def get_stats(admin=Depends(require_staff), db=Depends(get_db)):
-    total_users   = await db.users.count_documents({})
-    total_cvs     = await db.cvs.count_documents({})
-    public_cvs    = await db.cvs.count_documents({"is_public": True})
+    total_users       = await db.users.count_documents({})
+    total_cvs         = await db.cvs.count_documents({})
+    public_cvs        = await db.cvs.count_documents({"is_public": True})
+    total_saved_jobs  = await db.saved_jobs.count_documents({})
+    # Active users in last 30 days (via last_seen_at)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    active_users_30d = await db.users.count_documents({
+        "is_active": True,
+        "last_seen_at": {"$gte": thirty_days_ago},
+    })
     return {
         "total_users":       total_users,
         "total_cvs":         total_cvs,
         "public_cvs":        public_cvs,
+        "total_saved_jobs":  total_saved_jobs,
+        "active_users_30d":  active_users_30d,
     }
 
 

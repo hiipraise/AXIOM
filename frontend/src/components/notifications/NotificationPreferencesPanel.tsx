@@ -11,6 +11,7 @@ import {
   Layers,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import Toggle from '../UI/Toggle'
 
 const KIND_LABELS: Record<string, { label: string; desc: string }> = {
   general: { label: 'General', desc: 'Account updates and system messages' },
@@ -158,19 +159,12 @@ export default function NotificationPreferencesPanel() {
                 <p className="text-[11px] text-ink-muted">Delivered via Sendhiiv to your email</p>
               </div>
             </div>
-            <button
-              onClick={toggleEmail}
+            <Toggle
+              checked={prefs?.email_notifications ?? false}
+              onChange={toggleEmail}
               disabled={updateMutation.isPending}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                prefs?.email_notifications ? 'bg-ink' : 'bg-ash-border'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                  prefs?.email_notifications ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+              label="Email notifications"
+            />
           </label>
 
           {/* Push toggle */}
@@ -188,19 +182,12 @@ export default function NotificationPreferencesPanel() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={togglePush}
+            <Toggle
+              checked={prefs?.push_notifications ?? false}
+              onChange={togglePush}
               disabled={updateMutation.isPending || !pushConfigurable}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                prefs?.push_notifications ? 'bg-ink' : 'bg-ash-border'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                  prefs?.push_notifications ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+              label="Push notifications"
+            />
           </label>
         </div>
       </div>
@@ -221,19 +208,12 @@ export default function NotificationPreferencesPanel() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={toggleQuietHours}
+            <Toggle
+              checked={prefs?.quiet_hours.enabled ?? false}
+              onChange={toggleQuietHours}
               disabled={updateMutation.isPending}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                prefs?.quiet_hours.enabled ? 'bg-ink' : 'bg-ash-border'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                  prefs?.quiet_hours.enabled ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+              label="Quiet hours"
+            />
           </label>
           {quietHoursStatus?.active_now && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-700 text-xs">
@@ -261,19 +241,12 @@ export default function NotificationPreferencesPanel() {
                   <p className="text-[11px] text-ink-muted truncate">{desc}</p>
                 </div>
               </div>
-              <button
-                onClick={() => toggleKind(kind, prefs?.kinds[kind] ?? true)}
+              <Toggle
+                checked={prefs?.kinds[kind] ?? true}
+                onChange={() => toggleKind(kind, prefs?.kinds[kind] ?? true)}
                 disabled={updateMutation.isPending}
-                className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors ${
-                  prefs?.kinds[kind] ?? true ? 'bg-ink' : 'bg-ash-border'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                    prefs?.kinds[kind] ?? true ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
+                label={label}
+              />
             </label>
           ))}
         </div>

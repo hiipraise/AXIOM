@@ -39,6 +39,34 @@ export default function CVTeaserSection() {
           respects its owner's privacy settings.
         </motion.p>
 
+        {/* ── CV browse screenshot ── */}
+        <motion.div
+          className="mx-auto max-w-lg mb-8"
+          initial={{ opacity: 0, y: 16 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, delay: 0.20, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="relative aspect-[4/3] rounded-2xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+            <img
+              src="/assets/screenshots/cv_teaser_browse.png"
+              alt="Public CV browse page showing real CVs from the AXIOM community"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fb = target.nextElementSibling;
+                if (fb) (fb as HTMLElement).classList.remove("hidden");
+              }}
+            />
+            <div
+              className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none"
+            >
+              <span>CV browse screenshot</span>
+            </div>
+          </div>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}

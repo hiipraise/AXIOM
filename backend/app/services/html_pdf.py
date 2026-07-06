@@ -1,25 +1,21 @@
 """
-html_pdf.py — HTML → PDF via headless Chromium (Playwright)
+html_pdf.py — HTML → PDF via headless Chromium (Playwright async API)
 
-Uses subprocess to run Playwright in a completely separate Python process,
-avoiding all asyncio event loop issues on Windows entirely.
-A child process has its own fresh event loop with no inherited state.
+Uses playwright.async_api directly on the server's event loop instead of
+spawning a subprocess. A single browser instance is created on first use
+and reused across requests with an asyncio lock for thread-safe init.
 
 HTML sanitization uses bleach (allowlist approach) instead of a regex blocklist.
 """
 from __future__ import annotations
 
 import asyncio
-import subprocess
-import sys
-import json
-import base64
-from concurrent.futures import ThreadPoolExecutor
+import logging
 
 import bleach
 from bleach.css_sanitizer import CSSSanitizer
 
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pw_pdf")
+logger = logging.getLogger(__name__)
 
 # ── Allowlist-based HTML sanitization ─────────────────────────────────────────
 # Only tags, attributes, and CSS properties needed for CV PDF rendering.
@@ -143,64 +139,131 @@ def sanitize_html(html: str) -> str:
         strip_comments=True,
     )
 
-# The worker script — written to a temp file and executed as a subprocess
-_WORKER_SCRIPT = r"""
-import sys, json, base64, asyncio
 
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+# ── Shared browser instance (lazy init, reused across requests) ───────────────
 
-from playwright.sync_api import sync_playwright
+_playwright_instance = None
+_browser = None
+_browser_lock = asyncio.Lock()
 
-data = json.loads(sys.stdin.buffer.read())
-html = data["html"]
 
-with sync_playwright() as pw:
-    browser = pw.chromium.launch(args=[
-        "--no-sandbox", "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run",
+def _is_browser_error(exc: Exception) -> bool:
+    """Check if an exception indicates the browser process is dead."""
+    msg = str(exc).lower()
+    # Playwright raises Error with "browser closed", "target closed",
+    # "connection closed", "protocol error" on crashed/disconnected browsers
+    return any(kw in msg for kw in [
+        "browser closed",
+        "target closed",
+        "connection closed",
+        "protocol error",
+        "page crashed",
+        "page closed",
     ])
+
+
+async def _reset_browser():
+    """Close and re-launch the browser from scratch."""
+    global _playwright_instance, _browser
+    async with _browser_lock:
+        if _browser is not None:
+            try:
+                await _browser.close()
+            except Exception:
+                pass
+            _browser = None
+        if _playwright_instance is not None:
+            try:
+                await _playwright_instance.stop()
+            except Exception:
+                pass
+            _playwright_instance = None
+    # Re-launch via the normal lazy init path
+    await _get_browser()
+
+
+async def _get_browser():
+    """Return the shared Chromium browser, creating it on first call."""
+    global _playwright_instance, _browser
+
+    if _browser is not None:
+        return _browser
+
+    async with _browser_lock:
+        if _browser is not None:
+            return _browser
+
+        from playwright.async_api import async_playwright
+
+        _playwright_instance = await async_playwright().start()
+        _browser = await _playwright_instance.chromium.launch(
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-first-run",
+            ],
+        )
+        logger.info("Playwright browser launched (reused across requests)")
+        return _browser
+
+
+async def _close_browser():
+    """Cleanup: close browser and stop Playwright (call on app shutdown)."""
+    global _playwright_instance, _browser
+
+    async with _browser_lock:
+        if _browser is not None:
+            try:
+                await _browser.close()
+            except Exception:
+                logger.exception("Error closing Playwright browser")
+            _browser = None
+        if _playwright_instance is not None:
+            try:
+                await _playwright_instance.stop()
+            except Exception:
+                logger.exception("Error stopping Playwright")
+            _playwright_instance = None
+        logger.info("Playwright browser shut down")
+
+
+async def html_to_pdf(html: str, _retry: bool = True) -> bytes:
+    """Render HTML to PDF via headless Chromium.
+
+    Uses a shared browser instance (created on first call).
+    Each call creates a new isolated page/context for safety.
+    If the browser crashes, it is re-launched and the call retried once.
+    """
+    html = sanitize_html(html)
+    browser = await _get_browser()
+
+    context = None
     try:
-        page = browser.new_page()
-        page.set_content(html, wait_until="networkidle", timeout=15000)
-        page.wait_for_timeout(200)
-        pdf = page.pdf(
+        context = await browser.new_context(
+            # No cookies/localStorage from previous calls
+            no_viewport=True,
+            java_script_enabled=False,
+        )
+        page = await context.new_page()
+        await page.set_content(html, wait_until="networkidle", timeout=15000)
+        await page.wait_for_timeout(200)
+        pdf = await page.pdf(
             format="A4",
             print_background=True,
             scale=1.0,
             margin={"top": "14mm", "bottom": "16mm",
-                "left": "16mm", "right": "16mm"},
+                    "left": "16mm", "right": "16mm"},
         )
-        sys.stdout.buffer.write(base64.b64encode(pdf))
+        return pdf
+    except Exception as exc:
+        # If the browser seems dead, reset it and retry once
+        if _retry and _is_browser_error(exc):
+            logger.warning("Playwright browser may be dead — re-launching: %s", exc)
+            await _reset_browser()
+            return await html_to_pdf(html, _retry=False)
+        raise
     finally:
-        browser.close()
-"""
-
-
-def _run_in_subprocess(html: str) -> bytes:
-    """
-    Write the worker script to a temp file and run it as a fresh Python
-    subprocess.  Input/output via stdin/stdout avoids any file permission
-    issues with temp directories.
-    """
-    payload = json.dumps({"html": html}).encode()
-
-    result = subprocess.run(
-        [sys.executable, "-c", _WORKER_SCRIPT],
-        input=payload,
-        capture_output=True,
-        timeout=60,
-    )
-
-    if result.returncode != 0:
-        stderr = result.stderr.decode(errors="replace")
-        raise RuntimeError(f"Playwright subprocess failed:\n{stderr}")
-
-    return base64.b64decode(result.stdout)
-
-
-async def html_to_pdf(html: str) -> bytes:
-    """Async entry point — offloads blocking subprocess to thread pool."""
-    html = sanitize_html(html)
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(_executor, _run_in_subprocess, html)
+        if context is not None:
+            await context.close()

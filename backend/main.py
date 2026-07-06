@@ -23,6 +23,7 @@ from app.config import settings
 from app.database import connect_db, close_db, init_admin, ping_db
 from app.limiter import limiter
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.services.html_pdf import _close_browser as _close_playwright
 from app.routers import (
     admin,
     analytics,
@@ -88,10 +89,10 @@ def _enforce_production_secrets() -> None:
         return
 
     required = {
-        "JWT_SECRET":     os.getenv("JWT_SECRET"),
-        "MONGO_URL":      os.getenv("MONGO_URL"),
-        "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD"),
-        "GROQ_API_KEY":   os.getenv("GROQ_API_KEY"),
+        "JWT_SECRET":     settings.jwt_secret,
+        "MONGO_URL":      settings.mongo_url,
+        "ADMIN_PASSWORD": settings.admin_password,
+        "GROQ_API_KEY":   settings.groq_api_key,
     }
     missing = [name for name, value in required.items() if not value]
 
@@ -109,6 +110,7 @@ async def lifespan(app: FastAPI):
     await init_admin()
     await _cleanup_orphaned_recordings()
     yield
+    await _close_playwright()
     await close_db()
 
 
@@ -223,4 +225,20 @@ async def health():
     db_ok = await ping_db()
     if not db_ok:
         raise service_unavailable("Database connection failed")
-    return {"status": "ok", "service": "AXIOM API"}
+
+    # Playwright browser health check (lazy — only checks if already initialized)
+    playwright_ok = None
+    from app.services.html_pdf import _browser
+    if _browser is not None:
+        try:
+            # Quick check: try to access browser contexts
+            _ = _browser.contexts
+            playwright_ok = True
+        except Exception:
+            playwright_ok = False
+
+    return {
+        "status": "ok",
+        "service": "AXIOM API",
+        "playwright": playwright_ok,
+    }

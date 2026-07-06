@@ -6,6 +6,7 @@ Exports build_prompt(**kwargs) -> str with model configuration constants.
 """
 
 from app.config import settings
+from app.prompts.cv_generation import JSON_RESPONSE_RULE, TEXT_RESPONSE_RULE
 
 # Model configuration — centralized per module
 MODEL_NAME = settings.groq_model
@@ -45,20 +46,6 @@ Question mix rules:
 - Always include CV-probing questions when the CV contains projects or quantified achievements.
 - Ask one concise question at a time. Do not answer for the user.
 - Never invent facts about the candidate.
-"""
-
-
-# ─── Response type rules ────────────────────────────────────────────────
-
-JSON_RESPONSE_RULE = """
-When generating JSON:
-Return ONLY valid JSON.
-Do NOT include markdown, explanations, or extra text.
-"""
-
-TEXT_RESPONSE_RULE = """
-Respond in natural language text.
-Do NOT return JSON unless explicitly requested.
 """
 
 

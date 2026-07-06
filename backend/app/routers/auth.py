@@ -55,6 +55,7 @@ def serialize_user(u: dict) -> dict:
         "role":                 u.get("role", "user"),
         "must_change_password": u.get("must_change_password", False),
         "created_at":           u.get("created_at", datetime.now(timezone.utc)),
+        "last_seen_at":         u.get("last_seen_at"),
         "is_active":            u.get("is_active", True),
         "is_first_login":       u.get("is_first_login", False),
         "oauth_provider":       u.get("oauth_provider"),
@@ -183,6 +184,13 @@ async def login(request: Request, body: UserLogin, response: Response, db=Depend
         raise unauthorized("Invalid credentials")
     if not user.get("is_active"):
         raise forbidden("Account deactivated")
+
+    # Update last seen timestamp
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"last_seen_at": datetime.now(timezone.utc)}},
+    )
+
     token = create_access_token({"sub": str(user["_id"])})
     set_auth_cookie(response, token)
     return _auth_response(request, user, token)

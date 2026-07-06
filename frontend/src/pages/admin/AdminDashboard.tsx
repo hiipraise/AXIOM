@@ -47,7 +47,8 @@ interface Stats {
   total_users: number;
   total_cvs: number;
   public_cvs: number;
-  total_job_tracker_entries: number;
+  total_saved_jobs: number;
+  active_users_30d: number;
 }
 
 interface Overview {
@@ -263,6 +264,12 @@ export default function AdminDashboard() {
       {/* ── KPI grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Total users" value={stats?.total_users} icon={Users} />
+        <StatCard
+          label="Active users"
+          value={stats?.active_users_30d}
+          icon={UserCheck}
+          sub="last 30 days"
+        />
         <StatCard label="Total CVs" value={stats?.total_cvs} icon={FileText} />
         <StatCard label="Public CVs" value={stats?.public_cvs} icon={Globe} />
         <StatCard
@@ -287,9 +294,9 @@ export default function AdminDashboard() {
         {/* Job & Application stats */}
         <StatCard
           label="Saved jobs"
-          value={stats?.total_job_tracker_entries}
+          value={stats?.total_saved_jobs}
           icon={PieChart}
-          sub="saved list"
+          sub="bookmarked roles"
         />
 
         {/* Interview Session stats */}
@@ -320,12 +327,6 @@ export default function AdminDashboard() {
         />
 
         {/* Engagement stats */}
-        <StatCard
-          label="Active users"
-          value={engagementStats?.active_users_30d}
-          icon={Users}
-          sub="last 30 days"
-        />
         <StatCard
           label="Feedback"
           value={engagementStats?.total_feedback}

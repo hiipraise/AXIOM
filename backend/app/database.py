@@ -14,7 +14,7 @@ db = None
 async def connect_db():
     global client, db
     client = AsyncIOMotorClient(settings.mongo_url)
-    db = client.axiom
+    db = client[settings.db_name]
     await setup_indexes()
     logger.info("Connected to MongoDB")
 

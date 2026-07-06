@@ -6,33 +6,12 @@ Exports build_prompt(**kwargs) -> str with model configuration constants.
 """
 
 from app.config import settings
+from app.prompts.cv_generation import BANNED_WORDS
 
 # Model configuration — centralized per module
 MODEL_NAME = settings.groq_model
 TEMPERATURE = 0.2
 MAX_TOKENS = 2000
-
-
-# ─── Banned words (shared with cv_generation) ─────────────────────────────────
-
-BANNED_WORDS = [
-    # Original set
-    "versatile", "passionate", "dynamic", "modern", "scalable", "specialize",
-    "streamline", "leveraged", "results-driven", "team player", "detail-oriented",
-    "innovative", "synergy", "utilize", "leverage", "cutting-edge",
-    "thought leader", "game-changer", "disruptive", "holistic", "robust",
-    "seamless", "best-in-class", "translating complex", "intuitive solutions",
-    "fast-paced environment", "go-getter", "self-starter", "proactive",
-    "solution-oriented",
-    # Extended set
-    "hardworking", "dedicated", "motivated", "responsible", "strategic",
-    "visionary", "driven", "highly skilled", "expert in", "guru", "ninja",
-    "rockstar", "world-class", "extensive experience", "proven track record",
-    "excellent communication skills", "strong work ethic", "out-of-the-box",
-    "value-add", "stakeholders", "impactful", "transformative", "passionate about",
-    "committed to", "seeking to", "aspiring", "enthusiastic", "eager",
-    "strong background", "diverse experience", "key player",
-]
 
 
 def _banned_words_text() -> str:
@@ -97,43 +76,51 @@ Scoring guide:
   1–2  → Not viable in current state. Major structural or content failures.
 
 ====================
-OUTPUT FORMAT — MANDATORY
+OUTPUT FORMAT — MANDATORY: JSON ONLY
 ====================
 
-Return the review in this exact structure:
+Return the review ONLY as a JSON object matching this schema.
+Do NOT include markdown, code fences, or any text outside the JSON.
 
-## OVERALL SCORE: X/10
+{
+  "overall_score": <integer 1-10>,
+  "dimensions": [
+    {"name": "Impact Clarity",       "score": <1-10>, "verdict": "one-line verdict"},
+    {"name": "ATS Compatibility",    "score": <1-10>, "verdict": "one-line verdict"},
+    {"name": "Relevance",           "score": <1-10>, "verdict": "one-line verdict"},
+    {"name": "Language Quality",    "score": <1-10>, "verdict": "one-line verdict"},
+    {"name": "Structure",           "score": <1-10>, "verdict": "one-line verdict"},
+    {"name": "Summary Strength",    "score": <1-10>, "verdict": "one-line verdict"}
+  ],
+  "critical_failures": [
+    "[ISSUE] → [EXACT FIX]",
+    "..."
+  ],
+  "high_impact_improvements": [
+    "[WHAT] → [HOW] → [EXPECTED OUTCOME]",
+    "..."
+  ],
+  "ats_keyword_gaps": [
+    "[MISSING KEYWORD] → [Where to add it] → [How to justify its inclusion honestly]"
+  ],
+  "section_notes": "Brief specific note on each section that has a problem. Skip strong sections.",
+  "what_is_working": ["bullet 1", "bullet 2", "bullet 3"],
+  "verdict": "One paragraph. Would you shortlist this CV for the target role right now? Why or why not? What is the single biggest thing holding it back?"
+}
 
-## DIMENSION SCORES
-| Dimension | Score | One-line verdict |
-|---|---|---|
-(fill in all six)
-
-## CRITICAL FAILURES (fix these first — they are causing rejections)
-- List each as: [ISSUE] → [EXACT FIX]
+Rules for critical_failures:
 - Maximum 5. Ranked by damage they cause.
 - Be specific: "The summary uses 'passionate about' three times" not "summary is weak"
 
-## HIGH-IMPACT IMPROVEMENTS (do these next)
-- List each as: [WHAT] → [HOW] → [EXPECTED OUTCOME]
+Rules for high_impact_improvements:
 - Maximum 5.
 
-## ATS KEYWORD GAPS
-(Only complete this section if a target role or job description was provided)
+Rules for ats_keyword_gaps:
+- Only populate if a target role or job description was provided
 - List keywords from the JD or target role that are absent from the CV
-- For each: [MISSING KEYWORD] → [Where to add it] → [How to justify its inclusion honestly]
 
-## SECTION-BY-SECTION NOTES
-Brief specific note on each section that has a problem.
-Skip sections that are already strong.
-
-## WHAT IS WORKING
-Maximum 3 bullet points. No padding.
-
-## VERDICT
-One paragraph. Would you shortlist this CV for the target role right now?
-Why or why not? What is the single biggest thing holding it back?
-"""
+Rules for what_is_working:
+- Maximum 3 bullet points. No padding."""
 
 
 # ─── Response type rules ────────────────────────────────────────────────

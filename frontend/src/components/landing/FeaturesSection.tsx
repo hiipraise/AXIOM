@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { Fragment, useRef } from 'react'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { Zap } from 'lucide-react'
 import { FEATURES } from './data'
@@ -155,32 +155,62 @@ export default function FeaturesSection() {
         {/* Feature cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {FEATURES.map(({ group, items }, cardIndex) => (
-            <motion.div
-              key={group}
-              className="bg-white rounded-2xl border border-ash-border p-6 space-y-4"
-              initial={{ opacity: 0, y: 24 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.45, delay: cardIndex * 0.1, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest">
-                {group}
-              </p>
-              {items.map(({ icon, label, desc }) => {
-                // stable offset so icons are never in sync with each other
-                const globalIndex = allItems.findIndex(i => i.label === label)
-                const floatDelay  = globalIndex * 0.28
+            <Fragment key={group}>
+              <motion.div
+                className="bg-white rounded-2xl border border-ash-border p-6 space-y-4"
+                initial={{ opacity: 0, y: 24 }}
+                animate={inView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.45, delay: cardIndex * 0.1, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <p className="text-[10px] font-bold text-ink-muted uppercase tracking-widest">
+                  {group}
+                </p>
+                {items.map(({ icon, label, desc }) => {
+                  // stable offset so icons are never in sync with each other
+                  const globalIndex = allItems.findIndex(i => i.label === label)
+                  const floatDelay  = globalIndex * 0.28
 
-                return (
-                  <div key={label} className="flex items-start gap-3">
-                    <FloatingIcon icon={icon} floatDelay={floatDelay} />
-                    <div>
-                      <p className="text-sm font-medium text-ink">{label}</p>
-                      <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{desc}</p>
+                  return (
+                    <div key={label} className="flex items-start gap-3">
+                      <FloatingIcon icon={icon} floatDelay={floatDelay} />
+                      <div>
+                        <p className="text-sm font-medium text-ink">{label}</p>
+                        <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{desc}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </motion.div>
+              {/* Banner screenshot between row 2 and row 3 */}
+              {cardIndex === 1 && (
+                <motion.div
+                  className="col-span-1 md:col-span-3"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={inView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ duration: 0.45, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="relative aspect-[2.4/1] rounded-2xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+                    <img
+                      src="/assets/screenshots/features_banner.png"
+                      alt="AXIOM dashboard overview — CV editor, job board, interview prep, and tracker"
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        const fb = target.nextElementSibling;
+                        if (fb) (fb as HTMLElement).classList.remove("hidden");
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none"
+                    >
+                      <span>Dashboard screenshot</span>
                     </div>
                   </div>
-                )
-              })}
-            </motion.div>
+                </motion.div>
+              )}
+            </Fragment>
           ))}
         </div>
 

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bookmark, X } from "lucide-react";
+import { ArrowLeft, Bookmark, X, WifiOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { jobsApi } from "../../api";
 import { JobResult } from "../../types";
@@ -41,7 +41,7 @@ import Seo from "../../components/Seo";
 export default function SavedJobsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: savedJobsRaw, isLoading } = useQuery<SavedJobEntry[]>({
+  const { data: savedJobsRaw, isLoading, isError, refetch } = useQuery<SavedJobEntry[]>({
     queryKey: ["saved-jobs"],
     queryFn: jobsApi.savedList,
   });
@@ -92,6 +92,23 @@ export default function SavedJobsPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="py-20 text-center">
+            <WifiOff size={32} className="mx-auto text-ink-muted/40 mb-3" />
+            <p className="text-sm font-medium text-ink">
+              Could not load saved jobs
+            </p>
+            <p className="mt-1 text-xs text-ink-muted max-w-sm mx-auto">
+              The job service may be temporarily unavailable. Your saved jobs
+              are stored safely — try again shortly.
+            </p>
+            <button
+              className="btn-secondary mt-4 inline-flex"
+              onClick={() => refetch()}
+            >
+              Retry
+            </button>
           </div>
         ) : savedJobCards.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

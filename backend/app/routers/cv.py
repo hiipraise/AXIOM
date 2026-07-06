@@ -537,10 +537,10 @@ async def ai_interview(request: Request, body: AIInterviewRequest, current_user=
     return {"response": response}
 
 
-@router.post("/ai/review")
+@router.post("/ai/review", response_model=dict)
 @limiter.limit("20/minute")
 async def ai_review(request: Request, body: CVReviewRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
-    review = await ai_service.review_cv(
+    result = await ai_service.review_cv(
         body.cv_data.model_dump(),
         body.job_description or "",
     )
@@ -551,7 +551,7 @@ async def ai_review(request: Request, body: CVReviewRequest, current_user=Depend
         "tokens_approx": 0,
         "ts": datetime.now(timezone.utc),
     })
-    return {"review": review}
+    return result
 
 
 @router.post("/ai/optimize-bullets")

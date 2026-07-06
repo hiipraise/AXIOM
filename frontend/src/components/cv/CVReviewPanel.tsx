@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -25,6 +24,23 @@ interface KeywordGapResult {
   }[];
   ats_score_estimate: number;
   notes: string;
+}
+
+interface DimensionScore {
+  name: string;
+  score: number;
+  verdict: string;
+}
+
+interface CVReviewResult {
+  overall_score: number;
+  dimensions: DimensionScore[];
+  critical_failures: string[];
+  high_impact_improvements: string[];
+  ats_keyword_gaps: string[];
+  section_notes: string;
+  what_is_working: string[];
+  verdict: string;
 }
 
 interface Props {
@@ -119,106 +135,7 @@ function ReviewSection({
   );
 }
 
-function parseReviewSections(raw: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  const lines = raw.split("\n");
-  let currentKey = "preamble";
-  let buffer: string[] = [];
 
-  for (const line of lines) {
-    if (line.startsWith("## ")) {
-      if (buffer.length) result[currentKey] = buffer.join("\n").trim();
-      currentKey = line.replace("## ", "").trim();
-      buffer = [];
-    } else {
-      buffer.push(line);
-    }
-  }
-
-  if (buffer.length) result[currentKey] = buffer.join("\n").trim();
-  return result;
-}
-
-function extractOverallScore(sections: Record<string, string>): number {
-  const match = Object.keys(sections).find((key) =>
-    key.startsWith("OVERALL SCORE"),
-  );
-  if (!match) return 0;
-  const scoreMatch = match.match(/(\d+)\/10/);
-  if (scoreMatch) return parseInt(scoreMatch[1], 10);
-  // fallback: just grab the first standalone number
-  const fallback = match.match(/\b(\d+)\b/);
-  return fallback ? parseInt(fallback[1], 10) : 0;
-}
-
-function renderInlineMarkdown(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return (
-        <strong key={index} className="font-semibold text-ink">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return <span key={index}>{part}</span>;
-  });
-}
-
-function RawBlock({ text }: { text: string }) {
-  if (!text) return null;
-
-  return (
-    <div className="space-y-1.5 min-w-0">
-      {text
-        .split("\n")
-        .filter(Boolean)
-        .map((line, index) => {
-          const isBullet = line.startsWith("- ") || line.startsWith("• ");
-          const content = isBullet ? line.slice(2) : line;
-
-          if (line.startsWith("|")) {
-            const cells = line
-              .split("|")
-              .filter((cell) => cell.trim() && cell !== "---");
-            if (!cells.length) return null;
-
-            return (
-              <div
-                key={index}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)] gap-2 text-[11px] py-0.5 border-b border-ash-border last:border-0 min-w-0"
-              >
-                {cells.map((cell, cellIndex) => (
-                  <span
-                    key={cellIndex}
-                    className={`min-w-0 break-words ${cellIndex === 0 ? "font-medium text-ink" : "text-ink-muted"}`}
-                  >
-                    {renderInlineMarkdown(cell.trim())}
-                  </span>
-                ))}
-              </div>
-            );
-          }
-
-          return (
-            <p
-              key={index}
-              className={`text-xs leading-relaxed whitespace-normal ${isBullet ? "pl-3 text-ink" : "text-ink-muted"}`}
-            >
-              {isBullet ? (
-                <span>
-                  <span className="text-ink-muted mr-1">•</span>
-                  {renderInlineMarkdown(content)}
-                </span>
-              ) : (
-                renderInlineMarkdown(content)
-              )}
-            </p>
-          );
-        })}
-    </div>
-  );
-}
 
 function KeywordGapPanel({ cvData, cvId }: { cvData: CVData; cvId: string }) {
   const qc = useQueryClient();
@@ -452,7 +369,7 @@ export default function CVReviewPanel({
   onClose,
   navigate,
 }: Props) {
-  const [reviewRaw, setReviewRaw] = useState("");
+  const [reviewResult, setReviewResult] = useState<CVReviewResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [jd, setJd] = useState(cvData.job_description || "");
   const [ran, setRan] = useState(false);
@@ -460,8 +377,8 @@ export default function CVReviewPanel({
   const runReview = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await cvApi.aiReview(cvData, jd || undefined);
-      setReviewRaw(res.review || "");
+      const result = await cvApi.aiReview(cvData, jd || undefined);
+      setReviewResult(result as CVReviewResult);
       setRan(true);
     } catch {
       toast.error("Review failed - try again");
@@ -470,30 +387,15 @@ export default function CVReviewPanel({
     }
   }, [cvData, jd]);
 
-  const sections = parseReviewSections(reviewRaw);
-  const overallScore = ran ? extractOverallScore(sections) : 0;
-
-  const criticalKey = Object.keys(sections).find((key) =>
-    key.includes("CRITICAL"),
-  );
-  const improvKey = Object.keys(sections).find((key) =>
-    key.includes("HIGH-IMPACT"),
-  );
-  const atsKey = Object.keys(sections).find((key) =>
-    key.includes("ATS KEYWORD"),
-  );
-  const sectionKey = Object.keys(sections).find((key) =>
-    key.includes("SECTION-BY-SECTION"),
-  );
-  const workingKey = Object.keys(sections).find((key) =>
-    key.includes("WHAT IS WORKING"),
-  );
-  const dimensionKey = Object.keys(sections).find((key) =>
-    key.includes("DIMENSION"),
-  );
-  const verdictKey = Object.keys(sections).find((key) =>
-    key.includes("VERDICT"),
-  );
+  const overallScore = ran ? (reviewResult?.overall_score ?? 0) : 0;
+  const dimensions = reviewResult?.dimensions ?? [];
+  const criticalFailures = reviewResult?.critical_failures ?? [];
+  const highImpactImprovements = reviewResult?.high_impact_improvements ?? [];
+  const atsKeywordGaps = reviewResult?.ats_keyword_gaps ?? [];
+  const sectionNotes = reviewResult?.section_notes ?? "";
+  const whatIsWorking = reviewResult?.what_is_working ?? [];
+  const verdict = reviewResult?.verdict ?? "";
+  const hasATSGaps = atsKeywordGaps.length > 0;
 
   return (
     <div className="w-full max-w-full min-w-0 bg-white border-l border-ash-border flex flex-col h-full overflow-x-hidden">
@@ -555,79 +457,140 @@ export default function CVReviewPanel({
             <button
               onClick={() => {
                 setRan(false);
-                setReviewRaw("");
+                setReviewResult(null);
               }}
               className="flex items-center gap-1.5 text-[11px] text-ink-muted hover:text-ink transition-colors"
             >
               <RefreshCw size={11} /> Run again with different JD
             </button>
 
-            {dimensionKey && (
+            {dimensions.length > 0 && (
               <ReviewSection
                 title="Dimension Scores"
                 icon={Zap}
                 iconClass="text-ink"
                 defaultOpen
               >
-                <RawBlock text={sections[dimensionKey]} />
+                <div className="space-y-2">
+                  {dimensions.map((dim, idx) => {
+                    const color =
+                      dim.score >= 8
+                        ? "bg-emerald-50 border-emerald-200"
+                        : dim.score >= 6
+                          ? "bg-amber-50 border-amber-200"
+                          : "bg-red-50 border-red-200";
+                    const textColor =
+                      dim.score >= 8
+                        ? "text-emerald-700"
+                        : dim.score >= 6
+                          ? "text-amber-700"
+                          : "text-red-700";
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between gap-3 rounded-lg border ${color} px-3 py-2`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-ink">
+                            {dim.name}
+                          </p>
+                          <p className="text-[10px] text-ink-muted mt-0.5">
+                            {dim.verdict}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-sm font-bold flex-shrink-0 ${textColor}`}
+                        >
+                          {dim.score}/10
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </ReviewSection>
             )}
 
-            {criticalKey && (
+            {criticalFailures.length > 0 && (
               <ReviewSection
                 title="Critical Failures - Fix These First"
                 icon={AlertTriangle}
                 iconClass="text-red-500"
                 defaultOpen
               >
-                <RawBlock text={sections[criticalKey]} />
+                <ul className="space-y-1.5">
+                  {criticalFailures.map((item, idx) => (
+                    <li key={idx} className="text-xs text-ink leading-relaxed flex gap-2">
+                      <span className="text-red-500 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </ReviewSection>
             )}
 
-            {improvKey && (
+            {highImpactImprovements.length > 0 && (
               <ReviewSection
                 title="High-Impact Improvements"
                 icon={Zap}
                 iconClass="text-amber-500"
                 defaultOpen
               >
-                <RawBlock text={sections[improvKey]} />
+                <ul className="space-y-1.5">
+                  {highImpactImprovements.map((item, idx) => (
+                    <li key={idx} className="text-xs text-ink leading-relaxed flex gap-2">
+                      <span className="text-amber-500 flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </ReviewSection>
             )}
 
-            {sectionKey && (
+            {sectionNotes && (
               <ReviewSection title="Section Notes" icon={Zap}>
-                <RawBlock text={sections[sectionKey]} />
+                <p className="text-xs text-ink-muted leading-relaxed whitespace-pre-wrap">{sectionNotes}</p>
               </ReviewSection>
             )}
 
-            {atsKey && sections[atsKey] && (
+            {hasATSGaps && (
               <ReviewSection
                 title="ATS Keyword Gaps (from review)"
                 icon={Search}
               >
-                <RawBlock text={sections[atsKey]} />
+                <ul className="space-y-1.5">
+                  {atsKeywordGaps.map((item, idx) => (
+                    <li key={idx} className="text-xs text-ink leading-relaxed flex gap-2">
+                      <span className="text-ink-muted flex-shrink-0">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </ReviewSection>
             )}
 
-            {workingKey && (
+            {whatIsWorking.length > 0 && (
               <ReviewSection
                 title="What Is Working"
                 icon={CheckCircle}
                 iconClass="text-emerald-500"
               >
-                <RawBlock text={sections[workingKey]} />
+                <ul className="space-y-1.5">
+                  {whatIsWorking.map((item, idx) => (
+                    <li key={idx} className="text-xs text-emerald-700 leading-relaxed flex gap-2">
+                      <CheckCircle size={12} className="flex-shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </ReviewSection>
             )}
 
-            {verdictKey && (
+            {verdict && (
               <div className="p-3 bg-ink text-white rounded-xl">
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-white/60">
                   Verdict
                 </p>
-                <p className="text-xs leading-relaxed">
-                  {sections[verdictKey]}
-                </p>
+                <p className="text-xs leading-relaxed">{verdict}</p>
               </div>
             )}
 

@@ -481,11 +481,24 @@ async def search_jobs(
             sources_with_results.append(source_name)
 
     configured = len(source_tasks)
+
+    # Build a descriptive warning when sources fail
     warning = ""
     if configured > 0 and succeeded == 0:
-        warning = "All job sources are currently unavailable. Try again later or check your internet connection."
-    elif configured > 0 and failed > succeeded:
-        warning = "Some job sources are unavailable — results may be limited."
+        attempted = [name for name, _ in source_tasks]
+        warning = (
+            f"Job sources unavailable: {', '.join(attempted)}. "
+            "Try again later or check your internet connection."
+        )
+    elif configured > 0 and failed > 0:
+        attempted = [name for name, _ in source_tasks]
+        failed_sources = [name for name, _ in source_tasks
+                          if name not in sources_with_results]
+        if failed_sources:
+            warning = (
+                f"{', '.join(failed_sources)} unavailable — "
+                "results limited to remaining sources."
+            )
 
     return results, SourceHealth(
         configured=configured,

@@ -18,6 +18,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
+import traceback
 from typing import Optional, Callable
 
 import qrcode
@@ -28,6 +30,8 @@ from reportlab.lib.utils import ImageReader, simpleSplit as _rl_split
 from reportlab.pdfgen import canvas as rl_canvas
 
 from app.models.schemas import CVData
+
+logger = logging.getLogger(__name__)
 
 
 def _simpleSplit(text: str, font: str, size: float, max_w: float) -> list:
@@ -931,8 +935,11 @@ def make_pdfa(pdf_bytes: bytes) -> bytes:
         return out.getvalue()
 
     except Exception:
-        # If PDF/A conversion fails, return original bytes unchanged
-        return pdf_bytes
+        logger.error(
+            "PDF/A conversion failed — returning original bytes\n%s",
+            traceback.format_exc(),
+        )
+        raise RuntimeError("PDF/A conversion failed. The PDF was generated without PDF/A compliance.") from None
 
 
 # ─── Dispatcher ──────────────────────────────────────────────────────────────

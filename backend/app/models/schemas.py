@@ -788,6 +788,27 @@ class CommentOut(BaseModel):
     updated_at: datetime
 
 
+# ─── CV Review (structured score) models ───────────────────────────────────────
+
+class DimensionScore(BaseModel):
+    """Single dimension score for a CV review."""
+    name: str
+    score: int = Field(..., ge=1, le=10)
+    verdict: str = ""
+
+
+class CVReviewResult(BaseModel):
+    """Structured result of an AI CV review with validated scores."""
+    overall_score: int = Field(..., ge=1, le=10)
+    dimensions: list[DimensionScore] = Field(default_factory=list)
+    critical_failures: list[str] = Field(default_factory=list)
+    high_impact_improvements: list[str] = Field(default_factory=list)
+    ats_keyword_gaps: list[str] = Field(default_factory=list)
+    section_notes: str = ""
+    what_is_working: list[str] = Field(default_factory=list)
+    verdict: str = ""
+
+
 # ─── Section Suggestion models ────────────────────────────────────────────────
 
 class SectionSuggestion(BaseModel):

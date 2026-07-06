@@ -34,7 +34,6 @@ import {
   Target,
   TrendingUp,
   CalendarClock,
-  Briefcase,
   Info,
   Lightbulb,
   ArrowRight,
@@ -54,15 +53,16 @@ import ShareCardModal from "../../components/cv/ShareCardModal";
 import OnboardingWizard from "../../components/OnboardingWizard";
 import clsx from "clsx";
 
-const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
+const WEEKLY_GOAL_KEYS = ["Update CV", "Save a job", "Practise interview"];
 
 // Goal engine: auto-detect goals based on actual activity (weekly)
 function computeGoalStatus(args: {
   primaryCv: CV | undefined;
   interviewSessions: InterviewSessionListItem[] | undefined;
+  savedJobs: Array<{ id: string; saved_at: string }> | undefined;
   careerLevel: string;
 }) {
-  const { primaryCv, interviewSessions, careerLevel } = args;
+  const { primaryCv, interviewSessions, savedJobs, careerLevel } = args;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -76,8 +76,15 @@ function computeGoalStatus(args: {
     cvUpdated = false;
   }
 
-  // Goal 2: Apply to jobs - track via saved jobs count (at least 1 saved this week)
-  const applied = false; // external job saves are tracked elsewhere
+  // Goal 2: Save a job - at least 1 saved this week
+  let saved = false;
+  try {
+    saved = (savedJobs || []).some(
+      (sj) => sj.saved_at && new Date(sj.saved_at) >= weekAgo,
+    );
+  } catch {
+    saved = false;
+  }
 
   // Goal 3: Practise interview - at least 1 completed session per week
   const sessions = interviewSessions || [];
@@ -96,7 +103,7 @@ function computeGoalStatus(args: {
 
   return {
     "Update CV": cvUpdated,
-    "Apply to jobs": applied,
+    "Save a job": saved,
     "Practise interview": practiced,
   };
 }
@@ -515,6 +522,18 @@ export default function DashboardPage() {
     enabled: !!user,
   });
 
+  const { data: savedJobs = [] } = useQuery<Array<{ id: string; saved_at: string }>>({
+    queryKey: ["saved-jobs-dash"],
+    queryFn: () =>
+      jobsApi.savedList().then((raw) =>
+        (Array.isArray(raw) ? raw : []).map((item: { id: string; saved_at: string }) => ({
+          id: item.id,
+          saved_at: item.saved_at,
+        })),
+      ),
+    enabled: !!user,
+  });
+
   const commandCenter = useMemo(() => {
     const cv = primaryCv;
     const data = cv?.data;
@@ -550,13 +569,12 @@ export default function DashboardPage() {
     const weeklyGoalsComputed = computeGoalStatus({
       primaryCv: cv,
       interviewSessions: interviewSessions || [],
+      savedJobs: savedJobs || [],
       careerLevel,
     });
     const weeklyCompleted = WEEKLY_GOAL_KEYS.filter(
       (key) => weeklyGoalsComputed[key as keyof typeof weeklyGoalsComputed],
     ).length;
-
-    const activeApplications = 0; // AXIOM applications feature removed
 
     let suggestedNextAction: {
       message: string;
@@ -605,7 +623,6 @@ export default function DashboardPage() {
       interviewReadiness,
       weeklyCompleted,
       weeklyGoals: weeklyGoalsComputed,
-      activeApplications,
       suggestedNextAction,
     };
   }, [interviewSessions, primaryCv, user]);
@@ -929,7 +946,7 @@ export default function DashboardPage() {
             label="Weekly goals"
             icon={<CheckSquare size={17} />}
             value={`${commandCenter.weeklyCompleted}/${WEEKLY_GOAL_KEYS.length}`}
-            tooltip="Track your weekly career goals. Update your CV, apply to jobs, or practise interviews to stay on track."
+            tooltip="Track your weekly career goals. Update your CV, save a job, or practise interviews to stay on track."
             isLoading={isLoading}
           >
             <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
@@ -937,10 +954,6 @@ export default function DashboardPage() {
                 {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length}{" "}
                 complete
               </p>
-              <div className="flex items-center gap-2 rounded-lg bg-ash px-3 py-2 text-sm text-ink-muted">
-                <Briefcase size={15} />
-                {commandCenter.activeApplications} active
-              </div>
             </div>
             <div className="mt-4 space-y-2">
               {WEEKLY_GOAL_KEYS.map((goal) => {

@@ -28,7 +28,30 @@ export default function WhyAxiomPage() {
           or losing track of where you applied.
         </p>
 
-        <section className="mt-16 grid gap-6 md:grid-cols-2">
+        {/* ── Dashboard banner screenshot ── */}
+        <div className="mt-10 mx-auto max-w-4xl">
+          <div className="relative aspect-[2.4/1] rounded-2xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+            <img
+              src="/assets/screenshots/why_axiom_dashboard.png"
+              alt="AXIOM dashboard overview — CV editor, job board, interview prep, and application tracker in one view"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fb = target.nextElementSibling;
+                if (fb) (fb as HTMLElement).classList.remove("hidden");
+              }}
+            />
+            <div
+              className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none"
+            >
+              <span>Dashboard overview screenshot</span>
+            </div>
+          </div>
+        </div>
+
+        <section className="mt-12 grid gap-6 md:grid-cols-2">
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <article key={title} className="rounded-xl border border-ash-border bg-white p-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink">

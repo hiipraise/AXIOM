@@ -1,6 +1,16 @@
 # AXIOM — AI CV / Resume Generator
 
-Zero-cliché, ATS-safe, AI-powered CV generator with video interviews and employer job postings.
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+" />
+  <img src="https://img.shields.io/badge/react-18-blue" alt="React 18" />
+  <img src="https://img.shields.io/badge/typescript-5-blue" alt="TypeScript 5" />
+  <img src="https://img.shields.io/badge/FastAPI-✓-009688" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/MongoDB-✓-47A248" alt="MongoDB" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
+</p>
+
+Zero-cliché, ATS-safe, AI-powered CV generator with job search and interview preparation.
 
 ## Stack
 - **Frontend**: React + TypeScript + Tailwind CSS (Vite)
@@ -8,7 +18,6 @@ Zero-cliché, ATS-safe, AI-powered CV generator with video interviews and employ
 - **Database**: MongoDB
 - **AI**: Groq (Groq API + configurable model)
 - **PDF**: ReportLab + QR code verification
-- **Video**: Jitsi Meet (self-recording + live interviews)
 - **Auth**: HTTP-only cookie JWT session (browser) + optional bearer token for mobile/non-cookie clients
 
 ---
@@ -72,8 +81,6 @@ Settings are loaded from `.env` (Pydantic settings). Key variables:
 | `GROQ_MODEL` | Groq model name |
 | `FRONTEND_URL` | Base URL used for public/QR links in PDFs |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins (or `*`) |
-| `AXIOM_AUTO_APPROVE_RECRUITERS` | `true/false` — auto-approve recruiter company profiles |
-| `JITSI_DOMAIN` | Jitsi domain (default: `meet.jit.si`) |
 | `ADMIN_USERNAME` | Initial super admin username |
 | `ADMIN_EMAIL` | Initial super admin email |
 | `ADMIN_PASSWORD` | Initial super admin password |
@@ -99,35 +106,15 @@ Settings are loaded from `.env` (Pydantic settings). Key variables:
 ### Zero-Cliché Policy
 The AI is instructed to **never** use: versatile, passionate, dynamic, modern, scalable, specialize, streamline, leveraged, results-driven, team player, detail-oriented, innovative, synergy, cutting-edge, or similar filler language.
 
-### Video Interviews
-- Question player with AI speech-to-text answers
-- Self-recording mode with web cam / microphone
-- Live Jitsi interview rooms (scheduling TBD)
-- Voice capture panel
-
-### AXIOM Jobs (Employer Postings)
-- Employers create and manage job postings
-- Candidates apply with their CV
-- Application status tracking
-- Job cards with shareable links
-- Cover letter generation with AI
-
 ### Cover Letters
 - AI-generated tailored cover letters
 - Match CV content to job requirements
 - Tone and style customization
 
-### Recruiter Features
-- Recruiter registration and profiles
-- Talent pools for candidate management
-- CV snapshot previews
-- Saved candidates tracking
-
 ### Job Search
-- Search external job APIs
-- Match CV to job postings
-- Save and track job applications
-- Indeed, Adzuna integration (when configured)
+- Search live jobs from multiple external APIs
+- Match CV to job postings with AI
+- Save jobs for later
 
 ### Account System
 - Username + password only registration (no email required)
@@ -179,17 +166,15 @@ axiom/
 │       │   ├── analytics.py
 │       │   ├── announcements.py
 │       │   ├── auth.py
-│       │   ├── axiom_applications.py
-│       │   ├── axiom_jobs.py
 │       │   ├── cv.py
 │       │   ├── export.py
 │       │   ├── feedback.py
+│       │   ├── comments.py
+│       │   ├── email.py
 │       │   ├── interview.py
-│       │   ├── interview_live.py
 │       │   ├── jobs.py
 │       │   ├── notifications.py
 │       │   ├── public.py
-│       │   ├── recruiter.py
 │       │   └── search.py
 │       ├── services/
 │       │   ├── __init__.py
@@ -387,46 +372,13 @@ All require auth.
 - `GET /api/jobs/saved`
 - `POST /api/jobs/saved/{job_id}`
 - `DELETE /api/jobs/saved/{job_id}`
-- `GET /api/jobs/applications`
-- `POST /api/jobs/applications`
-- `PUT /api/jobs/applications/{application_id}`
-- `DELETE /api/jobs/applications/{application_id}`
 - `GET /api/jobs/{job_id}`
 
-### AXIOM Jobs (employer-created)
-- `GET /api/axiom-jobs`
-- `GET /api/axiom-jobs/mine`
-- `POST /api/axiom-jobs`
-- `GET /api/axiom-jobs/{job_id}`
-- `PUT /api/axiom-jobs/{job_id}`
-- `DELETE /api/axiom-jobs/{job_id}`
-- `POST /api/axiom-jobs/{job_id}/share`
-
-### Axiom Applications
-- `GET /api/axiom-applications` (candidate's applications)
-- `POST /api/axiom-applications` (apply to an AXIOM job)
-- `GET /api/axiom-applications/employer`
-- `PUT /api/axiom-applications/{application_id}/status`
-
-### Recruiter
-- `POST /api/recruiter/register`
-- `GET /api/recruiter/profile`
-- `PUT /api/recruiter/profile`
-- `DELETE /api/recruiter/profile`
-- `GET /api/recruiter/talent-pools`
-- `POST /api/recruiter/talent-pools`
-- `GET /api/recruiter/saved-candidates`
-- `POST /api/recruiter/saved-candidates`
-- `PUT /api/recruiter/saved-candidates/{saved_id}`
-- `DELETE /api/recruiter/saved-candidates/{saved_id}`
-
 ### Interview
-- `GET /api/interview/questions` — get interview questions for a CV
-- `POST /api/interview/submit-answer`
-
-### Interview Live
-- `POST /api/interview-live/rooms`
-- `GET /api/interview-live/rooms/{room_id}`
+- `POST /api/interview/start` — start a new interview session
+- `POST /api/interview/answer` — submit an answer
+- `GET /api/interview/sessions` — list your sessions
+- `GET /api/interview/sessions/{id}` — session detail with messages
 
 ### Search
 - `GET /api/search/candidates` — search public CVs

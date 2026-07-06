@@ -166,6 +166,34 @@ export default function HowItWorksSection() {
           ))}
         </div>
 
+        {/* ── How-it-works screenshot ── */}
+        <motion.div
+          className="mt-10 mx-auto max-w-4xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="relative aspect-[2/1] rounded-2xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+            <img
+              src="/assets/screenshots/how_it_works_editor.png"
+              alt="AXIOM CV editor walkthrough — add experience, AI generates bullets, score shows, export PDF"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fb = target.nextElementSibling;
+                if (fb) (fb as HTMLElement).classList.remove("hidden");
+              }}
+            />
+            <div
+              className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none"
+            >
+              <span>Walkthrough screenshot</span>
+            </div>
+          </div>
+        </motion.div>
+
       </div>
     </section>
   )

@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  CloudOff,
+  WifiOff,
 } from "lucide-react";
 import { jobsApi, cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
@@ -213,6 +215,16 @@ export default function JobBoardPage() {
   const rawJobs = data?.items ?? [];
   const sourceHealth = data?.source_health;
   const isSearching = isFetching || isLoading;
+
+  // ── Provider health flags
+  const providersAllFailed = useMemo(
+    () =>
+      sourceHealth !== undefined &&
+      sourceHealth.configured > 0 &&
+      sourceHealth.succeeded === 0 &&
+      !isSearching,
+    [sourceHealth, isSearching],
+  );
 
   // ── Sources present in results
   const availableSources = useMemo(
@@ -474,7 +486,7 @@ export default function JobBoardPage() {
         </div>
 
         {/* ── Source health warning ── */}
-        {sourceHealth?.warning && !isLoading && (
+        {sourceHealth?.warning && !isLoading && !providersAllFailed && (
           <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             <AlertTriangle
               size={14}
@@ -489,12 +501,35 @@ export default function JobBoardPage() {
           <JobBoardSkeleton />
         ) : isError ? (
           <div className="card text-center py-12">
-            <p className="text-sm text-ink-muted">
-              Could not load jobs. The server may be starting up — try again in
-              30 seconds.
+            <WifiOff
+              size={36}
+              className="mx-auto mb-3 text-ink-muted"
+            />
+            <p className="text-sm font-medium text-ink">
+              Could not connect to the job service
             </p>
-
-            <button className="btn-secondary mt-4" onClick={() => refetch()}>
+            <p className="mt-1 text-xs text-ink-muted max-w-sm mx-auto">
+              The server may be starting up or experiencing a temporary
+              outage. Results may appear once the connection is restored.
+            </p>
+            <button className="btn-secondary mt-5" onClick={() => refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : providersAllFailed && paginated.length === 0 ? (
+          <div className="card text-center py-12">
+            <CloudOff
+              size={36}
+              className="mx-auto mb-3 text-amber-500"
+            />
+            <p className="text-sm font-medium text-ink">
+              External job sources are unavailable
+            </p>
+            <p className="mt-1 text-xs text-ink-muted max-w-sm mx-auto">
+              {sourceHealth?.warning ||
+                "All job boards are temporarily unresponsive. Try again later or check your internet connection."}
+            </p>
+            <button className="btn-secondary mt-5" onClick={() => refetch()}>
               Retry
             </button>
           </div>

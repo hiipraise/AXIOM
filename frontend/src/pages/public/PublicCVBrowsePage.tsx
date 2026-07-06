@@ -109,7 +109,7 @@ export default function PublicCVBrowsePage() {
                   <Link
                     key={card.id}
                     to={`/cv/${card.owner_username}/${card.id}`}
-                    className="group bg-white rounded-xl border border-ash-border p-5 hover:border-ink hover:shadow-sm transition-all"
+                    className="group bg-white rounded-xl border border-ash-border p-5 hover:border-ink hover:shadow-sm transition-all flex flex-col h-full"
                   >
                     {/* Name or username */}
                     <div className="flex items-start justify-between gap-2 mb-2">

@@ -1,7 +1,15 @@
 import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, useInView } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Briefcase, FileSignature, ScanSearch } from "lucide-react";
+import {
+  ArrowRight,
+  Briefcase,
+  FileSignature,
+  ScanSearch,
+  AlertTriangle,
+} from "lucide-react";
+import { jobsApi } from "../../api";
 
 const STEPS = [
   {
@@ -25,9 +33,36 @@ export default function JobsTeaserSection() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
+  // Lightweight provider health check (single request, minimal params)
+  const { data: healthCheck } = useQuery({
+    queryKey: ["jobs-provider-health"],
+    queryFn: () =>
+      jobsApi
+        .search({ q: "", per_page: 1 })
+        .then((r) => r.source_health ?? null),
+    staleTime: 120_000, // 2 min — avoid hammering on scroll
+    retry: 1,
+  });
+
+  const providersUnavailable =
+    healthCheck && healthCheck.configured > 0 && healthCheck.succeeded === 0;
+
   return (
     <section className="py-24 px-5 bg-white">
       <div className="max-w-5xl mx-auto" ref={ref}>
+        {providersUnavailable && (
+          <div className="mb-8 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <AlertTriangle
+              size={14}
+              className="mt-0.5 flex-shrink-0 text-amber-500"
+            />
+            <span>
+              Job sources are currently unavailable — jobs may not load. Try
+              again later.
+            </span>
+          </div>
+        )}
+
         <motion.div
           className="text-center mb-14"
           initial={{ opacity: 0, y: 16 }}
@@ -46,7 +81,7 @@ export default function JobsTeaserSection() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {STEPS.map(({ icon: Icon, label, desc }, i) => (
             <motion.div
               key={label}
@@ -77,6 +112,32 @@ export default function JobsTeaserSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* ── Jobs teaser screenshot ── */}
+        <motion.div
+          className="mx-auto max-w-2xl my-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.45, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="relative aspect-video rounded-2xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+            <img
+              src="/assets/screenshots/jobs_teaser_cover_letter.png"
+              alt="Cover letter generation and saved jobs interface in AXIOM"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fb = target.nextElementSibling;
+                if (fb) (fb as HTMLElement).classList.remove("hidden");
+              }}
+            />
+            <div className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none">
+              <span>Cover letter / saved jobs screenshot</span>
+            </div>
+          </div>
+        </motion.div>
 
         <motion.div
           className="text-center"

@@ -168,8 +168,34 @@ export default function PublicJobsPage() {
           <p className="text-sm text-ink-muted leading-relaxed">
             Browse live roles from Adzuna, Remotive, The Muse and more. Sign in to get an AI match score, tailor your CV to any role, and generate a cover letter — instantly.
           </p>
+
+          {/* ── Match score screenshot ── */}
+          <div className="mx-auto max-w-sm mt-6 mb-5">
+            <div className="relative aspect-video rounded-xl bg-ash border border-ash-border overflow-hidden shadow-sm">
+              <img
+                src="/assets/screenshots/public_jobs_match_score.png"
+                alt="AI match score on a job card showing how well your CV matches each role"
+                className="w-full h-full object-cover"
+                loading="lazy"              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fb = target.nextElementSibling;
+                if (fb) (fb as HTMLElement).classList.remove("hidden");
+              }}
+            />
+              <div
+                className="absolute inset-0 hidden items-center justify-center text-ink-muted/40 text-xs select-none"
+              >
+                <span>Match score screenshot</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-ink-muted mt-2">
+              Sign in to see your match score
+            </p>
+          </div>
+
           {!user && (
-            <div className="flex items-center justify-center gap-3 mt-5">
+            <div className="flex items-center justify-center gap-3 mt-2">
               <Link to="/register" className="btn-primary">Create free account</Link>
               <Link to="/login" className="btn-secondary">Sign in</Link>
             </div>

@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Bell, Check, CheckCheck, ChevronDown, Settings2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { notificationsApi } from "../../api";
@@ -31,12 +36,20 @@ function getDateGroup(dateStr: string): { label: string; sortKey: string } {
   // Sort key: days since epoch (descending = most recent first in group order)
   const daysSinceEpoch = Math.floor(d.getTime() / 86_400_000);
 
-  if (d >= todayStart) return { label: "Today", sortKey: `0-${daysSinceEpoch}` };
-  if (d >= yesterdayStart) return { label: "Yesterday", sortKey: `1-${daysSinceEpoch}` };
-  if (d >= thisWeekStart) return { label: "This week", sortKey: `2-${daysSinceEpoch}` };
-  if (d >= lastWeekStart) return { label: "Last week", sortKey: `3-${daysSinceEpoch}` };
+  if (d >= todayStart)
+    return { label: "Today", sortKey: `0-${daysSinceEpoch}` };
+  if (d >= yesterdayStart)
+    return { label: "Yesterday", sortKey: `1-${daysSinceEpoch}` };
+  if (d >= thisWeekStart)
+    return { label: "This week", sortKey: `2-${daysSinceEpoch}` };
+  if (d >= lastWeekStart)
+    return { label: "Last week", sortKey: `3-${daysSinceEpoch}` };
   // Older: format as "17 June 2026"
-  const formatted = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const formatted = d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   return { label: formatted, sortKey: `4-${daysSinceEpoch}` };
 }
 
@@ -69,10 +82,10 @@ export default function NotificationsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
   const hasMore = notifications.length < total;
 
-  const handleLoadOlder = () => setLimit(l => l + PAGE_SIZE);
+  const handleLoadOlder = () => setLimit((l) => l + PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-ash">
@@ -80,20 +93,27 @@ export default function NotificationsPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Notifications</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              Notifications
+            </h1>
             {unreadCount > 0 && (
-              <p className="text-sm text-ink-muted mt-0.5">{unreadCount} unread</p>
+              <p className="text-sm text-ink-muted mt-0.5">
+                {unreadCount} unread
+              </p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <button
-              className={`text-xs btn ${showPrefs ? 'bg-ink text-white' : 'btn-secondary'}`}
+              className={`text-xs btn ${showPrefs ? "btn-primary" : "btn-secondary"}`}
               onClick={() => setShowPrefs(!showPrefs)}
             >
-              <Settings2 size={13} /> {showPrefs ? 'Hide' : 'Preferences'}
+              <Settings2 size={13} /> {showPrefs ? "Hide" : "Preferences"}
             </button>
             {unreadCount > 0 && (
-              <button className="btn-secondary text-xs" onClick={() => readAll.mutate()}>
+              <button
+                className="btn-secondary text-xs"
+                onClick={() => readAll.mutate()}
+              >
                 <CheckCheck size={13} /> Mark all read
               </button>
             )}
@@ -101,9 +121,16 @@ export default function NotificationsPage() {
         </div>
 
         {isLoading && limit === PAGE_SIZE && (
-          <div className="space-y-2" role="status" aria-label="Loading notifications">
+          <div
+            className="space-y-2"
+            role="status"
+            aria-label="Loading notifications"
+          >
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="card !p-4 flex items-start gap-4 animate-pulse">
+              <div
+                key={i}
+                className="card !p-4 flex items-start gap-4 animate-pulse"
+              >
                 <div className="w-2 h-2 rounded-full bg-ash-dark mt-2 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="h-4 w-3/5 rounded bg-ash-dark mb-2" />
@@ -125,7 +152,9 @@ export default function NotificationsPage() {
         {/* Preferences panel */}
         {showPrefs && (
           <div className="card p-5 mb-6">
-            <h2 className="text-sm font-semibold text-ink mb-4">Notification preferences</h2>
+            <h2 className="text-sm font-semibold text-ink mb-4">
+              Notification preferences
+            </h2>
             <NotificationPreferencesPanel />
           </div>
         )}
@@ -133,8 +162,15 @@ export default function NotificationsPage() {
         <div className="space-y-6">
           {(() => {
             // Group notifications by date label, preserving order
-            const groups: { label: string; sortKey: string; items: NotificationItem[] }[] = [];
-            const groupMap = new Map<string, { label: string; sortKey: string; items: NotificationItem[] }>();
+            const groups: {
+              label: string;
+              sortKey: string;
+              items: NotificationItem[];
+            }[] = [];
+            const groupMap = new Map<
+              string,
+              { label: string; sortKey: string; items: NotificationItem[] }
+            >();
 
             for (const n of notifications) {
               const { label, sortKey } = getDateGroup(n.created_at);
@@ -157,7 +193,7 @@ export default function NotificationsPage() {
               return bSuffix - aSuffix; // descending: higher daysSinceEpoch = more recent
             });
 
-            return groups.map(group => (
+            return groups.map((group) => (
               <div key={group.label}>
                 <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-ash/80 backdrop-blur-sm border-b border-ash-border mb-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">
@@ -168,27 +204,48 @@ export default function NotificationsPage() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {group.items.map(n => (
+                  {group.items.map((n) => (
                     <div
                       key={n.id}
                       className={`card !p-4 flex items-start gap-4 ${!n.read ? "border-ink/20 bg-white" : "bg-ash/40"}`}
                     >
-                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!n.read ? "bg-ink" : "bg-ash-border"}`} />
+                      <div
+                        className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!n.read ? "bg-ink" : "bg-ash-border"}`}
+                      />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${!n.read ? "font-semibold text-ink" : "text-ink-muted"}`}>{n.title}</p>
-                        {n.body && <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{n.body}</p>}
+                        <p
+                          className={`text-sm ${!n.read ? "font-semibold text-ink" : "text-ink-muted"}`}
+                        >
+                          {n.title}
+                        </p>
+                        {n.body && (
+                          <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+                            {n.body}
+                          </p>
+                        )}
                         <p className="text-[10px] text-ink-muted mt-1">
-                          {new Date(n.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          {new Date(n.created_at).toLocaleString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {n.link && (
-                          <Link to={n.link} className="text-xs text-ink underline hover:no-underline">
+                          <Link
+                            to={n.link}
+                            className="text-xs text-ink underline hover:no-underline"
+                          >
                             View
                           </Link>
                         )}
                         {!n.read && (
-                          <button className="text-ink-muted hover:text-ink" onClick={() => readOne.mutate(n.id)}>
+                          <button
+                            className="text-ink-muted hover:text-ink"
+                            onClick={() => readOne.mutate(n.id)}
+                          >
                             <Check size={14} />
                           </button>
                         )}
