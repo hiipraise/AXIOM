@@ -324,6 +324,9 @@ FORMAT RULES
 - One idea per bullet
 - No AI self-description or preamble
 - Questions go at the END, one per message
+- Return PLAIN TEXT only — no markdown formatting like **bold**, *italic*, _underscores_,
+  `backticks`, [links](url), heading markers (#), or leading bullet markers (- , * , +).
+  Do not use any symbols that would render as markdown. Plain text output only.
 """
 
 

@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { cvApi } from "../../api";
 import type { CVData, ToneStyle, ToneAdjustResponse } from "../../types";
 import { TONE_OPTIONS } from "../../types";
+import { stripMarkdown, stripMarkdownCVData } from "../../lib/stripMarkdown";
 import {
   Sparkles,
   Check,
@@ -71,19 +72,21 @@ export default function ToneAdjuster({
     const patch: Partial<CVData> = {};
 
     if (section === "summary") {
-      patch.summary = adjusted;
+      patch.summary = stripMarkdown(adjusted);
     } else if (section === "skills") {
       try {
-        patch.skills = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.skills = Array.isArray(parsed) ? parsed.map(stripMarkdown) : parsed;
       } catch {
         patch.skills = adjusted
           .split(/[,\n]/)
-          .map((s) => s.trim())
+          .map((s) => stripMarkdown(s.trim()))
           .filter(Boolean);
       }
     } else if (section === "experience") {
       try {
-        patch.experience = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.experience = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         // If JSON parsing fails, don't apply
         toast.error("Could not apply tone adjustment");
@@ -91,34 +94,39 @@ export default function ToneAdjuster({
       }
     } else if (section === "education") {
       try {
-        patch.education = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.education = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         toast.error("Could not apply tone adjustment");
         return;
       }
     } else if (section === "certifications") {
       try {
-        patch.certifications = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.certifications = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         toast.error("Could not apply tone adjustment");
         return;
       }
     } else if (section === "projects") {
       try {
-        patch.projects = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.projects = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         toast.error("Could not apply tone adjustment");
         return;
       }
     } else if (section === "languages") {
       try {
-        patch.languages = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.languages = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         // Keep as text if parsing fails
       }
     } else if (section === "volunteer") {
       try {
-        patch.volunteer = JSON.parse(adjusted);
+        const parsed = JSON.parse(adjusted);
+        patch.volunteer = Array.isArray(parsed) ? parsed.map(stripMarkdownCVData as unknown as (e: unknown) => typeof e) : parsed;
       } catch {
         toast.error("Could not apply tone adjustment");
         return;

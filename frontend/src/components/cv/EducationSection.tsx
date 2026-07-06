@@ -3,6 +3,7 @@ import { Field, Input, Textarea, SectionHeader, Card } from '../UI/FormElements'
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { countWords } from '../../lib/wordCount'
+import { stripMarkdown } from '../../lib/stripMarkdown'
 
 interface Props { items: EducationItem[]; onChange: (v: EducationItem[]) => void }
 
@@ -42,7 +43,7 @@ export default function EducationSection({ items, onChange }: Props) {
                 <Field label="End Date"><Input value={item.end_date} onChange={(e) => update(i, { end_date: e.target.value })} placeholder="Jun 2022" /></Field>
                 <Field label="Grade / GPA"><Input value={item.grade} onChange={(e) => update(i, { grade: e.target.value })} placeholder="First Class" /></Field>
               </div>
-              <Field label="Notes"><Textarea showWordCount value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} placeholder="Dissertation, notable modules, awards…" /></Field>
+              <Field label="Notes"><Textarea showWordCount value={stripMarkdown(item.description)} onChange={(e) => update(i, { description: stripMarkdown(e.target.value) })} rows={2} placeholder="Dissertation, notable modules, awards…" /></Field>
             </div>
           )}
         </Card>

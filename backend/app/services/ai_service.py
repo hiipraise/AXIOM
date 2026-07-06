@@ -263,11 +263,12 @@ Rules:
 - Do NOT repeat content already visible in the experience section
 - No banned words. No filler. No generic claims.
 - Use exact language a recruiter for this role would respond to.
+- No markdown formatting — no **bold**, no *italic*, no _underscores_
 
 CV Data:
 {json.dumps(cv_data, indent=2)}
 
-Return ONLY the summary text."""
+Return ONLY the summary text as plain text. No markdown."""
 
     return await _create_completion_with_retry(
         cv_build_prompt(**ctx, response_format="text"),
@@ -566,6 +567,7 @@ Rules:
 - Under 350 words
 - Professional, specific, and concise
 - No clichés or buzzwords
+- No markdown formatting — no **bold**, no *italic*, no _underscores_, no [links](url)
 - Use only truthful evidence from the CV
 - Structure: opening, evidence, close
 - Address the role and company directly
@@ -579,7 +581,7 @@ Job description:
 CV data:
 {json.dumps(cv_data, indent=2)}
 
-Return only the cover letter text."""
+Return only the cover letter text as plain text. No markdown."""
 
     return await _create_completion_with_retry(
         cover_letter_build_prompt(

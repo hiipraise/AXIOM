@@ -35,6 +35,8 @@ COVER LETTER RULES
 7. Do NOT repeat the CV — add context and personality
 8. No emoji or informal language
 9. Plain, direct English
+10. Return PLAIN TEXT only — no markdown formatting like **bold**, *italic*, _underscores_,
+    [links](url), heading markers (#), or any other markdown syntax. Plain text only.
 """
 
 

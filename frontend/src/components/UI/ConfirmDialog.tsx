@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   variant?: 'default' | 'danger'
   loading?: boolean
+  loadingLabel?: string
   onConfirm: () => void
   onClose: () => void
 }
@@ -21,6 +22,7 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   variant = 'default',
   loading = false,
+  loadingLabel = 'Deleting…',
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -67,7 +69,7 @@ export default function ConfirmDialog({
             disabled={loading}
             className={`flex-1 rounded-lg py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed ${confirmClasses}`}
           >
-            {loading ? 'Deleting…' : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>

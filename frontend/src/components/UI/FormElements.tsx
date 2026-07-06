@@ -1,5 +1,4 @@
 import { ReactNode } from 'react'
-import { Link } from 'lucide-react'
 import { countWords, estimateReadingTime } from '../../lib/wordCount'
 
 interface FieldProps {
@@ -93,37 +92,4 @@ export function Divider() {
   return <div className="border-t border-ash-border my-4" />
 }
 
-/**
- * Minimal markdown formatting toolbar.
- * Inserts markdown syntax around selection or at cursor.
- * When nothing is selected, uses placeholder text that gets auto-selected.
- */
-interface MarkdownToolbarProps {
-  onInsert: (before: string, after: string, placeholder?: string) => void
-}
-export function MarkdownToolbar({ onInsert }: MarkdownToolbarProps) {
-  const btns: { label: ReactNode; title: string; before: string; after: string; placeholder?: string }[] = [
-    { label: 'B', title: 'Bold', before: '**', after: '**', placeholder: 'bold text' },
-    { label: 'I', title: 'Italic', before: '_', after: '_', placeholder: 'italic text' },
-    { label: '•', title: 'Bullet list', before: '\n- ', after: '', placeholder: 'bullet point' },
-    { label: <Link size={13} />, title: 'Link', before: '[', after: '](url)', placeholder: 'link text' },
-  ]
-  return (
-    <div className="flex items-center gap-1 mb-1.5">
-      {btns.map(({ label, title, before, after, placeholder }) => (
-        <button
-          key={title}
-          type="button"
-          title={title}
-          onClick={(e) => {
-            e.preventDefault()
-            onInsert(before, after, placeholder)
-          }}
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-ash text-ink-muted hover:text-ink transition-colors">
-          {label}
-        </button>
-      ))}
-      <span className="text-[9px] text-ink-muted ml-1">Markdown</span>
-    </div>
-  )
-}
+

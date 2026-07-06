@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertCircle, Check, Wand2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { cvApi } from "../../api";
+import { stripMarkdown } from "../../lib/stripMarkdown";
 import type { CVData, ExperienceItem } from "../../types";
 
 interface Props {
@@ -59,7 +60,11 @@ export default function BulletOptimizer({
     if (!preview) return;
 
     const nextData = { ...cvData, experience: [...cvData.experience] };
-    nextData.experience[experienceIndex] = preview;
+    nextData.experience[experienceIndex] = {
+      ...preview,
+      description: stripMarkdown(preview.description),
+      achievements: preview.achievements.map(stripMarkdown),
+    };
     onApply(nextData);
     setPreview(null);
     toast.success("Bullets updated");

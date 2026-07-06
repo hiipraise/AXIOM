@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { cvApi } from '../../api'
 import { CVData } from '../../types'
-import { Field, Textarea, SectionHeader, Card, MarkdownToolbar } from '../UI/FormElements'
+import { Field, Textarea, SectionHeader, Card } from '../UI/FormElements'
 import { Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { countWords, countListWords } from '../../lib/wordCount'
+import { stripMarkdown } from '../../lib/stripMarkdown'
 
 interface Props {
   value: string
@@ -21,7 +22,7 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
     setGenerating(true)
     try {
       const res = await cvApi.aiGenerateSummary(cvData)
-      onChange(res.summary)
+      onChange(stripMarkdown(res.summary))
       toast.success('Summary generated')
     } catch {
       toast.error('AI unavailable')
@@ -44,21 +45,11 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
             <Wand2 size={12} /> {generating ? 'Generating…' : 'AI Generate'}
           </button>
         </div>
-        <MarkdownToolbar onInsert={(before, after, placeholder) => {
-          const ta = document.querySelector<HTMLTextAreaElement>('textarea[name="summary"]')
-          if (!ta) return
-          const start = ta.selectionStart
-          const end = ta.selectionEnd
-          const selected = value.substring(start, end) || placeholder || ''
-          const next = value.substring(0, start) + before + selected + after + value.substring(end)
-          onChange(next)
-          setTimeout(() => { ta.focus(); ta.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
-        }} />
         <Textarea
           name="summary"
-          value={value}
+          value={stripMarkdown(value)}
           showWordCount
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(stripMarkdown(e.target.value))}
           rows={5}
           placeholder="Describe your career in concrete terms. Use specific job titles, years of experience, and measurable achievements."
         />
@@ -68,9 +59,9 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
         <Field label="Job Description (optional)" hint="Paste a job description here to align your CV language to the role. AI will match your experience without fabricating anything.">
           <Textarea
             name="job-desc"
-            value={jobDesc}
+            value={stripMarkdown(jobDesc)}
             showWordCount
-            onChange={(e) => onJobDescChange(e.target.value)}
+            onChange={(e) => onJobDescChange(stripMarkdown(e.target.value))}
             rows={6}
             placeholder="Paste the job description you're applying for…"
           />

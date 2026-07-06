@@ -11,10 +11,10 @@ import {
   Textarea,
   SectionHeader,
   Card,
-  MarkdownToolbar,
 } from "../UI/FormElements";
 import BulletOptimizer from "./BulletOptimizer";
 import { countWords, countListWords } from "../../lib/wordCount";
+import { stripMarkdown } from "../../lib/stripMarkdown";
 
 interface Props {
   items: ExperienceItem[];
@@ -172,28 +172,15 @@ export default function ExperienceSection({
                   </label>
                 </Field>
               </div>
-              <MarkdownToolbar onInsert={(before, after, placeholder) => {
-                const input = document.querySelector<HTMLTextAreaElement>(`textarea[name="exp-desc-${i}"]`)
-                if (!input) {
-                  update(i, { description: items[i].description + before + (placeholder || '') + after })
-                  return
-                }
-                const start = input.selectionStart
-                const end = input.selectionEnd
-                const current = items[i].description
-                const selected = current.substring(start, end) || placeholder || ''
-                update(i, { description: current.substring(0, start) + before + selected + after + current.substring(end) })
-                setTimeout(() => { input.focus(); input.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
-              }} />
               <Field
                 label="Description"
                 hint="Describe your responsibilities in specific, measurable terms"
               >
                 <Textarea
                   name={`exp-desc-${i}`}
-                  value={item.description}
+                  value={stripMarkdown(item.description)}
                   showWordCount
-                  onChange={(e) => update(i, { description: e.target.value })}
+                  onChange={(e) => update(i, { description: stripMarkdown(e.target.value) })}
                   rows={3}
                   placeholder="What did you actually do? What changed because of your work?"
                 />
@@ -214,8 +201,8 @@ export default function ExperienceSection({
                   <div key={ai} className="flex gap-2 mb-2 items-start">
                     <div className="flex-1 min-w-0">
                       <input
-                        value={a}
-                        onChange={(e) => updateAchievement(i, ai, e.target.value)}
+                        value={stripMarkdown(a)}
+                        onChange={(e) => updateAchievement(i, ai, stripMarkdown(e.target.value))}
                         className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink bg-white placeholder:text-ink-muted/50"
                         placeholder="Reduced deployment time by 40% by rewriting the CI pipeline"
                       />

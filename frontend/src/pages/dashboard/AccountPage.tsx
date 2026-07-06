@@ -17,6 +17,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const handleSetPw = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -305,12 +306,20 @@ export default function AccountPage() {
         confirmLabel="Download"
         cancelLabel="Cancel"
         variant="default"
-        loading={false}
-        onConfirm={() => {
-          setShowDownloadConfirm(false)
-          authApi.downloadMyData()
+        loading={downloading}
+        loadingLabel="Downloading…"
+        onConfirm={async () => {
+          setDownloading(true)
+          try {
+            await authApi.downloadMyData()
+          } finally {
+            setDownloading(false)
+            setShowDownloadConfirm(false)
+          }
         }}
-        onClose={() => setShowDownloadConfirm(false)}
+        onClose={() => {
+          if (!downloading) setShowDownloadConfirm(false)
+        }}
       />
 
       <ConfirmDialog
@@ -325,6 +334,7 @@ export default function AccountPage() {
         cancelLabel="Keep account"
         variant="danger"
         loading={loading}
+        loadingLabel="Deleting account…"
         onConfirm={handleDeleteAccount}
         onClose={() => setShowDeleteConfirm(false)}
       />

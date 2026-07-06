@@ -58,9 +58,11 @@ function SidebarContent({
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const isAdmin = user && ["admin", "superadmin", "staff"].includes(user.role);
 
   const handleLogout = async () => {
+    setSigningOut(true);
     try {
       await authApi.logout();
     } catch (_e) {
@@ -233,7 +235,11 @@ function SidebarContent({
         description="You will need to sign in again to access your workspace."
         confirmLabel="Sign out"
         variant="danger"
-        onClose={() => setConfirmSignOut(false)}
+        loading={signingOut}
+        loadingLabel="Signing out…"
+        onClose={() => {
+          if (!signingOut) setConfirmSignOut(false);
+        }}
         onConfirm={handleLogout}
       />
     </>

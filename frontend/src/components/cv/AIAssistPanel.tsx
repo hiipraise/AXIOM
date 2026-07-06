@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { CVData } from "../../types";
+import { stripMarkdownCVData, stripMarkdown } from "../../lib/stripMarkdown";
 import {
   X,
   Sparkles,
@@ -191,7 +192,7 @@ export default function AIAssistPanel({
     setLoading(true);
     try {
       const res = await cvApi.aiEdit(editInstruction, cvData);
-      onApply(res.data);
+      onApply(stripMarkdownCVData(res.data));
       setEditInstruction("");
       toast.success("Edits applied");
     } catch {
@@ -206,7 +207,7 @@ export default function AIAssistPanel({
     setLoading(true);
     try {
       const res = await cvApi.aiMatchJob(cvData, jobDesc);
-      onApply(res.data);
+      onApply(stripMarkdownCVData(res.data));
       toast.success("CV aligned to job description");
     } catch {
       toast.error("Job match failed");

@@ -49,6 +49,10 @@ ABSOLUTE CONTENT RULES
 
 6. Skills list: plain text only — no ratings, no bars, no icons.
    ATS systems parse text, not visual elements.
+
+7. Return PLAIN TEXT only — no markdown formatting like **bold**, *italic*, _underscores_,
+   `backticks`, [links](url), heading markers (#), or leading bullet markers (- , * , +).
+   Do not use any symbols that would render as markdown. Plain text output only.
 """
 
 
