@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Wallet, Shield, Eye, Briefcase } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Footer, Navbar } from "../../components/landing";
+import ContactModal from "../../components/landing/ContactModal";
 import Seo from "../../components/Seo";
 
 interface FAQItem {
@@ -276,7 +277,11 @@ const SECTIONS: FAQSection[] = [
 ];
 
 export default function FAQPage() {
+  const [showContact, setShowContact] = useState(false);
+
   return (
+    <>
+      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
     <div className="min-h-screen bg-white">
       <Seo
         title="Frequently Asked Questions"
@@ -309,12 +314,12 @@ export default function FAQPage() {
         <div className="mt-12 rounded-xl border border-ash-border bg-ash/40 p-6 text-center">
           <p className="text-sm text-ink-muted">
             Still have questions?{" "}
-            <a
-              href="mailto:info@axiomcv.site"
-              className="text-ink font-medium underline hover:no-underline"
+            <button
+              onClick={() => setShowContact(true)}
+              className="text-ink font-medium underline hover:no-underline cursor-pointer"
             >
               Email us
-            </a>{" "}
+            </button>{" "}
             or use the feedback widget at the bottom of the page.
           </p>
         </div>
@@ -330,5 +335,6 @@ export default function FAQPage() {
       </main>
       <Footer />
     </div>
+    </>
   );
 }

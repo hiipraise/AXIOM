@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail } from "lucide-react";
 import FeedbackWidget from "../FeedbackWidget";
+import ContactModal from "./ContactModal";
 
 const SEQUENCE = ["A", "X", "I", "O", "M", "AXIOM"];
 const LETTER_MS = 500;
@@ -39,8 +40,12 @@ function SpellingWord() {
 }
 
 export default function Footer() {
+  const [showContact, setShowContact] = useState(false);
+
   return (
-    <footer className="border-t border-ash-border">
+    <>
+      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
+      <footer className="border-t border-ash-border">
       <div className="px-5 py-8">
         <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
 
@@ -65,12 +70,13 @@ export default function Footer() {
 
             {/* action bar */}
             <div className="flex items-center gap-3">
-              <a href="mailto:info@axiomcv.site"
+              <button
+                onClick={() => setShowContact(true)}
                 aria-label="Email us"
                 className="text-ink-muted hover:text-ink transition-colors"
               >
                 <Mail size={16} strokeWidth={1.5} />
-              </a>
+              </button>
               <FeedbackWidget inline />
             </div>
           </div>
@@ -78,5 +84,6 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+    </>
   );
 }

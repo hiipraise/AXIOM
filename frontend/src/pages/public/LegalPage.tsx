@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { Footer, Navbar } from "../../components/landing";
+import ContactModal from "../../components/landing/ContactModal";
 import Seo from "../../components/Seo";
 
 export default function LegalPage() {
+  const [showContact, setShowContact] = useState(false);
+
   return (
+    <>
+      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
     <div className="min-h-screen bg-white">
       <Seo title="Terms of Use & Privacy Policy" noindex />
       <Navbar />
@@ -45,12 +51,20 @@ export default function LegalPage() {
           <div>
             <h2 className="font-display text-2xl font-bold text-ink">Contact</h2>
             <p className="mt-3">
-              For privacy, support, or legal requests, contact AXIOM through info@axiomcv.site.
+              For privacy, support, or legal requests, contact AXIOM through{" "}
+            <button
+              onClick={() => setShowContact(true)}
+              className="underline hover:no-underline cursor-pointer font-medium text-ink-muted hover:text-ink transition-colors"
+            >
+              our contact form
+            </button>
+            .
             </p>
           </div>
         </section>
       </main>
       <Footer />
     </div>
+    </>
   );
 }
