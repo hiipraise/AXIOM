@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { searchApi } from "../../api";
-import type { SearchResults, CVSearchResult, JobSearchResult, AxiomJobSearchResult } from "../../types";
+import type { SearchResults, CVSearchResult, JobSearchResult } from "../../types";
 import { Search, FileText, Briefcase, X, Command } from "lucide-react";
 import { useAnnouncement } from "../../context/announcement";
 
@@ -29,7 +29,6 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
   // Flatten results for keyboard navigation
   const flatResults = [
     ...(results?.cvs ?? []).map((r) => ({ type: "cv" as const, item: r })),
-    ...(results?.axiom_jobs ?? []).map((r) => ({ type: "axiom_job" as const, item: r })),
     ...(results?.jobs ?? []).map((r) => ({ type: "job" as const, item: r })),
   ];
 
@@ -61,8 +60,6 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
         const selected = flatResults[selectedIndex];
         if (selected.type === "cv") {
           navigate(`/cv/${selected.item.id}`);
-        } else if (selected.type === "axiom_job") {
-          navigate(`/jobs/axiom/${selected.item.id}`);
         } else if (selected.type === "job") {
           navigate(`/jobs`);
         }
@@ -194,57 +191,6 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
                   </div>
                 )}
 
-                {/* AXIOM Jobs */}
-                {results?.axiom_jobs && results.axiom_jobs.length > 0 && (
-                  <div className="px-2">
-                    <div className="px-2 py-1 text-xs font-medium text-ink-muted uppercase tracking-wider">
-                      AXIOM Jobs
-                    </div>
-                    {results.axiom_jobs.map((item, idx) => {
-                      const flatIdx = (results?.cvs?.length ?? 0) + idx;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            navigate(`/jobs/axiom/${item.id}`);
-                            onOpenChange(false);
-                          }}
-                          className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors ${
-                            selectedIndex === flatIdx
-                              ? "bg-axiom text-white"
-                              : "hover:bg-ash"
-                          }`}
-                        >
-                          <Briefcase
-                            size={16}
-                            className={
-                              selectedIndex === flatIdx
-                                ? "text-white"
-                                : "text-ink-muted"
-                            }
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {item.title}
-                            </div>
-                            <div
-                              className={`text-xs truncate ${
-                                selectedIndex === flatIdx
-                                  ? "text-white/70"
-                                  : "text-ink-muted"
-                              }`}
-                            >
-                              {item.company}
-                              {item.location && ` · ${item.location}`}
-                              {item.remote && " · Remote"}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
                 {/* External Jobs */}
                 {results?.jobs && results.jobs.length > 0 && (
                   <div className="px-2">
@@ -254,7 +200,6 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
                     {results.jobs.map((item, idx) => {
                       const flatIdx =
                         (results?.cvs?.length ?? 0) +
-                        (results?.axiom_jobs?.length ?? 0) +
                         idx;
                       return (
                         <button

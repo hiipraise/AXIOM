@@ -10,7 +10,7 @@ import {
   Users,
   Zap,
   Search,
-  Briefcase
+  Briefcase,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -67,12 +67,12 @@ export const FEATURES: FeatureGroup[] = [
     ],
   },
   {
-    group: "Jobs & Applications",
+    group: "Jobs & Matching",
     items: [
       {
         icon: Briefcase,
         label: "Live Job Board",
-        desc: "Search AXIOM roles and external jobs from Adzuna, Remotive, The Muse and more.",
+        desc: "Search live jobs from top sources like Adzuna and Remotive — no account needed.",
       },
       {
         icon: Zap,
@@ -81,8 +81,8 @@ export const FEATURES: FeatureGroup[] = [
       },
       {
         icon: FileText,
-        label: "Application Tracker",
-        desc: "Track every application from saved to applied, interview, offer, or rejection in one board.",
+        label: "Saved Jobs",
+        desc: "Save jobs you want to revisit later from one clean list.",
       },
     ],
   },

@@ -1,116 +1,196 @@
-import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronDown, ArrowRight, X, Menu } from 'lucide-react'
-import { motion } from 'framer-motion'
-import { useAnnouncement } from '../../context/announcement'
-import Logo from './Logo'
-import { FEATURES } from './data'
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { ChevronDown, ArrowRight, X, Menu } from "lucide-react";
+import { motion } from "framer-motion";
+import { useAnnouncement } from "../../context/announcement";
+import Logo from "./Logo";
+import { FEATURES } from "./data";
 
-const ALL_ITEMS = FEATURES.flatMap(g => g.items)
+const ALL_ITEMS = FEATURES.flatMap((g) => g.items);
 
 export default function Navbar() {
-  const [featuresOpen, setFeaturesOpen] = useState(false)
-  const [mobileOpen, setMobileOpen]     = useState(false)
-  const [scrolled, setScrolled]         = useState(false)
-  const dropdownRef                     = useRef<HTMLDivElement>(null)
-  const { bannerH }                     = useAnnouncement()
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { bannerH } = useAnnouncement();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', onScroll)
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
-        setFeaturesOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      )
+        setFeaturesOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (mobileOpen) {
-      document.body.style.overflow = 'hidden'
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = ''
+      document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   return (
     <>
       <header
         className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? 'bg-white/95 backdrop-blur-sm border-b border-ash-border shadow-sm' : 'bg-transparent'
+          scrolled
+            ? "bg-white/95 backdrop-blur-sm border-b border-ash-border shadow-sm"
+            : "bg-transparent"
         }`}
-        style={{ top: bannerH, transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1)' }}
+        style={{
+          top: bannerH,
+          transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
+        }}
       >
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5"><Logo /></Link>
+          <Link to="/" className="flex items-center gap-2.5">
+            <Logo />
+          </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
             <div ref={dropdownRef} className="relative">
-              <button onClick={() => setFeaturesOpen(v => !v)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-all ${featuresOpen ? 'bg-ash text-ink' : 'text-ink-muted hover:text-ink hover:bg-ash'}`}>
+              <button
+                onClick={() => setFeaturesOpen((v) => !v)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-all ${featuresOpen ? "bg-ash text-ink" : "text-ink-muted hover:text-ink hover:bg-ash"}`}
+              >
                 Features
-                <ChevronDown size={14} className={`transition-transform ${featuresOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${featuresOpen ? "rotate-180" : ""}`}
+                />
               </button>
               {featuresOpen && (
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-[640px] bg-white border border-ash-border rounded-2xl shadow-xl overflow-hidden animate-fade-in">
                   <div className="p-5 grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
                     {FEATURES.map(({ group, items }) => (
                       <div key={group}>
-                        <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-3 px-1">{group}</p>
+                        <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-3 px-1">
+                          {group}
+                        </p>
                         <div className="space-y-1">
                           {items.map(({ icon: Icon, label, desc }) => {
-                            const floatDelay = ALL_ITEMS.findIndex(i => i.label === label) * 0.28
+                            const floatDelay =
+                              ALL_ITEMS.findIndex((i) => i.label === label) *
+                              0.28;
                             return (
-                              <div key={label} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-ash transition-colors cursor-default">
+                              <div
+                                key={label}
+                                className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-ash transition-colors cursor-default"
+                              >
                                 <div className="w-7 h-7 rounded-lg bg-ink/5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: floatDelay }}>
+                                  <motion.div
+                                    animate={{ y: [0, -4, 0] }}
+                                    transition={{
+                                      duration: 2.4,
+                                      repeat: Infinity,
+                                      ease: "easeInOut",
+                                      delay: floatDelay,
+                                    }}
+                                  >
                                     <Icon size={13} className="text-ink" />
                                   </motion.div>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-medium text-ink leading-tight">{label}</p>
-                                  <p className="text-[11px] text-ink-muted leading-snug mt-0.5">{desc}</p>
+                                  <p className="text-xs font-medium text-ink leading-tight">
+                                    {label}
+                                  </p>
+                                  <p className="text-[11px] text-ink-muted leading-snug mt-0.5">
+                                    {desc}
+                                  </p>
                                 </div>
                               </div>
-                            )
+                            );
                           })}
                         </div>
                       </div>
                     ))}
                   </div>
                   <div className="border-t border-ash-border px-5 py-4 flex items-center justify-between bg-white">
-                    <p className="text-xs text-ink-muted">CV builder · job board · tracker · interview prep</p>
-                    <Link to="/register" onClick={() => setFeaturesOpen(false)} className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline">
+                    <p className="text-xs text-ink-muted">
+                      CV builder · job board · saved jobs · interview prep
+                    </p>
+                    <Link
+                      to="/register"
+                      onClick={() => setFeaturesOpen(false)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline"
+                    >
                       Start free
-                      <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}><ArrowRight size={11} /></motion.span>
+                      <motion.span
+                        animate={{ x: [0, 4, 0] }}
+                        transition={{
+                          duration: 1.4,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <ArrowRight size={11} />
+                      </motion.span>
                     </Link>
                   </div>
                 </div>
               )}
             </div>
-            <Link to="/#how-it-works" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">How it works</Link>
-            <Link to="/why-axiom" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">Why AXIOM</Link>
-            <Link to="/recruiter" className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all">For Recruiters</Link>
+            <Link
+              to="/#how-it-works"
+              className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all"
+            >
+              How it works
+            </Link>
+            <Link
+              to="/why-axiom"
+              className="px-4 py-2 text-sm text-ink-muted hover:text-ink hover:bg-ash rounded-lg transition-all"
+            >
+              Why AXIOM
+            </Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <Link to="/login" className="px-4 py-2 text-sm text-ink-muted hover:text-ink rounded-lg transition-all">Sign in</Link>
-            <Link to="/register" className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-sm font-medium rounded-lg hover:bg-ink-light transition-all">
+            <Link
+              to="/login"
+              className="px-4 py-2 text-sm text-ink-muted hover:text-ink rounded-lg transition-all"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/register"
+              className="flex items-center gap-1.5 px-4 py-2 bg-ink text-white text-sm font-medium rounded-lg hover:bg-ink-light transition-all"
+            >
               Get started
-              <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}><ArrowRight size={13} /></motion.span>
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{
+                  duration: 1.4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                <ArrowRight size={13} />
+              </motion.span>
             </Link>
           </div>
 
           {/* Hamburger */}
-          <button className="md:hidden p-2 text-ink-muted" onClick={() => setMobileOpen(v => !v)}>
+          <button
+            className="md:hidden p-2 text-ink-muted"
+            onClick={() => setMobileOpen((v) => !v)}
+          >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
@@ -131,28 +211,78 @@ export default function Navbar() {
           >
             <div className="px-5 py-4 space-y-1">
               {/* Feature list */}
-              <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-2 px-3">Features</p>
-              {FEATURES.flatMap(g => g.items).map(({ icon: Icon, label }, i) => (
-                <div key={label} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-ink-muted">
-                  <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.28 }}><Icon size={13} /></motion.div>
-                  {label}
-                </div>
-              ))}
+              <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-widest mb-2 px-3">
+                Features
+              </p>
+              {FEATURES.flatMap((g) => g.items).map(
+                ({ icon: Icon, label }, i) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-ink-muted"
+                  >
+                    <motion.div
+                      animate={{ y: [0, -3, 0] }}
+                      transition={{
+                        duration: 2.4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: i * 0.28,
+                      }}
+                    >
+                      <Icon size={13} />
+                    </motion.div>
+                    {label}
+                  </div>
+                ),
+              )}
 
               {/* Links */}
               <div className="border-t border-ash-border pt-3 mt-2 space-y-1">
-                <Link to="/#how-it-works" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">How it works</Link>
-                <Link to="/about" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">About</Link>
-                <Link to="/why-axiom" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Why AXIOM</Link>
-                <Link to="/recruiter" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">For Recruiters</Link>
-                <Link to="/recruiter/help" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Recruiter help</Link>
-                <Link to="/jobs/explore" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash">Browse jobs</Link>
+                <Link
+                  to="/#how-it-works"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash"
+                >
+                  How it works
+                </Link>
+                <Link
+                  to="/about"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash"
+                >
+                  About
+                </Link>
+                <Link
+                  to="/why-axiom"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash"
+                >
+                  Why AXIOM
+                </Link>
+
+                <Link
+                  to="/jobs/explore"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 text-sm text-ink-muted rounded-lg hover:bg-ash"
+                >
+                  Browse jobs
+                </Link>
               </div>
 
               {/* Auth CTAs */}
               <div className="pt-2 pb-6 space-y-2">
-                <Link to="/login" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 text-sm text-ink font-medium rounded-lg hover:bg-ash">Sign in</Link>
-                <Link to="/register" onClick={() => setMobileOpen(false)} className="block px-3 py-2.5 bg-ink text-white text-sm font-medium rounded-lg text-center">
+                <Link
+                  to="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 text-sm text-ink font-medium rounded-lg hover:bg-ash"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2.5 bg-ink text-white text-sm font-medium rounded-lg text-center"
+                >
                   Get started free
                 </Link>
               </div>
@@ -161,5 +291,5 @@ export default function Navbar() {
         </>
       )}
     </>
-  )
-      }
+  );
+}

@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { authApi, getErrorDetail } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
-import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle } from 'lucide-react'
+import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle, Download, Globe } from 'lucide-react'
+import ConfirmDialog from '../../components/UI/ConfirmDialog'
+import Seo from "../../components/Seo";
 
 export default function AccountPage() {
   const { user, clearAuth, setUser } = useAuthStore()
@@ -13,7 +15,29 @@ export default function AccountPage() {
   const [profileForm, setProfileForm] = useState({ email: user?.email || '', secret_question: '', secret_answer: '' })
   const [emailNotifications, setEmailNotifications] = useState(Boolean(user?.email_notifications))
   const [loading, setLoading] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
+
+  const handleSetPw = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (pwForm.new_password !== pwForm.confirm) {
+      toast.error('Passwords do not match')
+      return
+    }
+    setLoading(true)
+    try {
+      await authApi.setPassword({ new_password: pwForm.new_password })
+      toast.success('Password set! You can now sign in with your username and password.')
+      setPwForm({ old_password: '', new_password: '', confirm: '' })
+      // Refresh user state so the UI switches to "Change password"
+      const fresh = await authApi.me()
+      setUser(fresh)
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Failed to set password')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleChangePw = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,18 +57,34 @@ export default function AccountPage() {
     }
   }
 
-  const handleUpdateProfile = async (e?: React.FormEvent) => {
-    e?.preventDefault()
+  /** Save recovery options: email + secret Q&A only. */
+  const handleSaveRecovery = async (e: React.FormEvent) => {
+    e.preventDefault()
     setLoading(true)
     try {
-      const payload: { email?: string; email_notifications?: boolean; secret_question?: string; secret_answer?: string } = {};
+      const payload: { email?: string; secret_question?: string; secret_answer?: string } = {};
       if (profileForm.email) payload.email = profileForm.email
-      payload.email_notifications = Boolean(profileForm.email && emailNotifications)
       if (profileForm.secret_question) payload.secret_question = profileForm.secret_question
       if (profileForm.secret_answer) payload.secret_answer = profileForm.secret_answer
       const updated = await authApi.updateProfile(payload)
       setUser(updated)
-      toast.success('Profile updated')
+      toast.success('Recovery options saved')
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Update failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Save notification preferences: toggles email notifications only. */
+  const handleSaveNotifications = async () => {
+    setLoading(true)
+    try {
+      const updated = await authApi.updateProfile({
+        email_notifications: Boolean(profileForm.email && emailNotifications),
+      })
+      setUser(updated)
+      toast.success('Notification preferences saved')
     } catch (err) {
       toast.error(getErrorDetail(err) || 'Update failed')
     } finally {
@@ -53,10 +93,6 @@ export default function AccountPage() {
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== user?.username) {
-      toast.error('Username does not match')
-      return
-    }
     try {
       await authApi.deleteAccount()
       clearAuth()
@@ -77,38 +113,77 @@ export default function AccountPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto space-y-6">
+      <Seo title="Account Settings" noindex />
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Account</h1>
-        <p className="text-sm text-ink-muted mt-0.5">@{user?.username} · <span className="capitalize">{user?.role}</span></p>
+        <p className="text-sm text-ink-muted mt-0.5">
+          @{user?.username} · <span className="capitalize">{user?.role}</span>
+          {user?.oauth_provider && (
+            <span className="inline-flex items-center gap-1 ml-2 rounded-full border border-ash-border bg-ash px-2.5 py-0.5 text-[11px] font-medium text-ink-muted">
+              <Globe size={11} />
+              Connected via {user.oauth_provider === 'google' ? 'Google' : 'LinkedIn'}
+            </span>
+          )}
+        </p>
       </div>
 
-      {/* Change password */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-4">
-          <Key size={15} className="text-ink-muted" />
-          <h2 className="font-medium text-ink text-sm">Change password</h2>
+      {/* Password section: Set password (no password set) or Change password (has password) */}
+      {user?.has_password === false ? (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Key size={15} className="text-ink-muted" />
+            <h2 className="font-medium text-ink text-sm">Set password</h2>
+          </div>
+          {user?.oauth_provider && (
+            <p className="text-xs text-ink-muted mb-4 leading-relaxed">
+              You signed up via {user.oauth_provider === "google" ? "Google" : "LinkedIn"}.{" "}
+              Setting a password lets you also sign in with your username and password.
+            </p>
+          )}
+          <form onSubmit={handleSetPw} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">New password</label>
+                <input type="password" className="input" value={pwForm.new_password}
+                  onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} required minLength={6} />
+              </div>
+              <div>
+                <label className="label">Confirm</label>
+                <input type="password" className="input" value={pwForm.confirm}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} required />
+              </div>
+            </div>
+            <button className="btn-secondary text-sm" disabled={loading}>Set password</button>
+          </form>
         </div>
-        <form onSubmit={handleChangePw} className="space-y-3">
-          <div>
-            <label className="label">Current password</label>
-            <input type="password" className="input" value={pwForm.old_password}
-              onChange={(e) => setPwForm({ ...pwForm, old_password: e.target.value })} required />
+      ) : (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Key size={15} className="text-ink-muted" />
+            <h2 className="font-medium text-ink text-sm">Change password</h2>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={handleChangePw} className="space-y-3">
             <div>
-              <label className="label">New password</label>
-              <input type="password" className="input" value={pwForm.new_password}
-                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} required minLength={6} />
+              <label className="label">Current password</label>
+              <input type="password" className="input" value={pwForm.old_password}
+                onChange={(e) => setPwForm({ ...pwForm, old_password: e.target.value })} required />
             </div>
-            <div>
-              <label className="label">Confirm</label>
-              <input type="password" className="input" value={pwForm.confirm}
-                onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} required />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">New password</label>
+                <input type="password" className="input" value={pwForm.new_password}
+                  onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} required minLength={6} />
+              </div>
+              <div>
+                <label className="label">Confirm</label>
+                <input type="password" className="input" value={pwForm.confirm}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} required />
+              </div>
             </div>
-          </div>
-          <button className="btn-secondary text-sm" disabled={loading}>Update password</button>
-        </form>
-      </div>
+            <button className="btn-secondary text-sm" disabled={loading}>Update password</button>
+          </form>
+        </div>
+      )}
 
       {/* Profile / recovery */}
       <div className="card">
@@ -116,7 +191,7 @@ export default function AccountPage() {
           <Mail size={15} className="text-ink-muted" />
           <h2 className="font-medium text-ink text-sm">Recovery options</h2>
         </div>
-        <form onSubmit={handleUpdateProfile} className="space-y-3">
+        <form onSubmit={handleSaveRecovery} className="space-y-3">
           <div>
             <label className="label">Email</label>
             <input type="email" className="input" value={profileForm.email}
@@ -176,9 +251,27 @@ export default function AccountPage() {
         <button
           className="btn-secondary text-sm mt-3"
           disabled={loading || !profileForm.email}
-          onClick={() => handleUpdateProfile()}
+          onClick={handleSaveNotifications}
         >
           Save notification preferences
+        </button>
+      </div>
+
+      {/* Download my data */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-3">
+          <Download size={15} className="text-ink-muted" />
+          <h2 className="font-medium text-ink text-sm">Download my data</h2>
+        </div>
+        <p className="text-xs text-ink-muted mb-3">
+          Export all your data (CVs, applications, saved jobs, notifications) as a JSON file. Use this before deleting your account.
+        </p>
+        <button
+          className="btn-secondary text-sm"
+          onClick={() => setShowDownloadConfirm(true)}
+        >
+          <Download size={13} className="mr-1.5" />
+          Download my data
         </button>
       </div>
 
@@ -189,21 +282,52 @@ export default function AccountPage() {
           <h2 className="font-medium text-red-700 text-sm">Delete account</h2>
         </div>
         <p className="text-xs text-ink-muted mb-3">
-          This permanently deletes your account and all CVs. Type your username to confirm.
+          Permanently deletes your account, all CVs, applications, and saved jobs. This action cannot be undone.
         </p>
-        <div className="flex gap-2">
-          <input className="input text-sm" placeholder={user?.username} value={deleteConfirm}
-            onChange={(e) => setDeleteConfirm(e.target.value)} />
-          <button
-            className="btn-danger whitespace-nowrap"
-            onClick={handleDeleteAccount}
-            disabled={deleteConfirm !== user?.username}
-          >
-            <Trash2 size={13} />
-            Delete
-          </button>
-        </div>
+        <button
+          className="btn-danger text-sm"
+          onClick={() => setShowDeleteConfirm(true)}
+        >
+          <Trash2 size={13} className="mr-1.5" />
+          Delete my account
+        </button>
       </div>
+
+      <ConfirmDialog
+        open={showDownloadConfirm}
+        title="Download your data"
+        description={
+          <span>
+            This will export all your data (CVs, saved jobs, notifications, feedback) as a JSON file.{" "}
+            Your account and data will remain intact — this is a read-only export.
+          </span>
+        }
+        confirmLabel="Download"
+        cancelLabel="Cancel"
+        variant="default"
+        loading={false}
+        onConfirm={() => {
+          setShowDownloadConfirm(false)
+          authApi.downloadMyData()
+        }}
+        onClose={() => setShowDownloadConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete your account"
+        description={
+          <span>
+            Are you sure you want to permanently delete your account and all its data? This action cannot be undone.
+          </span>
+        }
+        confirmLabel="Delete account"
+        cancelLabel="Keep account"
+        variant="danger"
+        loading={loading}
+        onConfirm={handleDeleteAccount}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

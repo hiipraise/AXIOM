@@ -1,9 +1,14 @@
 import { Link } from "react-router-dom";
 import { Footer, Navbar } from "../../components/landing";
+import Seo from "../../components/Seo";
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white">
+      <Seo
+        title="About"
+        description="A career workspace for clearer applications. Axiom helps build truthful, focused CVs, find better roles, track applications, and practise interviews."
+      />
       <Navbar />
       <main className="mx-auto max-w-5xl px-5 pb-16 pt-28">
         <p className="text-xs uppercase tracking-[0.22em] text-ink-muted">About AXIOM</p>
@@ -19,7 +24,7 @@ export default function AboutPage() {
             </p>
             <p>
               The platform is designed for practical job search work: fewer generic
-              claims, stronger evidence, better recruiter context, and a smoother path
+              claims, stronger evidence, clearer impact, and a smoother path
               from CV to application to interview.
             </p>
           </section>
@@ -28,7 +33,7 @@ export default function AboutPage() {
             <ul className="mt-4 space-y-3">
               <li>Truthful CV content that does not invent experience.</li>
               <li>Candidate ownership of their career data.</li>
-              <li>Recruiter workflows that are simple enough to actually use.</li>
+              <li>Application workflows that are simple enough to actually use.</li>
               <li>AI assistance that improves judgement instead of replacing it.</li>
             </ul>
           </section>

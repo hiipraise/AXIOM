@@ -61,7 +61,7 @@ export default function CTASection() {
             ))}
           </div>
           <span className="text-xs text-ink-muted">
-            Trusted by professionals worldwide
+            Free · No credit card · No email required
           </span>
         </div>
       </div>

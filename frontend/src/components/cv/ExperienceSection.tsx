@@ -11,8 +11,10 @@ import {
   Textarea,
   SectionHeader,
   Card,
+  MarkdownToolbar,
 } from "../UI/FormElements";
 import BulletOptimizer from "./BulletOptimizer";
+import { countWords, countListWords } from "../../lib/wordCount";
 
 interface Props {
   items: ExperienceItem[];
@@ -62,11 +64,17 @@ export default function ExperienceSection({
       achievements: items[i].achievements.filter((_, idx) => idx !== ai),
     });
 
+  // Total word count across all experiences
+  const totalWords = items.reduce((sum, item) => {
+    return sum + countWords(item.description) + countListWords(item.achievements)
+  }, 0)
+
   return (
     <div className="space-y-5 animate-fade-in">
       <SectionHeader
         title="Work Experience"
         subtitle="List roles with concrete outcomes — use numbers where possible"
+        wordCount={totalWords}
         action={
           <button
             onClick={add}
@@ -164,12 +172,27 @@ export default function ExperienceSection({
                   </label>
                 </Field>
               </div>
+              <MarkdownToolbar onInsert={(before, after, placeholder) => {
+                const input = document.querySelector<HTMLTextAreaElement>(`textarea[name="exp-desc-${i}"]`)
+                if (!input) {
+                  update(i, { description: items[i].description + before + (placeholder || '') + after })
+                  return
+                }
+                const start = input.selectionStart
+                const end = input.selectionEnd
+                const current = items[i].description
+                const selected = current.substring(start, end) || placeholder || ''
+                update(i, { description: current.substring(0, start) + before + selected + after + current.substring(end) })
+                setTimeout(() => { input.focus(); input.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
+              }} />
               <Field
                 label="Description"
                 hint="Describe your responsibilities in specific, measurable terms"
               >
                 <Textarea
+                  name={`exp-desc-${i}`}
                   value={item.description}
+                  showWordCount
                   onChange={(e) => update(i, { description: e.target.value })}
                   rows={3}
                   placeholder="What did you actually do? What changed because of your work?"
@@ -188,15 +211,19 @@ export default function ExperienceSection({
                   </button>
                 </div>
                 {item.achievements.map((a, ai) => (
-                  <div key={ai} className="flex gap-2 mb-2">
-                    <Input
-                      value={a}
-                      onChange={(e) => updateAchievement(i, ai, e.target.value)}
-                      placeholder="Reduced deployment time by 40% by rewriting the CI pipeline"
-                    />
+                  <div key={ai} className="flex gap-2 mb-2 items-start">
+                    <div className="flex-1 min-w-0">
+                      <input
+                        value={a}
+                        onChange={(e) => updateAchievement(i, ai, e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink bg-white placeholder:text-ink-muted/50"
+                        placeholder="Reduced deployment time by 40% by rewriting the CI pipeline"
+                      />
+                      <p className="text-[9px] text-ink-muted mt-0.5 text-right">{countWords(a)} words</p>
+                    </div>
                     <button
                       onClick={() => removeAchievement(i, ai)}
-                      className="p-2 text-ink-muted hover:text-red-500 transition-colors"
+                      className="p-2 text-ink-muted hover:text-red-500 transition-colors flex-shrink-0"
                     >
                       <X size={14} />
                     </button>
@@ -205,6 +232,11 @@ export default function ExperienceSection({
                 {item.achievements.length === 0 && (
                   <p className="text-xs text-ink-muted italic">
                     Add bullet-point achievements — use numbers and named tools
+                  </p>
+                )}
+                {item.achievements.length > 0 && (
+                  <p className="text-[10px] text-ink-muted text-right">
+                    {countListWords(item.achievements)} total words · {item.achievements.length} bullets
                   </p>
                 )}
               </div>

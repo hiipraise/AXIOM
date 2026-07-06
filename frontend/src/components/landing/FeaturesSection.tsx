@@ -145,6 +145,11 @@ export default function FeaturesSection() {
             Every feature is designed around one principle: your CV should reflect
             what you actually did, with precision that recruiters trust.
           </p>
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs text-emerald-700">
+            <span className="font-semibold">Free</span>
+            <span className="text-emerald-500">·</span>
+            <span>No tiers, no trials, no credit card</span>
+          </div>
         </motion.div>
 
         {/* Feature cards */}

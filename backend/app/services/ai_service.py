@@ -150,20 +150,6 @@ async def _create_completion_async(
     return await _create_completion_with_retry(system_prompt, messages, max_tokens, temperature)
 
 
-def _create_completion(
-    system_prompt: str,
-    messages: list,
-    max_tokens: int,
-    temperature: float = 0.2,
-) -> str:
-    """
-    Synchronous completion wrapper. Uses asyncio.run() to create a fresh event loop.
-    """
-    return asyncio.run(
-        _create_completion_with_retry(system_prompt, messages, max_tokens, temperature)
-    )
-
-
 def _strip_fences(text: str) -> str:
     if text.startswith("```"):
         lines = text.split("\n")
@@ -186,7 +172,8 @@ async def chat_with_ai(
     message: str,
     cv_data: Optional[dict] = None,
     context: str = "",
-) -> str:
+) -> dict:
+    """Chat with AI — returns {"response": str, "usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}}."""
     ctx = _cv_context(cv_data) if cv_data else {}
     user_content = message
     if cv_data:
@@ -197,11 +184,64 @@ async def chat_with_ai(
     if context:
         user_content = f"Context: {context}\n\n{user_content}"
 
-    return await _create_completion_with_retry(
-        cv_build_prompt(**ctx, response_format="text"),
+    system_prompt = cv_build_prompt(**ctx, response_format="text")
+    text = await _create_completion_with_retry(
+        system_prompt,
         [{"role": "user", "content": user_content}],
         max_tokens=CV_MAX_TOKENS,
     )
+
+    # Get usage from a non-streaming call (already done in _create_completion_with_retry)
+    # We don't have usage from the retry helper, so estimate or return 0
+    return {
+        "response": text,
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def chat_with_ai_stream(
+    message: str,
+    cv_data: Optional[dict] = None,
+    context: str = "",
+):
+    """
+    Sync generator that yields SSE-formatted chunks for streaming chat.
+    Run via asyncio.to_thread to bridge into async contexts.
+    Yields {"token": str} events and a final {"done": true, "usage": {...}} event.
+    """
+    ctx = _cv_context(cv_data) if cv_data else {}
+    user_content = message
+    if cv_data:
+        user_content = (
+            f"Current CV data:\n{json.dumps(cv_data, indent=2)}\n\n"
+            f"User message: {message}"
+        )
+    if context:
+        user_content = f"Context: {context}\n\n{user_content}"
+
+    system_prompt = cv_build_prompt(**ctx, response_format="text")
+    client = get_client()
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ],
+        max_tokens=CV_MAX_TOKENS,
+        stream=True,
+    )
+
+    total_tokens = 0
+    for chunk in response:
+        delta = chunk.choices[0].delta if chunk.choices else None
+        content = delta.content if delta else ""
+        if content:
+            total_tokens += 1
+            yield f"data: {json.dumps({'token': content})}\n\n"
+
+    usage_info = {"prompt_tokens": 0, "completion_tokens": total_tokens, "total_tokens": total_tokens}
+    yield f"data: {json.dumps({'done': True, 'usage': usage_info})}\n\n"
 
 
 # ─── Summary generation ───────────────────────────────────────────────────────
@@ -530,6 +570,166 @@ Return only the cover letter text."""
     )
 
 
+# ─── Section suggestions based on job description ──────────────────────────────
+
+async def generate_section_suggestions(
+    cv_data: dict,
+    job_description: str,
+) -> list[dict]:
+    """Generate per-section suggestions to better align the CV to a job description."""
+    ctx = _cv_context(cv_data)
+    target_hint = f"\nTarget role: {ctx['target_role']}" if ctx.get("target_role") else ""
+
+    prompt = f"""Analyse this CV against the provided job description and return specific, actionable suggestions per section.
+
+{target_hint}
+
+For each section of the CV, provide:
+- section: the section identifier (summary, skills, experience, education, etc.)
+- field: optional subfield within the section
+- title: short title for the suggestion
+- description: detailed explanation of what to change and why
+- suggested_change: optional concrete text to use as replacement or addition
+- priority: high | medium | low
+
+Rules:
+1. Only suggest changes that are truthful to the candidate's actual experience
+2. Flag keywords from the JD that are missing from the CV
+3. Suggest rewording bullets to use stronger verbs and match JD language
+4. Recommend section reordering or compressing if relevant
+5. Never fabricate experience or skills
+
+Job Description:
+{job_description}
+
+Current CV:
+{json.dumps(cv_data, indent=2)}
+
+Return ONLY a JSON array of suggestion objects. No markdown, no explanation.
+Format: [{{"section": "skills", "field": "", "title": "Add Python", "description": "Python is required in 4 of 5 JD requirements", "suggested_change": "Python", "priority": "high"}}]"""
+
+    text = await _create_completion_async(
+        cv_build_prompt(**ctx, response_format="json"),
+        [{"role": "user", "content": prompt}],
+        max_tokens=3000,
+        temperature=0.3,
+    )
+    try:
+        suggestions = json.loads(_strip_fences(text))
+        if isinstance(suggestions, list):
+            return suggestions
+        if isinstance(suggestions, dict) and "suggestions" in suggestions:
+            return suggestions["suggestions"]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Failed to parse section suggestions JSON")
+        return []
+
+
+# ─── Tone/style adjustment per section ────────────────────────────────────────
+
+async def adjust_section_tone(
+    cv_data: dict,
+    section: str,
+    tone: str,
+    custom_instruction: str = "",
+) -> dict:
+    """
+    Adjust the tone/style of a specific CV section.
+    Returns {"original": "...", "adjusted": "...", "section": "...", "tone": "..."}
+    """
+    ctx = _cv_context(cv_data)
+
+    tone_definitions = {
+        "professional": "Use polished, formal business language. Avoid casual expressions. Use precise terminology.",
+        "concise": "Cut every unnecessary word. Maximum 15 words per bullet. Remove adverbs, filler, and redundancy. Keep only what proves the point.",
+        "assertive": "Lead with strong action verbs. State accomplishments as facts. Remove hedging language like 'helped', 'assisted', 'contributed to'.",
+        "confident": "Use definitive statements. Remove qualifiers like 'some', 'various', 'multiple'. State achievements without apology or understatement.",
+        "moderate": "Balanced tone — factual and clear. Avoid extreme language or hyperbole. Focus on substantive description.",
+        "enthusiastic": "Add energy with dynamic verbs. Emphasise impact and initiative. Slightly warmer language while staying professional.",
+    }
+
+    tone_instruction = tone_definitions.get(tone, tone_definitions["professional"])
+    if custom_instruction:
+        tone_instruction += f"\nAdditional custom instruction: {custom_instruction}"
+
+    # Extract the relevant section data from CV
+    section_content = ""
+    if section == "summary":
+        section_content = cv_data.get("summary", "")
+    elif section == "skills":
+        section_content = json.dumps(cv_data.get("skills", []))
+    elif section == "experience":
+        section_content = json.dumps(cv_data.get("experience", []), indent=2)
+    elif section == "education":
+        section_content = json.dumps(cv_data.get("education", []), indent=2)
+    elif section == "certifications":
+        section_content = json.dumps(cv_data.get("certifications", []), indent=2)
+    elif section == "projects":
+        section_content = json.dumps(cv_data.get("projects", []), indent=2)
+    elif section == "languages":
+        section_content = json.dumps(cv_data.get("languages", []))
+    elif section == "volunteer":
+        section_content = json.dumps(cv_data.get("volunteer", []), indent=2)
+    elif section in ("awards", "certifications"):
+        section_content = json.dumps(cv_data.get(section, []), indent=2)
+    else:
+        section_content = json.dumps(cv_data.get(section, ""))
+
+    prompt = f"""Rewrite this CV section to match the specified tone/style.
+
+Section: {section}
+
+Tone instructions:
+{tone_instruction}
+
+Section content:
+{section_content}
+
+Full CV context (career level: {ctx.get('career_level', '')}, industry: {ctx.get('industry', '')}, target role: {ctx.get('target_role', '')}):
+
+Return ONLY valid JSON with the adjusted content, preserving the exact same structure/format as the original.
+Format: {{"adjusted": "the rewritten content (string or array matching original format)"}}
+
+Rules:
+- Do NOT add information not present in the original
+- Do NOT change factual content — only adjust tone, word choice, and sentence structure
+- Maintain the same section structure (if it's an array of objects, return an array of objects)
+- No markdown, no explanation"""
+
+    text = await _create_completion_async(
+        cv_build_prompt(**ctx, response_format="json"),
+        [{"role": "user", "content": prompt}],
+        max_tokens=3000,
+        temperature=0.5,  # Slightly higher temp for creative tone variation
+    )
+
+    try:
+        result = json.loads(_strip_fences(text))
+        adjusted = result.get("adjusted", "")
+    except (json.JSONDecodeError, TypeError):
+        # Fallback: try to extract anything that looks like adjusted content
+        stripped = _strip_fences(text)
+        if stripped.startswith("{") and "adjusted" in stripped:
+            try:
+                adjusted = json.loads(stripped).get("adjusted", section_content)
+            except json.JSONDecodeError:
+                adjusted = section_content
+        else:
+            adjusted = section_content
+
+    # Serialize back to string if adjusted is a complex type
+    if isinstance(adjusted, (list, dict)):
+        adjusted = json.dumps(adjusted, indent=2) if isinstance(adjusted, list) else adjusted
+
+    return {
+        "original": section_content if isinstance(section_content, str) else json.dumps(section_content),
+        "adjusted": adjusted if isinstance(adjusted, str) else json.dumps(adjusted),
+        "section": section,
+        "tone": tone,
+    }
+
+
 # ─── Interview preparation sessions ───────────────────────────────────────────
 
 def _safe_json_object(text: str) -> dict:
@@ -642,11 +842,159 @@ Return JSON only in this exact shape:
     return data
 
 
-async def analyze_skill_gaps(cv_data: dict, target_role: str) -> dict:
-    """Analyze skill gaps for a target role and generate learning roadmap."""
+# ─── Spaced-repetition review questions ──────────────────────────────────────
+
+async def generate_review_questions(
+    transcript: list[dict],
+    count: int = 5,
+) -> list[dict]:
+    """Generate spaced-repetition review cards from a completed interview transcript.
+    Returns a list of {"question": str, "topic": str, "difficulty": str}."""
+    prompt = f"""Extract the most important practice questions from this interview transcript.
+Turn each one into a concise review card suitable for quick recall practice.
+
+Rules:
+- Focus on questions the user struggled with (low scores) or that cover core topics
+- Rephrase each as a standalone flashcard-style question
+- Assign a topic label: behavioural, technical, situational, cv-probing, or general
+- Assign a difficulty: easy, medium, or hard based on how well the user answered
+
+Transcript:
+{json.dumps(transcript, indent=2)}
+
+Return a JSON array where each item has:
+{{
+  "question": "concise question text",
+  "topic": "behavioural|technical|situational|cv-probing|general",
+  "difficulty": "easy|medium|hard"
+}}
+
+Return ONLY the JSON array (max {count} items)."""
+
+    text = await _create_completion_async(
+        "You generate concise interview review cards from transcripts.",
+        [{"role": "user", "content": prompt}],
+        max_tokens=1000,
+        temperature=0.3,
+    )
+    try:
+        cards = json.loads(_strip_fences(text))
+        if isinstance(cards, list):
+            return cards[:count]
+        if isinstance(cards, dict) and "cards" in cards:
+            return cards["cards"][:count]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Failed to parse review cards JSON")
+        return []
+
+
+# ─── Topic extraction from transcript ─────────────────────────────────────────
+
+async def extract_interview_topics(
+    sessions: list[dict],
+) -> list[dict]:
+    """Extract topic breakdown across multiple interview sessions.
+    Returns a list of {"name": str, "count": int, "avg_score": float, "trend": str}."""
+    if not sessions:
+        return []
+
+    prompt = f"""Analyse these interview sessions and produce a topic breakdown.
+
+For each distinct question topic, determine:
+- name: short topic label (e.g. "teamwork", "system design", "conflict resolution")
+- count: how many questions on this topic across all sessions
+- avg_score: the average overall score for answers on this topic (0-100)
+- trend: "improving" if scores increased over time, "declining" if they decreased, "stable" if flat
+
+Sessions data:
+{json.dumps(sessions, indent=2)}
+
+Return ONLY a JSON array of topic objects.
+Format: [{{"name": "system design", "count": 3, "avg_score": 72.5, "trend": "improving"}}]"""
+
+    text = await _create_completion_async(
+        "You extract interview topic heatmap data from session transcripts.",
+        [{"role": "user", "content": prompt}],
+        max_tokens=1000,
+        temperature=0.2,
+    )
+    try:
+        topics = json.loads(_strip_fences(text))
+        if isinstance(topics, list):
+            return topics
+        if isinstance(topics, dict) and "topics" in topics:
+            return topics["topics"]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Failed to parse interview topics JSON")
+        return []
+
+
+# ─── Difficulty scaling based on past performance ─────────────────────────────
+
+async def adjust_interview_difficulty(
+    recent_scores: list[int],
+    mode: str = "behavioural",
+) -> dict:
+    """Determine interview difficulty level based on recent performance scores.
+    Returns {"level": str, "max_questions": int, "description": str}."""
+    if not recent_scores:
+        return {
+            "level": "intermediate",
+            "max_questions": 5,
+            "description": "Standard difficulty. No prior session data.",
+        }
+
+    avg_score = sum(recent_scores) / len(recent_scores)
+
+    if avg_score >= 75:
+        return {
+            "level": "advanced",
+            "max_questions": 7,
+            "description": f"Advanced level ({avg_score:.0f}/100 average). Expect deeper, more nuanced questions with less prompting.",
+        }
+    elif avg_score >= 50:
+        return {
+            "level": "intermediate",
+            "max_questions": 6,
+            "description": f"Intermediate level ({avg_score:.0f}/100 average). Questions will challenge you while reinforcing fundamentals.",
+        }
+    else:
+        return {
+            "level": "beginner",
+            "max_questions": 5,
+            "description": f"Beginner level ({avg_score:.0f}/100 average). More structured questions with STAR guidance.",
+        }
+
+
+async def analyze_skill_gaps(
+    cv_data: dict,
+    target_role: str,
+    market_data: Optional[dict] = None,
+) -> dict:
+    """Analyze skill gaps for a target role and generate learning roadmap.
+    
+    Args:
+        cv_data: The user's CV data
+        target_role: The target role to analyze against
+        market_data: Optional real job market data from Adzuna (skill demand scores)
+    """
     ctx = _cv_context(cv_data)
     user_skills = [s.lower().strip() for s in cv_data.get("skills", [])]
     user_roles = [e.get("role", "").lower().strip() for e in cv_data.get("experience", [])]
+
+    market_block = ""
+    if market_data and market_data.get("skill_demand"):
+        demand_sorted = sorted(
+            market_data["skill_demand"].items(),
+            key=lambda x: -x[1]
+        )[:20]
+        market_block = f"""Real market data from active job postings (skill demand scores 0-100):
+{chr(10).join(f'  {skill}: {score}/100' for skill, score in demand_sorted)}
+Total job postings analyzed: {market_data.get('total_jobs_analyzed', 0)}
+Sample job titles: {", ".join(market_data.get('sample_titles', []))[:200]}
+"""
 
     prompt = f"""Analyze skill gaps for someone targeting this role and generate a learning roadmap.
 
@@ -658,13 +1006,15 @@ Experience: {", ".join([r for r in user_roles if r])}
 Career level: {ctx.get("career_level", "mid")}
 Industry: {ctx.get("industry", "general")}
 
+{market_block}
+
 Return JSON in this exact format:
 {{
   "target_role": "the target role",
   "readiness_score": 0-100 based on current skills vs role requirements,
   "matched_skills": ["skill1", "skill2"],
   "missing_skills": [
-    {{"skill": "React", "priority": "high", "reason": "why it's critical", "current_evidence": "what they have that relates"}},
+    {{"skill": "React", "priority": "high", "reason": "why it's critical (consider market demand)", "current_evidence": "what they have that relates"}},
     {{"skill": "Team Leadership", "priority": "medium", "reason": "needed for senior roles", "current_evidence": ""}}
   ],
   "roadmap": [
@@ -682,14 +1032,32 @@ Return JSON in this exact format:
 
 Priority: high (critical for role), medium (accelerator), low (nice-to-have).
 Readiness score: weighted by high > medium > low priority matches.
+
+Use the real market data (if provided) to inform priority levels:
+- Skills with high market demand should be prioritized higher
+- Missing skills that appear in many job postings should be flagged "high" priority
+- If no market data is available, use your best judgment based on the target role
+
 Return ONLY the JSON."""
 
     text = await _create_completion_async(
         cv_build_prompt(**ctx, response_format="json"),
         [{"role": "user", "content": prompt}],
-        max_tokens=2000,
+        max_tokens=2500,
     )
-    return _safe_json_object(text)
+    result = _safe_json_object(text)
+
+    # Merge market data into the result (for frontend display)
+    if market_data:
+        result["skill_demand"] = market_data.get("skill_demand", {})
+        result["total_jobs_analyzed"] = market_data.get("total_jobs_analyzed", 0)
+        result["sample_titles"] = market_data.get("sample_titles", [])
+    else:
+        result["skill_demand"] = {}
+        result["total_jobs_analyzed"] = 0
+        result["sample_titles"] = []
+
+    return result
 
 
 async def summarize_interview_session(

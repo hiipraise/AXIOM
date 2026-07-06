@@ -2,6 +2,7 @@ import { CVData } from "../../types";
 import { getCVTheme } from "../../lib/cvThemes";
 import { CVThemeDefinition } from "../../lib/cvThemes";
 import { has } from "./templates/templateUtils";
+import { renderMarkdown } from "../../lib/renderMarkdown";
 import AtlasTemplate      from "./templates/AtlasTemplate";
 import HorizonTemplate    from "./templates/HorizonTemplate";
 import PulseTemplate      from "./templates/PulseTemplate";
@@ -41,7 +42,7 @@ function StandardTemplate({ cvData, t }: { cvData: CVData; t: CVThemeDefinition 
       )}
       <div style={{ borderTop: `2px solid ${t.accent}`, marginTop: "12px" }} />
 
-      {has(cvData.summary) && (<><Sec label="Profile" /><p style={{ color: t.text, lineHeight: "1.75" }}>{cvData.summary}</p></>)}
+      {has(cvData.summary) && (<><Sec label="Profile" /><p style={{ color: t.text, lineHeight: "1.75" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(cvData.summary) }} /></>)}
 
       {experience.length > 0 && (
         <><Sec label="Experience" />
@@ -55,8 +56,8 @@ function StandardTemplate({ cvData, t }: { cvData: CVData; t: CVThemeDefinition 
                 </span>
               )}
             </div>
-            {has(exp.description) && <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }}>{exp.description}</p>}
-            {(exp.achievements || []).filter(has).map((a, ai) => <p key={ai} style={{ paddingLeft: "14px", marginTop: "3px", color: t.text, lineHeight: "1.6" }}>• {a}</p>)}
+            {has(exp.description) && <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(exp.description) }} />}
+            {(exp.achievements || []).filter(has).map((a, ai) => <p key={ai} style={{ paddingLeft: "14px", marginTop: "3px", color: t.text, lineHeight: "1.6" }}><span dangerouslySetInnerHTML={{ __html: renderMarkdown(a) }} /></p>)}
           </div>
         ))}</>
       )}
@@ -97,7 +98,7 @@ function StandardTemplate({ cvData, t }: { cvData: CVData; t: CVThemeDefinition 
         {projects.map((p, i) => (
           <div key={i} style={{ marginBottom: "14px" }}>
             <strong>{p.name}</strong>
-            {has(p.description) && <p style={{ marginTop: "3px", color: t.text, lineHeight: "1.65" }}>{p.description}</p>}
+            {has(p.description) && <p style={{ marginTop: "3px", color: t.text, lineHeight: "1.65" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.description) }} />}
             {(p.technologies || []).filter(has).length > 0 && (
               <p style={{ fontSize: "10.5px", color: t.secondary, marginTop: "3px" }}>Tech: {p.technologies.filter(has).join(", ")}</p>
             )}
@@ -127,7 +128,7 @@ function StandardTemplate({ cvData, t }: { cvData: CVData; t: CVThemeDefinition 
         {volunteer.map((v, i) => (
           <div key={i} style={{ marginBottom: "14px" }}>
             <strong style={{ fontSize: "12.5px" }}>{[v.role, v.organization].filter(has).join(" — ")}</strong>
-            {has(v.description) && <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }}>{v.description}</p>}
+            {has(v.description) && <p style={{ marginTop: "4px", color: t.text, lineHeight: "1.65" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(v.description) }} />}
           </div>
         ))}</>
       )}

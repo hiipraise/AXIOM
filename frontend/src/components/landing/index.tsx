@@ -3,6 +3,7 @@ export { default as Navbar }               from './Navbar'
 export { default as Hero }                 from './Hero'
 export { default as FeaturesSection }      from './FeaturesSection'
 export { default as HowItWorksSection }    from './HowItWorksSection'
+export { default as CVTeaserSection } from './CVTeaserSection'
 export { default as ExploreTeaserSection } from './ExploreTeaserSection'
 export { default as JobsTeaserSection } from './JobsTeaserSection';
 export { default as CTASection }           from './CTASection'

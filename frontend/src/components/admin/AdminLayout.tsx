@@ -11,6 +11,8 @@ import {
   MessageSquare,
   Megaphone,
   ScrollText,
+  Mail,
+  Smartphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAnnouncement } from "../../context/announcement";
@@ -22,8 +24,10 @@ const NAV = [
   { to: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
+  { to: "/admin/email", label: "Email", icon: Mail },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
+  { to: "/admin/push", label: "Push", icon: Smartphone },
   { to: "/admin/cvs", label: "All CVs", icon: FileText },
 ];
 
@@ -72,149 +76,100 @@ function SidebarContent({ onNav }: { onNav?: () => void }) {
 export default function AdminLayout() {
   const [open, setOpen] = useState(false);
   const { bannerH } = useAnnouncement();
-  const HEADER_H = 48; // h-12 = 48px
-  const BREADCRUMB_H = 44; // breadcrumb height on desktop
-  const BREADCRUMB_MOBILE_H = 36; // breadcrumb height on mobile
+  const BREADCRUMB_H = 44;
+  const BREADCRUMB_MOBILE_H = 36;
   const topOffset = bannerH + BREADCRUMB_H;
   const topOffsetMobile = bannerH + BREADCRUMB_MOBILE_H;
 
   return (
     <>
-      {/* Breadcrumb - fixed at top */}
       <Breadcrumb />
 
-      {/* Desktop container */}
-      <div
-        className="hidden min-h-screen bg-ash md:flex"
+      {/* Desktop sidebar — hidden on mobile */}
+      <aside
+        className="hidden md:flex w-52 bg-white border-r border-ash-border flex-col fixed z-20"
         style={{
-          paddingTop: topOffset,
-          transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
+          top: topOffset,
+          bottom: 0,
+          transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        {/* Desktop sidebar */}
-        <aside
-          className="hidden md:flex w-52 bg-white border-r border-ash-border flex-col fixed z-20"
-          style={{
-            top: topOffset,
-            bottom: 0,
-            transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
-          }}
-        >
-          <SidebarContent />
-        </aside>
+        <SidebarContent />
+      </aside>
 
-        <AnimatePresence>
-          {open && (
-            <>
-              <motion.div
-                className="md:hidden fixed inset-0 bg-black/40 z-40"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/40 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.aside
+              className="fixed top-0 left-0 h-full w-64 bg-white z-50 flex flex-col shadow-xl"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              style={{
+                top: topOffsetMobile,
+                transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
+              }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              <button
                 onClick={() => setOpen(false)}
-              />
-              <motion.aside
-                className="md:hidden fixed top-0 left-0 h-full w-64 bg-white z-50 flex flex-col shadow-xl"
-                initial={{ x: "-100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "-100%" }}
-                style={{
-                  top: topOffsetMobile,
-                  transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
-                }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="absolute top-3 right-3 p-1.5 text-ink-muted hover:text-ink"
               >
-                <button
-                  onClick={() => setOpen(false)}
-                  className="absolute top-3 right-3 p-1.5 text-ink-muted hover:text-ink"
-                >
-                  <X size={16} />
-                </button>
-                <SidebarContent onNav={() => setOpen(false)} />
-              </motion.aside>
-            </>
-          )}
-        </AnimatePresence>
+                <X size={16} />
+              </button>
+              <SidebarContent onNav={() => setOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-        <main
-          className="flex-1 md:ml-52 overflow-auto"
-          style={{
-            paddingTop: 16,
-            transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
-          }}
+      {/* Mobile top bar — hidden on desktop */}
+      <div
+        className="fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-12 flex items-center justify-between md:hidden"
+        style={{
+          top: topOffsetMobile,
+          transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
+        }}
+      >
+        <span className="font-display text-sm font-bold text-ink">
+          AXIOM Admin
+        </span>
+        <button
+          onClick={() => setOpen(true)}
+          className="p-2 text-ink-muted hover:text-ink"
         >
-          <Outlet />
-        </main>
+          <Menu size={18} />
+        </button>
       </div>
 
-      {/* Mobile container */}
-      <div
-        className="md:hidden min-h-screen bg-ash flex"
-        style={{
-          paddingTop: topOffsetMobile,
-          transition: "padding-top 0.28s cubic-bezier(0.4,0,0.2,1)",
-        }}
-      >
-        {/* Mobile top bar */}
+      {/* Single main content area */}
+      <main className="min-h-screen bg-ash md:ml-52">
+        {/* Top spacer accounts for fixed elements: breadcrumb + mobile bar + padding */}
         <div
-          className="fixed left-0 right-0 z-30 bg-white border-b border-ash-border px-4 h-12 flex items-center justify-between"
+          className="md:hidden"
           style={{
-            top: topOffsetMobile,
-            transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
+            height: `calc(${topOffsetMobile}px + 56px)`,
+            transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)",
           }}
-        >
-          <span className="font-display text-sm font-bold text-ink">
-            AXIOM Admin
-          </span>
-          <button
-            onClick={() => setOpen(true)}
-            className="p-2 text-ink-muted hover:text-ink"
-          >
-            <Menu size={18} />
-          </button>
-        </div>
-
-        <AnimatePresence>
-          {open && (
-            <>
-              <motion.div
-                className="fixed inset-0 bg-black/40 z-40"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                onClick={() => setOpen(false)}
-              />
-              <motion.aside
-                className="fixed top-0 left-0 h-full w-64 bg-white z-50 flex flex-col shadow-xl"
-                initial={{ x: "-100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "-100%" }}
-                style={{
-                  top: topOffsetMobile,
-                  transition: "top 0.28s cubic-bezier(0.4,0,0.2,1)",
-                }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <button
-                  onClick={() => setOpen(false)}
-                  className="absolute top-3 right-3 p-1.5 text-ink-muted hover:text-ink"
-                >
-                  <X size={16} />
-                </button>
-                <SidebarContent onNav={() => setOpen(false)} />
-              </motion.aside>
-            </>
-          )}
-        </AnimatePresence>
-
-        <main
-          className="flex-1 overflow-auto pt-14"
-        >
-          <Outlet />
-        </main>
-      </div>
+        />
+        <div
+          className="hidden md:block"
+          style={{
+            height: `calc(${topOffset}px + 16px)`,
+            transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        />
+        <Outlet />
+      </main>
     </>
   );
 }

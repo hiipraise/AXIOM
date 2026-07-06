@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     rapidapi_key: str = ""
     rapidapi_host: str = ""
-    axiom_auto_approve_recruiters: bool = True
-    jitsi_domain: str = "meet.jit.si"
     media_dir: str = "media"
 
     allowed_origins: str = "http://localhost:5173"
@@ -31,6 +29,24 @@ class Settings(BaseSettings):
     admin_username: str = ""
     admin_email: str = ""
     admin_password: str = ""
+
+    # Sendhiiv email API
+    sendhiiv_api_key: str = ""
+    sendhiiv_from_address: str = ""
+    sendhiiv_from_name: str = "Axiom"
+
+    # OAuth — Google
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
+    # OAuth — LinkedIn
+    linkedin_client_id: str = ""
+    linkedin_client_secret: str = ""
+
+    # Web Push (VAPID)
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_claim_email: str = "admin@axiomcv.site"
 
     class Config:
         env_file = ".env"

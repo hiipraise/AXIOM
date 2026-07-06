@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { adminApi } from '../../api'
-import { Globe, Lock } from 'lucide-react'
+import { AlertTriangle, Globe, Lock } from 'lucide-react'
 
 interface AdminCV {
   id: string
@@ -9,15 +9,33 @@ interface AdminCV {
   is_public: boolean
   updated_at: string
 }
+import Seo from "../../components/Seo";
 
 export default function AdminCVs() {
-  const { data, isLoading } = useQuery<{ cvs: AdminCV[]; total: number }>({
+  const { data, isLoading, error, refetch } = useQuery<{ cvs: AdminCV[]; total: number }>({
     queryKey: ['admin-cvs'],
     queryFn: () => adminApi.cvs(),
   })
 
+  if (error) {
+    return (
+      <div className="p-8">
+        <h1 className="font-display text-2xl font-bold text-ink mb-1">All CVs</h1>
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <AlertTriangle className="text-ink-muted" size={32} />
+          <p className="text-sm text-ink">Failed to load CVs</p>
+          <p className="text-xs text-ink-muted">Please try again later.</p>
+          <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => refetch()}>
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8">
+      <Seo title="Admin CVs" noindex />
       <h1 className="font-display text-2xl font-bold text-ink mb-1">All CVs</h1>
       <p className="text-sm text-ink-muted mb-6">{data?.total ?? 0} total</p>
       <div className="bg-white border border-ash-border rounded-xl overflow-hidden">

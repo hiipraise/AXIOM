@@ -1,5 +1,5 @@
 import { ProjectItem, EMPTY_PROJECT } from '../../types'
-import { Field, Input, Textarea, SectionHeader, Card } from '../UI/FormElements'
+import { Field, Input, Textarea, SectionHeader, Card, MarkdownToolbar } from '../UI/FormElements'
 import { Plus, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useState } from 'react'
 
@@ -36,7 +36,20 @@ export default function ProjectsSection({ items, onChange }: Props) {
           {expanded === i && (
             <div className="px-5 pb-5 space-y-4 border-t border-ash-border pt-4">
               <Field label="Project Name"><Input value={item.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Open Source CLI Tool" /></Field>
-              <Field label="Description"><Textarea value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={3} placeholder="What it does, scale, outcomes" /></Field>
+              <MarkdownToolbar onInsert={(before, after, placeholder) => {
+                const input = document.querySelector<HTMLTextAreaElement>(`textarea[name="proj-desc-${i}"]`)
+                if (!input) {
+                  update(i, { description: items[i].description + before + (placeholder || '') + after })
+                  return
+                }
+                const start = input.selectionStart
+                const end = input.selectionEnd
+                const current = items[i].description
+                const selected = current.substring(start, end) || placeholder || ''
+                update(i, { description: current.substring(0, start) + before + selected + after + current.substring(end) })
+                setTimeout(() => { input.focus(); input.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
+              }} />
+              <Field label="Description"><Textarea name={`proj-desc-${i}`} showWordCount value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={3} placeholder="What it does, scale, outcomes" /></Field>
               <div>
                 <label className="text-xs font-medium text-ink block mb-2">Technologies</label>
                 <div className="flex gap-2 mb-2">

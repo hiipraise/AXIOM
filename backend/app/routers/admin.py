@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
 from app.middleware.auth import require_admin, require_staff, get_current_user
 from app.middleware.validation import valid_object_id
-from app.models.schemas import UserRoleUpdate, RecruiterApprovalUpdate
+from app.models.schemas import UserRoleUpdate
 from app.utils.errors import not_found, forbidden, bad_request
 from app.services.auth_service import hash_password
+from app.config import settings
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 
@@ -30,6 +31,45 @@ async def audit(db, actor_id: str, action: str, target: str, detail: dict | None
 
 
 # ── Users ──────────────────────────────────────────────────────────────────────
+
+@router.get("/users/search")
+async def search_users(
+    q: str = "",
+    role: str = "",
+    status: str = "",  # active | inactive
+    date_from: str = "",
+    date_to: str = "",
+    skip: int = 0,
+    limit: int = 50,
+    admin=Depends(require_staff),
+    db=Depends(get_db),
+):
+    """Search users with advanced filters."""
+    query: dict = {}
+    if q:
+        query["$or"] = [
+            {"username": {"$regex": q, "$options": "i"}},
+            {"email": {"$regex": q, "$options": "i"}},
+        ]
+    if role:
+        query["role"] = role
+    if status == "active":
+        query["is_active"] = True
+    elif status == "inactive":
+        query["is_active"] = False
+    if date_from or date_to:
+        created_query: dict = {}
+        if date_from:
+            created_query["$gte"] = datetime.fromisoformat(date_from)
+        if date_to:
+            created_query["$lte"] = datetime.fromisoformat(date_to)
+        query["created_at"] = created_query
+
+    cursor = db.users.find(query, {"password_hash": 0, "secret_answer_hash": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    users = await cursor.to_list(limit)
+    total = await db.users.count_documents(query)
+    return {"users": [{**u, "_id": str(u["_id"])} for u in users], "total": total}
+
 
 # ── Interview stats ───────────────────────────────────────────────────────────────
 
@@ -194,146 +234,18 @@ async def delete_user(user_id: str, admin=Depends(require_admin), db=Depends(get
     await db.cv_history.delete_many({"owner_id": user_id})
     await db.cvs.delete_many({"owner_id": user_id})
     await db.saved_jobs.delete_many({"user_id": user_id})
-    await db.applications.delete_many({"user_id": user_id})
-    await db.axiom_applications.delete_many({"candidate_id": user_id})
     await db.notifications.delete_many({"user_id": user_id})
     await db.interview_sessions.delete_many({"user_id": user_id})
     await db.interview_messages.delete_many({"user_id": user_id})
     await db.feedback.delete_many({"user_id": user_id})
     await db.page_events.delete_many({"user_id": user_id})
-    await db.users.delete_one({"_id": user_id})
+    await db.users.delete_one({"_id": ObjectId(user_id)})
     await audit(db, str(admin["_id"]), "delete_user", user_id, {
         "username": user.get("username"),
         "email":    user.get("email"),
         "role":     user.get("role"),
     })
     return {"message": "User deleted"}
-
-
-# ── Recruiters ─────────────────────────────────────────────────────────────────
-
-@router.get("/recruiters")
-async def list_recruiters(admin=Depends(require_staff), db=Depends(get_db)):
-    cursor = db.company_profiles.find({}).sort("created_at", -1)
-    profiles = await cursor.to_list(200)
-    return [
-        {
-            "id":           str(profile["_id"]),
-            "user_id":      profile["user_id"],
-            "company_name": profile.get("company_name", ""),
-            "company_slug": profile.get("company_slug", ""),
-            "website":      profile.get("website", ""),
-            "verified":     bool(profile.get("verified", False)),
-            "is_approved":  bool(profile.get("is_approved", False)),
-            "created_at":   profile.get("created_at"),
-        }
-        for profile in profiles
-    ]
-
-
-@router.put("/recruiters/{profile_id}/approval")
-async def set_recruiter_approval(profile_id: str, body: RecruiterApprovalUpdate, admin=Depends(require_admin), db=Depends(get_db)):
-    approved = body.is_approved
-    verified = approved
-
-    profile = await db.company_profiles.find_one({"_id": ObjectId(profile_id)})
-    if not profile:
-        raise not_found("Recruiter profile")
-    previous = {
-        "is_approved": profile.get("is_approved"),
-        "verified":    profile.get("verified"),
-    }
-
-    await db.company_profiles.update_one(
-        {"_id": profile["_id"]},
-        {"$set": {"is_approved": approved, "verified": verified, "updated_at": datetime.now(timezone.utc)}},
-    )
-    if approved:
-        await db.users.update_one({"_id": ObjectId(profile["user_id"])}, {"$set": {"role": "recruiter"}})
-
-    await audit(db, str(admin["_id"]), "set_recruiter_approval", profile_id, {
-        "company_name": profile.get("company_name"),
-        "user_id":      profile["user_id"],
-        "previous":     previous,
-        "new":          {"is_approved": approved, "verified": verified},
-    })
-    return {"message": "Recruiter approval updated"}
-
-
-@router.get("/recruiter-activity")
-async def recruiter_activity(admin=Depends(require_staff), db=Depends(get_db)):
-    """Activity stats for all recruiters: jobs posted, applications, active/dormant status."""
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-
-    # Get all approved recruiters
-    recruiter_profiles = await db.company_profiles.find({"is_approved": True}).to_list(200)
-
-    results = []
-    for profile in recruiter_profiles:
-        user_id = profile.get("user_id")
-        profile_id = str(profile["_id"])
-
-        # Jobs posted by this recruiter
-        jobs_cursor = db.axiom_jobs.find({"recruiter_id": profile_id})
-        jobs = await jobs_cursor.to_list(500)
-        total_jobs = len(jobs)
-        active_jobs = sum(1 for j in jobs if j.get("is_active", False))
-
-        # Jobs in last 30 days (for activity detection)
-        recent_jobs = [j for j in jobs if j.get("created_at") and j["created_at"] >= thirty_days_ago]
-
-        # Total applications for all their jobs
-        job_ids = [str(j["_id"]) for j in jobs]
-        app_count = await db.axiom_applications.count_documents({"job_id": {"$in": job_ids}}) if job_ids else 0
-
-        # Last activity timestamp (most recent job or application)
-        last_job_ts = max((j.get("created_at") for j in jobs if j.get("created_at")), default=None)
-        last_app_cursor = db.axiom_applications.find({"job_id": {"$in": job_ids}}).sort("created_at", -1).limit(1)
-        last_apps = await last_app_cursor.to_list(1)
-        last_app_ts = last_apps[0].get("created_at") if last_apps else None
-
-        last_activity = last_job_ts
-        if last_app_ts and (not last_activity or last_app_ts > last_activity):
-            last_activity = last_app_ts
-
-        # Dormant: no activity in last 30 days
-        is_dormant = not last_activity or last_activity < thirty_days_ago
-
-        results.append({
-            "id": profile_id,
-            "company_name": profile.get("company_name", ""),
-            "company_slug": profile.get("company_slug", ""),
-            "verified": bool(profile.get("verified", False)),
-            "total_jobs": total_jobs,
-            "active_jobs": active_jobs,
-            "total_applications": app_count,
-            "last_activity": last_activity.isoformat() if last_activity else None,
-            "is_dormant": is_dormant,
-            "created_at": profile.get("created_at").isoformat() if profile.get("created_at") else None,
-        })
-
-    # Sort: active first, then by last activity
-    results.sort(key=lambda x: (x["is_dormant"], x["last_activity"] or ""), reverse=False)
-
-    # Summary stats
-    total_recruiters = len(results)
-    active_recruiters = sum(1 for r in results if not r["is_dormant"])
-    dormant_recruiters = total_recruiters - active_recruiters
-    total_jobs_all = sum(r["total_jobs"] for r in results)
-    total_apps_all = sum(r["total_applications"] for r in results)
-    never_used = sum(1 for r in results if r["total_jobs"] == 0 and r["total_applications"] == 0)
-
-    return {
-        "recruiters": results,
-        "summary": {
-            "total_recruiters": total_recruiters,
-            "active_recruiters": active_recruiters,
-            "dormant_recruiters": dormant_recruiters,
-            "never_used": never_used,
-            "total_jobs_posted": total_jobs_all,
-            "total_applications": total_apps_all,
-        }
-    }
 
 
 # ── AI usage tracking ────────────────────────────────────────────────────────
@@ -486,39 +398,10 @@ async def get_stats(admin=Depends(require_staff), db=Depends(get_db)):
     total_users   = await db.users.count_documents({})
     total_cvs     = await db.cvs.count_documents({})
     public_cvs    = await db.cvs.count_documents({"is_public": True})
-    total_axiom_jobs = await db.axiom_jobs.count_documents({})
-    active_axiom_jobs = await db.axiom_jobs.count_documents({"is_active": True})
-    closed_axiom_jobs = await db.axiom_jobs.count_documents({"is_active": False})
-    total_applications = await db.axiom_applications.count_documents({})
-    total_job_tracker_entries = await db.applications.count_documents({})
-
-    # Application status breakdown
-    app_status_pipeline = [
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
-    ]
-    app_status_results = await db.axiom_applications.aggregate(app_status_pipeline).to_list(10)
-    app_status_breakdown = {r["_id"]: r["count"] for r in app_status_results}
-
-    # Job categories
-    category_pipeline = [
-        {"$group": {"_id": "$category", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 10}
-    ]
-    category_results = await db.axiom_jobs.aggregate(category_pipeline).to_list(10)
-    top_categories = [{"category": r["_id"] or "Uncategorized", "count": r["count"]} for r in category_results]
-
     return {
-        "total_users":      total_users,
-        "total_cvs":        total_cvs,
-        "public_cvs":      public_cvs,
-        "total_axiom_jobs": total_axiom_jobs,
-        "active_axiom_jobs": active_axiom_jobs,
-        "closed_axiom_jobs": closed_axiom_jobs,
-        "total_applications": total_applications,
-        "total_job_tracker_entries": total_job_tracker_entries,
-        "app_status_breakdown": app_status_breakdown,
-        "top_categories": top_categories,
+        "total_users":       total_users,
+        "total_cvs":         total_cvs,
+        "public_cvs":        public_cvs,
     }
 
 
@@ -540,6 +423,86 @@ async def list_all_cvs(skip: int = 0, limit: int = 50, admin=Depends(require_sta
         ],
         "total": total,
     }
+
+
+# ── Push notification subscriptions ────────────────────────────────────────────
+
+@router.get("/push-subscriptions")
+async def list_push_subscriptions(skip: int = 0, limit: int = 100, admin=Depends(require_staff), db=Depends(get_db)):
+    """List all push subscriptions with user info."""
+    cursor = db.push_subscriptions.find({}).sort("updated_at", -1).skip(skip).limit(limit)
+    subs = await cursor.to_list(limit)
+    total = await db.push_subscriptions.count_documents({})
+
+    # Batch lookup users to avoid N+1
+    user_ids = [ObjectId(s["user_id"]) for s in subs if ObjectId.is_valid(s["user_id"])]
+    user_map = {}
+    if user_ids:
+        users = await db.users.find(
+            {"_id": {"$in": user_ids}},
+            {"username": 1, "email": 1},
+        ).to_list(None)
+        for u in users:
+            user_map[str(u["_id"])] = u
+
+    results = []
+    for sub in subs:
+        user = user_map.get(sub["user_id"])
+        results.append({
+            "user_id": sub["user_id"],
+            "username": (user or {}).get("username", "Unknown"),
+            "email": (user or {}).get("email"),
+            "endpoint": sub["endpoint"][:80] + "..." if len(sub.get("endpoint", "")) > 80 else sub.get("endpoint", ""),
+            "subscribed_at": sub.get("updated_at") or sub.get("created_at"),
+        })
+
+    return {"subscriptions": results, "total": total}
+
+
+# ── Push notification stats ───────────────────────────────────────────────────
+
+@router.get("/push-stats")
+async def get_push_stats(admin=Depends(require_staff), db=Depends(get_db)):
+    """Push notification stats: total subscriptions and VAPID configuration status."""
+    total_subscriptions = await db.push_subscriptions.count_documents({})
+    # Count distinct users with push subscriptions for unique user metric
+    distinct_users = len(await db.push_subscriptions.distinct("user_id"))
+    return {
+        "total_subscriptions": total_subscriptions,
+        "distinct_users": distinct_users,
+        "vapid_configured": bool(settings.vapid_public_key and settings.vapid_private_key),
+    }
+
+
+# ── VAPID key management ──────────────────────────────────────────────────────
+
+@router.get("/vapid-status")
+async def get_vapid_status(admin=Depends(require_admin)):
+    """Check if VAPID keys are configured for push notifications."""
+    from app.config import settings
+    return {
+        "configured": bool(settings.vapid_public_key and settings.vapid_private_key),
+        "has_public_key": bool(settings.vapid_public_key),
+    }
+
+
+@router.post("/vapid-generate")
+async def generate_vapid_keys(admin=Depends(require_admin)):
+    """Generate new VAPID keys. Returns the public and private keys.
+    These must be added to the .env file manually to persist across restarts.
+    """
+    try:
+        from pywebpush import webpush
+        keys = webpush.generate_vapid_keys()
+        return {
+            "public_key": keys.get("public_key") or keys.vapid_public_key,
+            "private_key": keys.get("private_key") or keys.vapid_private_key,
+            "note": "Add these to your .env file as VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY. Keys are ephemeral until saved.",
+        }
+    except ImportError:
+        raise HTTPException(status_code=400, detail="pywebpush is not installed — run 'pip install pywebpush'")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate VAPID keys: {e}")
 
 
 # ── Audit log viewer ───────────────────────────────────────────────────────────

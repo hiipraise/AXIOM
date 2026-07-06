@@ -93,6 +93,7 @@ export default function CVContextSelector({
   mode = "create",
 }: Props) {
   const [expanded, setExpanded] = useState(mode === "create");
+  const [customIndustry, setCustomIndustry] = useState("");
 
   const isConfigured = careerLevel || industry || targetRole;
 
@@ -105,6 +106,7 @@ export default function CVContextSelector({
     onChange({ career_level: v });
   };
   const handleIndustryChange = (v: string, _e: React.MouseEvent) => {
+    if (v !== "general") setCustomIndustry("");
     onChange({ industry: v });
   };
   const handleTargetRoleChange = (v: string, _e?: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,6 +146,7 @@ export default function CVContextSelector({
               value={safeCareerLevel}
               onChange={handleCareerLevelChange}
             />
+            <div className="space-y-2">
             <GridSelector
               label="Industry"
               icon={Briefcase}
@@ -151,6 +154,24 @@ export default function CVContextSelector({
               value={safeIndustry}
               onChange={handleIndustryChange}
             />
+            {safeIndustry === "general" && (
+              <input
+                value={customIndustry}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setCustomIndustry(e.target.value);
+                }}
+                onBlur={(e) => {
+                  if (e.target.value.trim()) {
+                    onChange({ industry: e.target.value.trim() });
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Specify your industry (e.g., Fintech, Healthcare, Nonprofit)"
+                className="w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink placeholder:text-ink-muted/50"
+              />
+            )}
+          </div>
             <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Target size={12} className="text-ink-muted" />
@@ -202,13 +223,32 @@ export default function CVContextSelector({
         onChange={handleCareerLevelChange}
       />
 
-      <GridSelector
-        label="Industry"
-        icon={Briefcase}
-        options={INDUSTRIES}
-        value={safeIndustry}
-        onChange={handleIndustryChange}
-      />
+      <div className="space-y-2">
+        <GridSelector
+          label="Industry"
+          icon={Briefcase}
+          options={INDUSTRIES}
+          value={safeIndustry}
+          onChange={handleIndustryChange}
+        />
+        {safeIndustry === "general" && (
+          <input
+            value={customIndustry}
+            onChange={(e) => {
+              e.stopPropagation();
+              setCustomIndustry(e.target.value);
+            }}
+            onBlur={(e) => {
+              if (e.target.value.trim()) {
+                onChange({ industry: e.target.value.trim() });
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="Specify your industry (e.g., Fintech, Healthcare, Nonprofit)"
+            className="w-full px-3 py-2 text-sm border border-ash-border rounded-lg focus:outline-none focus:border-ink placeholder:text-ink-muted/50"
+          />
+        )}
+      </div>
 
       <div>
         <div className="flex items-center gap-1.5 mb-2">

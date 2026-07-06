@@ -1,8 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
+import { ArrowLeft, RotateCcw, Trophy, Brain, BarChart3, Share2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { interviewApi } from "../../api";
 import { InterviewFeedback as FeedbackType, InterviewSessionDetail } from "../../types";
+import SpacedRepetitionPanel from "../../components/interview/SpacedRepetitionPanel";
+import TopicHeatmap from "../../components/interview/TopicHeatmap";
+import ShareResultsModal from "../../components/interview/ShareResultsModal";
 
 
 function FeedbackSnapshot({ feedback }: { feedback: FeedbackType }) {
@@ -14,10 +19,26 @@ function FeedbackSnapshot({ feedback }: { feedback: FeedbackType }) {
     </div>
   );
 }
+import Seo from "../../components/Seo";
 
 export default function InterviewReviewPage() {
   const { sessionId = "" } = useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [showReviewCards, setShowReviewCards] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const generateCards = useMutation({
+    mutationFn: () => interviewApi.generateReviewCards(sessionId),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['review-cards'] });
+      qc.invalidateQueries({ queryKey: ['review-card-stats'] });
+      setShowReviewCards(true);
+    },
+    onError: () => toast.error('No answered questions to generate cards from'),
+  });
+
   const { data: session, isLoading } = useQuery<InterviewSessionDetail>({
     queryKey: ["interview-session", sessionId],
     queryFn: () => interviewApi.session(sessionId),
@@ -28,6 +49,7 @@ export default function InterviewReviewPage() {
 
   return (
     <div className="min-h-screen bg-ash">
+      <Seo title="Interview Review" noindex />
       <div className="mx-auto max-w-4xl px-4 py-6 lg:py-10">
         <button className="btn-ghost mb-4" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Back</button>
         <section className="rounded-3xl bg-ink p-8 text-white">
@@ -61,6 +83,44 @@ export default function InterviewReviewPage() {
           ))}
         </div>
 
+        {/* ── Review cards & Heatmap ── */}
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-ink-muted flex items-center gap-1.5">
+                <Brain size={13} /> Flashcard review
+              </p>
+              <button
+                onClick={() => generateCards.mutate()}
+                disabled={generateCards.isPending}
+                className="text-[11px] text-ink underline hover:text-ink-muted disabled:opacity-50"
+              >
+                {generateCards.isPending ? 'Generating...' : 'Generate cards'}
+              </button>
+            </div>
+            {showReviewCards || generateCards.isSuccess ? (
+              <SpacedRepetitionPanel />
+            ) : (
+              <p className="text-xs text-ink-muted">Generate flashcards from this session to review key questions later.</p>
+            )}
+          </div>
+          <div className="card">
+            <button
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className="flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-ink-muted"
+            >
+              <BarChart3 size={13} /> Topic heatmap
+            </button>
+            {showHeatmap ? (
+              <div className="mt-3">
+                <TopicHeatmap />
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-ink-muted">Click to show your topic performance across all sessions.</p>
+            )}
+          </div>
+        </div>
+
         <div className="mt-8 flex flex-wrap gap-3">
           <Link to="/interview" className="btn-primary"><RotateCcw size={15} /> Practise another role</Link>
           {/* 9a: Retry the exact same role — pre-fills cv + job on the start page */}
@@ -72,9 +132,22 @@ export default function InterviewReviewPage() {
           >
             <RotateCcw size={15} /> Retry this role
           </button>
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="btn-ghost"
+          >
+            <Share2 size={15} /> Share results
+          </button>
           <Link to={`/interview/${session.id}`} className="btn-ghost">View transcript</Link>
         </div>
       </div>
+
+      {showShareModal && (
+        <ShareResultsModal
+          session={session}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 }

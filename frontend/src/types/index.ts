@@ -8,11 +8,12 @@ export interface User {
   username: string;
   email?: string;
   email_notifications?: boolean;
-  role: "user" | "recruiter" | "staff" | "admin" | "superadmin";
+  role: "user" | "staff" | "admin" | "superadmin";
   must_change_password: boolean;
   created_at: string;
   is_active: boolean;
   roadmap_progress?: RoadmapProgressItem[];
+  oauth_provider?: string | null;
 }
 
 export interface PersonalInfo {
@@ -111,8 +112,12 @@ export interface CV {
   title: string;
   data: CVData;
   is_public: boolean;
+  show_name?: boolean;
+  show_email?: boolean;
+  show_phone?: boolean;
+  show_experience?: boolean;
   theme: string;
-  template: string; // ← new: layout template
+  template: string;
   page_count: number;
   slug?: string;
   created_at: string;
@@ -257,180 +262,6 @@ export interface JobResult {
   logo_url?: string | null;
 }
 
-export interface AxiomJob {
-  id: string;
-  employer_id: string;
-  company_name: string;
-  company_slug: string;
-  company_logo_url: string;
-  title: string;
-  description: string;
-  location: string;
-  remote: boolean;
-  job_type: string;
-  salary_min?: number | null;
-  salary_max?: number | null;
-  currency: string;
-  skills_required: string[];
-  experience_level: string;
-  industry: string;
-  apply_deadline?: string | null;
-  is_active: boolean;
-  is_approved: boolean;
-  share_token: string;
-  views: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RecruiterProfile {
-  id: string;
-  user_id: string;
-  company_name: string;
-  company_slug: string;
-  logo_url: string;
-  website: string;
-  description: string;
-  industry: string;
-  size: string;
-  location: string;
-  verified: boolean;
-  is_approved: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TalentPool {
-  id: string;
-  recruiter_id: string;
-  name: string;
-  description: string;
-  candidate_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SavedCandidate {
-  id: string;
-  recruiter_id: string;
-  pool_id?: string | null;
-  application_id: string;
-  candidate_id: string;
-  job_id: string;
-  cv_id: string;
-  candidate_name: string;
-  candidate_title: string;
-  candidate_location: string;
-  skills: string[];
-  cv_snapshot?: {
-    data?: Record<string, unknown>;
-  } | null;
-  notes: string;
-  source_job_title: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export type AxiomApplicationStatus =
-  | "applied"
-  | "reviewed"
-  | "shortlisted"
-  | "interview_scheduled"
-  | "interviewed"
-  | "offered"
-  | "rejected"
-  | "accepted"
-  | "declined";
-
-export interface AxiomApplication {
-  id: string;
-  job_id: string;
-  candidate_id: string;
-  employer_id: string;
-  cv_id: string;
-  cv_snapshot?: Record<string, unknown> | null;
-  cover_letter: string;
-  status: AxiomApplicationStatus;
-  employer_notes: string;
-  created_at: string;
-  updated_at: string;
-  job?: AxiomJob | null;
-}
-
-// Interview candidate types for recruiters
-export interface InterviewCandidate {
-  candidate_id: string;
-  name: string;
-  email: string;
-  session_count: number;
-  latest_job_title: string;
-  latest_company: string;
-  latest_score: number | null;
-  latest_date: string | null;
-}
-
-export interface CandidateInterviewSessions {
-  candidate_id: string;
-  candidate_name: string;
-  sessions: {
-    session_id: string;
-    job_title: string;
-    company: string;
-    mode: string;
-    question_count: number;
-    overall_score: number | null;
-    summary: string | null;
-    created_at: string;
-  }[];
-}
-
-export interface RecruiterInterviewDetail {
-  session_id: string;
-  candidate_id: string;
-  candidate_name: string;
-  job_title: string;
-  company: string;
-  mode: string;
-  status: string;
-  overall_score: number | null;
-  summary: string | null;
-  created_at: string;
-  messages: Array<{
-    id: string;
-    question: string;
-    answer: string;
-    feedback?: InterviewFeedback | null;
-    score?: { clarity: number; specificity: number; evidence: number; length: number } | null;
-  }>;
-}
-
-export interface LiveInterviewSession {
-  id: string;
-  session_type: string;
-  axiom_application_id?: string | null;
-  jitsi_room?: string | null;
-  jitsi_password?: string | null;
-  scheduled_at?: string | null;
-  duration_minutes: number;
-  employer_id?: string | null;
-  candidate_id?: string | null;
-  employer_joined_at?: string | null;
-  candidate_joined_at?: string | null;
-  ended_at?: string | null;
-  recording_consent: boolean;
-  transcript: Array<Record<string, unknown>>;
-  question_queue: string[];
-  current_question: string;
-  employer_question: string;
-  employer_question_updated_at?: string | null;
-  ai_summary: string;
-  employer_notes: string;
-  employer_decision?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface NotificationItem {
   id: string;
   user_id: string;
@@ -442,12 +273,21 @@ export interface NotificationItem {
   created_at: string;
 }
 
+export interface SourceHealth {
+  configured: number;
+  succeeded: number;
+  failed: number;
+  sources_with_results: string[];
+  warning: string;
+}
+
 export interface JobSearchResponse {
   items: JobResult[];
   total: number;
   page: number;
   per_page: number;
   cached: boolean;
+  source_health?: SourceHealth;
 }
 
 export interface JobMatchResult {
@@ -519,31 +359,156 @@ export interface SkillGapResponse {
   missing_skills: SkillGapItem[];
   roadmap: LearningRoadmapStep[];
   notes: string;
+
+  // ── Market data ──
+  skill_demand: Record<string, number>;
+  total_jobs_analyzed: number;
+  sample_titles: string[];
+}
+
+// ─── Skill endorsement types ─────────────────────────────────────────────────
+
+export interface SkillEndorsement {
+  id: string;
+  user_id: string;
+  skill: string;
+  cv_id: string | null;
+  endorser_username: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface SkillEndorsementSummary {
+  skill: string;
+  count: number;
+  endorsements: SkillEndorsement[];
+}
+
+// ─── Course link types ───────────────────────────────────────────────────────
+
+export interface CourseLink {
+  title: string;
+  url: string;
+  platform: string;
+  cost: "free" | "paid";
+}
+
+export interface SkillCourses {
+  skill: string;
+  courses: CourseLink[];
+}
+
+// ─── Skill Gaps with courses ─────────────────────────────────────────────────
+
+export interface SkillGapItemWithCourses extends SkillGapItem {
+  courses: CourseLink[];
+}
+
+// ─── Comment & Suggestion types ───────────────────────────────────────────────
+
+export interface CommentItem {
+  id: string;
+  cv_id: string;
+  section: string;
+  field_path: string;
+  user_id: string;
+  username: string;
+  text: string;
+  is_suggestion: boolean;
+  suggested_value: string | null;
+  resolved: boolean;
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommentCreate {
+  section: string;
+  field_path?: string;
+  text: string;
+  is_suggestion?: boolean;
+  suggested_value?: string;
+  parent_id?: string;
+}
+
+export interface CommentCounts {
+  total: number;
+  open: number;
+  sections: Record<string, { total: number; open: number; suggestions: number }>;
+}
+
+// ─── Section Suggestion types ─────────────────────────────────────────────────
+
+export interface SectionSuggestion {
+  section: string;
+  field: string;
+  title: string;
+  description: string;
+  suggested_change: string | null;
+  priority: "high" | "medium" | "low";
+}
+
+export interface SectionSuggestionsResponse {
+  suggestions: SectionSuggestion[];
+}
+
+// ─── Tone Adjustment types ────────────────────────────────────────────────────
+
+export const TONE_OPTIONS = [
+  "professional",
+  "concise",
+  "assertive",
+  "confident",
+  "moderate",
+  "enthusiastic",
+] as const;
+
+export type ToneStyle = typeof TONE_OPTIONS[number];
+
+export interface ToneAdjustResponse {
+  original: string;
+  adjusted: string;
+  section: string;
+  tone: string;
 }
 
 export interface CoverLetterResponse {
   cover_letter: string;
 }
 
-export type ApplicationStatus =
-  | "saved"
-  | "applied"
-  | "interview"
-  | "offer"
-  | "rejected";
+export type ReviewCardDifficulty = "easy" | "medium" | "hard";
 
-export interface ApplicationEntry {
+export interface ReviewCard {
   id: string;
   user_id: string;
-  job_id: string;
-  status: ApplicationStatus;
-  cv_id?: string | null;
-  notes: string;
-  applied_url?: string | null;
-  follow_up_at?: string | null;
+  session_id: string;
+  question: string;
+  answer: string;
+  topic: string;
+  difficulty: ReviewCardDifficulty;
+  last_reviewed: string | null;
+  review_count: number;
+  next_review_at: string | null;
   created_at: string;
-  updated_at: string;
-  job?: JobResult | null;
+}
+
+export interface ReviewCardStats {
+  total: number;
+  due: number;
+  completed: number;
+}
+
+export interface InterviewTopic {
+  name: string;
+  count: number;
+  avg_score: number | null;
+  trend: "improving" | "declining" | "stable";
+}
+
+export interface DifficultyInfo {
+  level: "beginner" | "intermediate" | "advanced";
+  max_questions: number;
+  description: string;
 }
 
 export type InterviewMode = "behavioural" | "technical" | "full";
@@ -560,7 +525,6 @@ export interface InterviewFeedback {
   overall_score: number;
   what_was_strong: string;
   what_was_vague: string;
-  recruiter_takeaway: string;
   suggested_improvement: string;
 }
 
@@ -571,12 +535,13 @@ export interface InterviewSessionListItem {
   job_title: string;
   company: string;
   mode: InterviewMode;
-  status: "active" | "completed" | string;
+  status: "active" | "paused" | "completed" | string;
   created_at: string;
   updated_at: string;
   question_count: number;
   answered_count: number;
   overall_score?: number | null;
+  share_token?: string | null;
   /** Whether the session was started with STAR coaching enabled */
   use_star?: boolean;
 }
@@ -619,18 +584,88 @@ export interface JobSearchResult {
   posted_at?: string;
 }
 
-export interface AxiomJobSearchResult {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  remote: boolean;
-  job_type: string;
-  created_at?: string;
-}
-
 export interface SearchResults {
   cvs: CVSearchResult[];
   jobs: JobSearchResult[];
-  axiom_jobs: AxiomJobSearchResult[];
+}
+
+export interface EmailSendRequest {
+  to: string | string[];
+  subject: string;
+  html?: string;
+  template_key?: string;
+  variables?: Record<string, string>;
+}
+
+export interface EmailBatchRequest {
+  to: string[];
+  subject: string;
+  html?: string;
+  template_key?: string;
+  variables?: Record<string, string>;
+  batch_size: number;
+  batch_interval_minutes: number;
+}
+
+export interface EmailSendResponse {
+  success: boolean;
+  message: string;
+}
+
+// ─── Notification Preferences ─────────────────────────────────────────────────
+
+export interface QuietHours {
+  enabled: boolean;
+  start: string;  // HH:MM
+  end: string;    // HH:MM
+}
+
+export interface NotificationPreferences {
+  email_notifications: boolean;
+  push_notifications: boolean;
+  quiet_hours: QuietHours;
+  kinds: Record<string, boolean>;
+}
+
+export interface PushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export interface PushSubscriptionEntry {
+  user_id: string;
+  username: string;
+  email?: string;
+  endpoint: string;
+  subscribed_at?: string;
+}
+
+export interface QuietHoursStatus extends QuietHours {
+  active_now: boolean;
+}
+
+export interface DownloadFormatStats {
+  count: number;
+  last_ts: string | null;
+  total_bytes: number;
+}
+
+export interface DownloadAnalytics {
+  cv_id: string;
+  total_downloads: number;
+  cache_hit_rate: number;
+  formats: Record<string, DownloadFormatStats>;
+}
+
+export interface CVBrowseCard {
+  id: string;
+  owner_username: string;
+  title: string;
+  name: string;
+  email: string;
+  job_title: string;
+  location: string;
+  skills: string[];
+  summary: string;
+  updated_at: string;
 }

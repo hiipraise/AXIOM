@@ -79,7 +79,18 @@ export default function HistoryDrawer({ cvId, currentData, onRestore, onClose }:
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {isLoading && (
-          <p className="text-xs text-ink-muted text-center py-8">Loading…</p>
+          <div className="space-y-2" role="status" aria-label="Loading history">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="border border-ash-border rounded-lg p-3 animate-pulse">
+                <div className="h-3 w-3/4 rounded bg-ash-dark mb-2" />
+                <div className="h-2 w-1/2 rounded bg-ash-dark mb-3" />
+                <div className="flex gap-3">
+                  <div className="h-3 w-14 rounded bg-ash-dark" />
+                  <div className="h-3 w-14 rounded bg-ash-dark" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {!isLoading && history.length === 0 && (
           <div className="text-center py-8">

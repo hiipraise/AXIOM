@@ -16,12 +16,12 @@ import {
   X,
   Briefcase,
   Brain,
-  Building2,
   ClipboardList,
   Bell,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Map,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "../../store/auth";
@@ -31,14 +31,16 @@ import NotificationBell from "../notifications/NotificationBell";
 import ConfirmDialog from "../UI/ConfirmDialog";
 import Breadcrumb from "../Breadcrumb";
 import CommandPalette from "../UI/CommandPalette";
+import SessionTimeoutWarning from "../auth/SessionTimeoutWarning";
 import clsx from "clsx";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/interview", label: "Interview Prep", icon: Brain },
+  { to: "/skill-gap", label: "Skill Gap", icon: Map },
   { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/tracker", label: "Tracker", icon: ClipboardList },
+  { to: "/saved-jobs", label: "Saved Jobs", icon: ClipboardList },
   { to: "/account", label: "Account", icon: Settings },
 ];
 
@@ -57,8 +59,6 @@ function SidebarContent({
   const navigate = useNavigate();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const isAdmin = user && ["admin", "superadmin", "staff"].includes(user.role);
-  const canRecruit =
-    user && ["recruiter", "admin", "superadmin", "staff"].includes(user.role);
 
   const handleLogout = async () => {
     try {
@@ -155,23 +155,6 @@ function SidebarContent({
           <Search size={15} className="flex-shrink-0" />
           {!collapsed && "Search"}
         </button>
-        <NavLink
-          to={canRecruit ? "/recruiter" : "/recruiter/register"}
-          onClick={onNav}
-          className={({ isActive }) =>
-            clsx(
-              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
-              collapsed ? "justify-center px-2" : "",
-              isActive
-                ? "bg-[#8d3f8c] text-white"
-                : "text-white bg-[#a0449f] hover:text-white hover:bg-[#8d3f8c]",
-            )
-          }
-          title={collapsed ? "Recruiter" : undefined}
-        >
-          <Building2 size={15} className="flex-shrink-0" />
-          {!collapsed && "Recruiter"}
-        </NavLink>
         {isAdmin && (
           <NavLink
             to="/admin"
@@ -390,6 +373,9 @@ export default function Layout() {
           </Suspense>
         </div>
       </main>
+
+      {/* Session timeout warning — rendered globally so it covers the entire app */}
+      <SessionTimeoutWarning />
     </div>
   );
 }

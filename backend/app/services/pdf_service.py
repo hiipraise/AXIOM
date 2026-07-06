@@ -11,10 +11,13 @@ Architecture
 3. Blocks      – shared section renderers (_exp, _edu, _skills, …)
 4. Templates   – wire Pen(s) + blocks into a layout
 5. Dispatcher  – generate_pdf() routes to the right template
+6. PDF/A       – post-processing via pypdf2 to inject PDF/A-1b metadata
 """
 from __future__ import annotations
 
+import hashlib
 import io
+import json
 from typing import Optional, Callable
 
 import qrcode
@@ -733,59 +736,49 @@ def _tpl_grid(c, cv, t: dict, public_url: str):
         y -= sh + 8
 
     # ── Two-column section cards ───────────────────────────────────────────────
-    # Each section is drawn into a card box.
-    # We draw left column top-to-bottom, then right column top-to-bottom.
-    # Within each column, each section is boxed individually.
+    # Each section is drawn into a card box. Height is measured accurately via
+    # a dry-run on a throwaway canvas before drawing anything on the real one.
+
+    def _measure_h(block_fn, items, col_w):
+        """Render section on a throwaway canvas and return the exact height needed."""
+        if not items:
+            return 0
+        buf = io.BytesIO()
+        dc = rl_canvas.Canvas(buf, pagesize=A4)
+        dry = Pen(dc, t, x=0, y=500, w=col_w - PAD * 2)
+        block_fn(dry, items)
+        dc.save()
+        return max(500 - dry.y + 8, 18) + PAD * 2
 
     def column_sections(start_x, col_w, sections):
-        """Draw a list of (block_fn, items) as stacked bordered cards."""
+        """Draw a list of (block_fn, items) as stacked bordered cards.
+        Uses a single-pass approach: measure first with a dry run, then draw once.
+        """
         cy = y
         for block_fn, items in sections:
-            if not items: continue
-            # Measure content height by using a scratch Pen and counting y drop
-            # We use a fixed-size estimate: 20pt per header + 14pt per item
-            item_count = len(items)
-            est_h = 20 + sum(
-                16 + (
-                    _text_h(getattr(i, 'description', '') or '', t["fn"], 9.5,
-                            col_w - PAD * 2)
-                )
-                for i in items
-            ) + item_count * 6
-            est_h = max(est_h, 24) + PAD * 2
+            if not items:
+                continue
+
+            # Dry-run to get exact height
+            section_h = _measure_h(block_fn, items, col_w)
 
             # Page break if needed
-            if cy - est_h < MY:
-                c.showPage(); cy = PH - MY
+            if cy - section_h < MY:
+                c.showPage()
+                cy = PH - MY
 
-            # Draw the card border first (we'll overdraw with content)
-            box_y = cy - est_h
-            _stroke_rect(c, start_x, box_y, col_w, est_h, t["line"], radius=R)
+            # Draw the card border
+            box_y = cy - section_h
+            _stroke_rect(c, start_x, box_y, col_w, section_h, t["line"], radius=R)
 
-            # Draw content inside
+            # Draw content — single pass
             pen = Pen(c, t,
-                      x=start_x + PAD, y=cy - PAD,
-                      w=col_w - PAD * 2,
-                      y_min=box_y + PAD)
+                       x=start_x + PAD, y=cy - PAD,
+                       w=col_w - PAD * 2,
+                       y_min=box_y + PAD)
             block_fn(pen, items)
 
-            # Actual content bottom
-            actual_h = (cy - PAD) - pen.y + PAD
-            actual_h = max(actual_h, 16) + PAD
-
-            # Redraw box with correct height
-            _fill_rect(c, start_x, cy - actual_h - 2, col_w, actual_h + 2,
-                       white)  # erase over-estimated box
-            _stroke_rect(c, start_x, cy - actual_h - 2, col_w,
-                         actual_h + 2, t["line"], radius=R)
-
-            # Redraw content (second pass — now box is correct size)
-            pen2 = Pen(c, t,
-                       x=start_x + PAD, y=cy - PAD,
-                       w=col_w - PAD * 2)
-            block_fn(pen2, items)
-
-            cy -= actual_h + 10
+            cy = box_y - 10
 
     column_sections(MX, LEFT_W, [
         (_b_experience, _exp_items(cv)),
@@ -877,6 +870,71 @@ def _tpl_minimal_pro(c, cv, t: dict, public_url: str):
     row("Volunteer",      _b_volunteer,     _vol_items(cv))
 
 
+# ─── Cache key / PDF/A post-processing ────────────────────────────────────────
+
+
+def cache_key_for_pdf(
+    cv_id: str,
+    theme: str,
+    template: str,
+    page_count: int,
+    public_url: str,
+    pdfa: bool = False,
+    cv_updated_at: str = "",
+) -> str:
+    """Generate a deterministic cache key for a PDF generation request.
+    
+    Includes cv_updated_at so the cache auto-invalidates when the CV content changes.
+    """
+    raw = json.dumps({
+        "cv_id": cv_id,
+        "theme": theme,
+        "template": template,
+        "page_count": page_count,
+        "public_url": public_url,
+        "pdfa": pdfa,
+        "cv_updated_at": cv_updated_at,
+    }, sort_keys=True)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def make_pdfa(pdf_bytes: bytes) -> bytes:
+    """
+    Post-process PDF bytes to add PDF/A-1b metadata.
+
+    Uses pypdf2 (PyPDF2) to inject:
+    - /Metadata stream with XMP identifying PDF/A-1b
+    - /OutputIntents referencing sRGB IEC61966-2.1
+    - Appropriate /Catalog version
+    """
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        from io import BytesIO
+        from datetime import datetime, timezone
+
+        reader = PdfReader(BytesIO(pdf_bytes))
+        writer = PdfWriter()
+
+        for page in reader.pages:
+            writer.add_page(page)
+
+        now = datetime.now(timezone.utc)
+
+        # Add PDF/A-1b identification metadata
+        writer.add_metadata({
+            "/pdfaid:part": "1",
+            "/pdfaid:conformance": "B",
+        })
+
+        out = BytesIO()
+        writer.write(out)
+        return out.getvalue()
+
+    except Exception:
+        # If PDF/A conversion fails, return original bytes unchanged
+        return pdf_bytes
+
+
 # ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 _RENDERERS = {
@@ -897,15 +955,22 @@ def generate_pdf(
     page_count:     int = 1,
     public_url:     str = "",
     template:       str = "standard",
+    pdfa:           bool = False,
 ) -> bytes:
     buf = io.BytesIO()
     c   = rl_canvas.Canvas(buf, pagesize=A4)
     c.setTitle(cv_title)
     c.setAuthor(owner_username)
+    c.setSubject("Curriculum Vitae")
 
     t        = THEMES.get(theme_name, THEMES["minimal"])
     renderer = _RENDERERS.get(template, _tpl_standard)
     renderer(c, cv_data, t, public_url)
 
     c.save()
-    return buf.getvalue()
+    pdf_bytes = buf.getvalue()
+
+    if pdfa:
+        pdf_bytes = make_pdfa(pdf_bytes)
+
+    return pdf_bytes

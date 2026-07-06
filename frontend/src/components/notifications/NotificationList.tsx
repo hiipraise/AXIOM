@@ -4,7 +4,7 @@ import { notificationsApi } from "../../api";
 export default function NotificationList() {
   const { data = [] } = useQuery({
     queryKey: ["notifications"],
-    queryFn: notificationsApi.list,
+    queryFn: () => notificationsApi.list(),
   });
 
   return (

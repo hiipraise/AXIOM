@@ -16,15 +16,11 @@ const BREADCRUMB_TRAIL: BreadcrumbConfig = {
   "/dashboard": "Dashboard",
   "/cv/new": "New CV",
   "/notifications": "Notifications",
-  "/tracker": "Application Tracker",
-  "/recruiter": "Recruiter",
-  "/recruiter/register": "Recruiter Registration",
-  "/recruiter/profile": "Company Profile",
-  "/recruiter/applications": "Applications",
-  "/recruiter/talent-pools": "Talent Pools",
-  "/jobs/axiom/new": "Post Job",
+  "/saved-jobs": "Saved Jobs",
+  "/tracker": "Saved Jobs",
   "/jobs": "Jobs",
   "/interview": "Interview Prep",
+  "/skill-gap": "Skill Gap",
   "/account": "Account",
   "/admin": "Admin",
   "/admin/analytics": "Analytics",
@@ -33,11 +29,11 @@ const BREADCRUMB_TRAIL: BreadcrumbConfig = {
   "/admin/cvs": "CVs",
   "/admin/feedback": "Feedback",
   "/admin/announcements": "Announcements",
+  "/admin/push": "Push",
   // Dynamic routes - handled via params
   "/cv/:id": (params) => params.id || "CV",
   "/jobs/:id": "Job Details",
-  "/jobs/axiom/:id": "Job Details",
-  "/jobs/axiom/:id/edit": "Edit Job",
+
   "/interview/:sessionId": "Interview",
   "/interview/:sessionId/review": "Review",
   "/interview/live/:sessionId/lobby": "Lobby",
@@ -60,7 +56,9 @@ function matchBreadcrumb(pathname: string): BreadcrumbItem[] {
     if (!label) {
       for (const [pattern, value] of Object.entries(BREADCRUMB_TRAIL)) {
         if (pattern.includes(":")) {
-          const regex = new RegExp("^" + pattern.replace(/:[^/]+/g, "[^/]+") + "$");
+          const regex = new RegExp(
+            "^" + pattern.replace(/:[^/]+/g, "[^/]+") + "$",
+          );
           if (regex.test(currentPath)) {
             label = value;
             break;
@@ -71,7 +69,8 @@ function matchBreadcrumb(pathname: string): BreadcrumbItem[] {
 
     if (label) {
       items.push({
-        label: typeof label === "function" ? label({ [segment]: segment }) : label,
+        label:
+          typeof label === "function" ? label({ [segment]: segment }) : label,
         href: currentPath,
       });
     }
@@ -115,7 +114,7 @@ export default function Breadcrumb() {
               className={clsx(
                 "hover:text-ink transition-colors capitalize",
                 // Truncate long labels
-                item.label.length > 20 && "max-w-[120px] truncate"
+                item.label.length > 20 && "max-w-[120px] truncate",
               )}
             >
               {item.label}

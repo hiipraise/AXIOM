@@ -1,12 +1,28 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
+import { useAuthStore } from "../../store/auth";
 import { CVData } from "../../types";
-import { X, Sparkles, Wand2, FileSearch, Send } from "lucide-react";
+import {
+  X,
+  Sparkles,
+  Wand2,
+  FileSearch,
+  Send,
+  RotateCcw,
+  StopCircle,
+  BarChart3,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import CVReviewPanel from "./CVReviewPanel";
 
 type Tab = "chat" | "edit" | "review" | "job";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}
 
 interface Props {
   cvData: CVData;
@@ -14,6 +30,8 @@ interface Props {
   onClose: () => void;
   cvId: string;
 }
+
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AIAssistPanel({
   cvData,
@@ -23,38 +41,149 @@ export default function AIAssistPanel({
 }: Props) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("chat");
-  const [chatHistory, setChatHistory] = useState<
-    { role: string; content: string }[]
-  >([
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
       role: "assistant",
       content:
-        "Hi! I can help you improve your CV. Ask me to make a section shorter, stronger, or more specific — or paste a job description to align your CV to a role.",
+        "Hi! I can help improve your CV. Ask me to make a section shorter, stronger, or more specific — or paste a job description to align your CV to a role.",
     },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [editInstruction, setEditInstruction] = useState("");
   const [jobDesc, setJobDesc] = useState(cvData.job_description || "");
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [streamedText, setStreamedText] = useState("");
+  const [lastUsage, setLastUsage] = useState<ChatMessage["usage"] | null>(null);
 
-  const sendChat = async () => {
-    if (!chatInput.trim() || loading) return;
-    const userMsg = { role: "user", content: chatInput };
+  const abortRef = useRef<AbortController | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat
+  const scrollChat = () => {
+    requestAnimationFrame(() => {
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    });
+  };
+
+  // ── Streaming chat via SSE ─────────────────────────────────────────────
+
+  const sendChatStream = async (message: string) => {
+    if (!message.trim() || streaming) return;
+
+    const userMsg: ChatMessage = { role: "user", content: message };
     const newHistory = [...chatHistory, userMsg];
     setChatHistory(newHistory);
     setChatInput("");
-    setLoading(true);
+    setStreaming(true);
+    setStreamedText("");
+    setLastUsage(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const res = await cvApi.aiChat(chatInput, cvData);
-      setChatHistory([
-        ...newHistory,
-        { role: "assistant", content: res.response },
-      ]);
-    } catch {
-      toast.error("AI unavailable");
+      const token = useAuthStore.getState().token;
+      const response = await fetch(`${BASE}/api/v1/cv/ai/chat/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ message, cv_data: cvData }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.token) {
+              fullText += data.token;
+              setStreamedText(fullText);
+              scrollChat();
+            }
+            if (data.done) {
+              setStreamedText("");
+              setLastUsage(data.usage || null);
+              setChatHistory((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: fullText,
+                  usage: data.usage || undefined,
+                },
+              ]);
+            }
+          } catch {
+            // ignore parse errors for partial lines
+          }
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        // User cancelled — keep what we got
+        if (streamedText) {
+          setChatHistory((prev) => [
+            ...prev,
+            { role: "assistant", content: streamedText },
+          ]);
+          setStreamedText("");
+        }
+      } else {
+        toast.error("AI stream interrupted. Try again.");
+        setStreamedText("");
+      }
     } finally {
-      setLoading(false);
+      setStreaming(false);
+      abortRef.current = null;
+      scrollChat();
     }
+  };
+
+  const cancelStream = () => {
+    abortRef.current?.abort();
+  };
+
+  const regenerate = () => {
+    const lastUserMsg = [...chatHistory]
+      .reverse()
+      .find((m) => m.role === "user");
+    if (lastUserMsg) {
+      // Remove the last assistant response if any
+      const trimmed = [...chatHistory];
+      if (trimmed[trimmed.length - 1]?.role === "assistant") {
+        trimmed.pop();
+      }
+      setChatHistory(trimmed);
+      sendChatStream(lastUserMsg.content);
+    }
+  };
+
+  // ── Non-streaming actions ──────────────────────────────────────────────
+
+  const sendChat = () => {
+    if (!chatInput.trim() || streaming) return;
+    sendChatStream(chatInput);
   };
 
   const applyEdit = async () => {
@@ -86,10 +215,12 @@ export default function AIAssistPanel({
     }
   };
 
-  const runReview = async () => {
+  const runReview = () => {
     if (loading) return;
     setTab("review");
   };
+
+  const hasAssistantResponse = chatHistory.length > 1 && chatHistory[chatHistory.length - 1]?.role === "assistant";
 
   return (
     <div className="w-full md:w-80 bg-white border-l border-ash-border flex flex-col h-full min-h-0 overflow-hidden">
@@ -98,6 +229,12 @@ export default function AIAssistPanel({
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="text-ink" />
           <span className="text-sm font-medium text-ink">AI Assist</span>
+          {lastUsage && !streaming && (
+            <span className="text-[10px] text-ink-muted flex items-center gap-1">
+              <BarChart3 size={10} />
+              {lastUsage.total_tokens}
+            </span>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -127,10 +264,14 @@ export default function AIAssistPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        {/* ── Chat tab ── */}
         <div
           className={`${tab === "chat" ? "flex" : "hidden"} flex-1 min-h-0 overflow-hidden flex-col`}
         >
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div
+            ref={chatScrollRef}
+            className="flex-1 overflow-y-auto p-3 space-y-3"
+          >
             {chatHistory.map((msg, i) => (
               <div
                 key={i}
@@ -140,10 +281,29 @@ export default function AIAssistPanel({
                   className={`max-w-[90%] px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "bg-ink text-white" : "bg-ash text-ink"}`}
                 >
                   {msg.content}
+                  {/* Token usage for assistant messages */}
+                  {msg.usage && msg.usage.total_tokens > 0 && (
+                    <div className="mt-1.5 flex items-center gap-2 text-[9px] text-ink-muted border-t border-ash-border pt-1">
+                      <BarChart3 size={9} />
+                      {msg.usage.prompt_tokens} in · {msg.usage.completion_tokens} out · {msg.usage.total_tokens} total
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
-            {loading && (
+
+            {/* Streaming text */}
+            {streaming && streamedText && (
+              <div className="flex justify-start">
+                <div className="bg-ash px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap text-ink">
+                  {streamedText}
+                  <span className="inline-block w-1.5 h-4 bg-ink ml-0.5 animate-pulse" />
+                </div>
+              </div>
+            )}
+
+            {/* Thinking animation when streaming just started */}
+            {streaming && !streamedText && (
               <div className="flex justify-start">
                 <div className="bg-ash px-3 py-2 rounded-xl text-xs text-ink-muted animate-pulse">
                   Thinking…
@@ -151,24 +311,62 @@ export default function AIAssistPanel({
               </div>
             )}
           </div>
-          <div className="p-3 border-t border-ash-border flex gap-2">
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChat()}
-              placeholder="Ask anything about your CV…"
-              className="flex-1 px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink"
-            />
-            <button
-              onClick={sendChat}
-              disabled={loading || !chatInput.trim()}
-              className="p-2 bg-ink text-white rounded-lg hover:bg-ink-light disabled:opacity-50 transition-colors"
-            >
-              <Send size={13} />
-            </button>
+
+          {/* Chat controls */}
+          <div className="p-3 border-t border-ash-border space-y-2">
+            {/* Regenerate + Cancel buttons */}
+            <div className="flex gap-2">
+              {hasAssistantResponse && !streaming && (
+                <button
+                  onClick={regenerate}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-ash-border text-[10px] text-ink-muted hover:text-ink hover:border-ink transition-colors"
+                >
+                  <RotateCcw size={11} /> Regenerate
+                </button>
+              )}
+              {streaming && (
+                <button
+                  onClick={cancelStream}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-200 text-red-600 text-[10px] hover:bg-red-50 transition-colors"
+                >
+                  <StopCircle size={11} /> Stop
+                </button>
+              )}
+            </div>
+
+            {/* Input row */}
+            <div className="flex gap-2 items-end">
+              <textarea
+                value={chatInput}
+                onChange={(e) => {
+                  setChatInput(e.target.value)
+                  // Auto-resize
+                  e.target.style.height = 'auto'
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendChat()
+                  }
+                }}
+                placeholder="Ask anything about your CV…"
+                rows={1}
+                className="flex-1 px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink disabled:opacity-50 resize-none overflow-y-auto max-h-[120px]"
+                disabled={streaming}
+              />
+              <button
+                onClick={sendChat}
+                disabled={streaming || !chatInput.trim()}
+                className="p-2 bg-ink text-white rounded-lg hover:bg-ink-light disabled:opacity-50 transition-colors shrink-0"
+              >
+                <Send size={13} />
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* ── Edit tab ── */}
         <div
           className={`${tab === "edit" ? "flex" : "hidden"} p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex-col`}
         >
@@ -208,6 +406,7 @@ export default function AIAssistPanel({
           </button>
         </div>
 
+        {/* ── Review tab ── */}
         <div
           className={`${tab === "review" ? "flex" : "hidden"} flex-1 min-h-0 overflow-hidden flex-col`}
         >
@@ -219,6 +418,7 @@ export default function AIAssistPanel({
           />
         </div>
 
+        {/* ── Job Match tab ── */}
         <div
           className={`${tab === "job" ? "flex" : "hidden"} p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex-col`}
         >

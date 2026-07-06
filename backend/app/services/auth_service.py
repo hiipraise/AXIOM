@@ -41,8 +41,8 @@ def decode_token(token: str) -> Optional[dict]:
 
 async def revoke_token(db, jti: str) -> None:
     """Revoke a token by its jti. Expires after 24 hours via TTL index."""
-    from datetime import datetime, timezone
-    await db.revoked_tokens.insert_one({"jti": jti, "expires_at": datetime.now(timezone.utc)})
+    from datetime import datetime, timedelta, timezone
+    await db.revoked_tokens.insert_one({"jti": jti, "expires_at": datetime.now(timezone.utc) + timedelta(hours=24)})
 
 
 async def is_token_revoked(db, jti: str) -> bool:

@@ -280,7 +280,7 @@ def generate_docx(
     if cv_data.awards:
         _add_heading(doc, "Awards", level=1)
         for award in cv_data.awards:
-            name = strip_html(award.name)
+            name = strip_html(award.title)
             issuer = strip_html(award.issuer)
             date = strip_html(award.date)
 
@@ -302,7 +302,7 @@ def generate_docx(
     if cv_data.languages:
         _add_heading(doc, "Languages", level=1)
         for lang in cv_data.languages:
-            name = strip_html(lang.name)
+            name = strip_html(lang.language)
             proficiency = strip_html(lang.proficiency)
 
             if name:
@@ -523,7 +523,7 @@ def generate_plain_text(
     if cv_data.awards:
         lines.append("--- AWARDS ---")
         for award in cv_data.awards:
-            name = strip_html(award.name)
+            name = strip_html(award.title)
             issuer = strip_html(award.issuer)
             date = strip_html(award.date)
 
@@ -544,7 +544,7 @@ def generate_plain_text(
     if cv_data.languages:
         lines.append("--- LANGUAGES ---")
         for lang in cv_data.languages:
-            name = strip_html(lang.name)
+            name = strip_html(lang.language)
             proficiency = strip_html(lang.proficiency)
 
             if name:

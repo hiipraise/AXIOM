@@ -1,18 +1,13 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  Briefcase,
-  FileSignature,
-  ScanSearch,
-} from "lucide-react";
+import { ArrowRight, Briefcase, FileSignature, ScanSearch } from "lucide-react";
 
 const STEPS = [
   {
     icon: Briefcase,
     label: "Find a role",
-    desc: "Browse AXIOM roles and live external jobs across countries.",
+    desc: "Browse live external jobs across countries.",
   },
   {
     icon: ScanSearch,
@@ -21,8 +16,8 @@ const STEPS = [
   },
   {
     icon: FileSignature,
-    label: "Apply and track",
-    desc: "Apply on-platform, generate a cover letter, and track every stage.",
+    label: "Save and prepare",
+    desc: "Save jobs, generate a cover letter, and prepare your application materials.",
   },
 ];
 
@@ -43,11 +38,11 @@ export default function JobsTeaserSection() {
             Now in AXIOM
           </p>
           <h2 className="font-display font-bold text-3xl text-ink mb-3">
-            Jobs, applications, and interviews in one workspace.
+            Jobs, saved roles, and interviews in one workspace.
           </h2>
           <p className="text-ink-muted text-sm max-w-md mx-auto leading-relaxed">
-            AXIOM is more than a CV generator now. Browse roles, apply
-            on-platform, track progress, and prepare for the interview loop.
+            AXIOM is more than a CV generator now. Browse roles, save the ones
+            you like, and prepare for the interview loop.
           </p>
         </motion.div>
 
@@ -90,7 +85,7 @@ export default function JobsTeaserSection() {
           transition={{ duration: 0.4, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
         >
           <Link
-            to="/jobs/explore"
+            to="/jobs"
             className="inline-flex items-center gap-2 px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:bg-ink-light transition-colors"
           >
             Browse live jobs

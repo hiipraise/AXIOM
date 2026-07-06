@@ -2,6 +2,7 @@ import { EducationItem, EMPTY_EDUCATION } from '../../types'
 import { Field, Input, Textarea, SectionHeader, Card } from '../UI/FormElements'
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
+import { countWords } from '../../lib/wordCount'
 
 interface Props { items: EducationItem[]; onChange: (v: EducationItem[]) => void }
 
@@ -11,9 +12,10 @@ export default function EducationSection({ items, onChange }: Props) {
   const remove = (i: number) => { onChange(items.filter((_, idx) => idx !== i)); setExpanded(null) }
   const update = (i: number, patch: Partial<EducationItem>) => onChange(items.map((item, idx) => idx === i ? { ...item, ...patch } : item))
 
+  const totalWords = items.reduce((sum, item) => sum + countWords(item.description), 0)
   return (
     <div className="space-y-5 animate-fade-in">
-      <SectionHeader title="Education" subtitle="Degrees, diplomas, courses"
+      <SectionHeader title="Education" subtitle="Degrees, diplomas, courses" wordCount={totalWords}
         action={<button onClick={add} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-ink text-white rounded-lg hover:bg-ink-light transition-colors"><Plus size={13} /> Add</button>} />
       {items.length === 0 && <div className="text-center py-10 border-2 border-dashed border-ash-border rounded-xl"><p className="text-sm text-ink-muted">No education added</p><button onClick={add} className="mt-3 text-xs text-ink underline">Add entry</button></div>}
       {items.map((item, i) => (
@@ -40,7 +42,7 @@ export default function EducationSection({ items, onChange }: Props) {
                 <Field label="End Date"><Input value={item.end_date} onChange={(e) => update(i, { end_date: e.target.value })} placeholder="Jun 2022" /></Field>
                 <Field label="Grade / GPA"><Input value={item.grade} onChange={(e) => update(i, { grade: e.target.value })} placeholder="First Class" /></Field>
               </div>
-              <Field label="Notes"><Textarea value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} placeholder="Dissertation, notable modules, awards…" /></Field>
+              <Field label="Notes"><Textarea showWordCount value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} placeholder="Dissertation, notable modules, awards…" /></Field>
             </div>
           )}
         </Card>

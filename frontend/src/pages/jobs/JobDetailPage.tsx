@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAnnouncement } from "../../context/announcement";
 import Seo from "../../components/Seo";
 import {
   ArrowLeft,
-  Briefcase,
   Copy,
   ExternalLink,
   FileSignature,
@@ -17,9 +15,11 @@ import toast from "react-hot-toast";
 import { cvApi, jobsApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import CoverLetterModal from "../../components/jobs/CoverLetterModal";
-import { JobResult, JobMatchResult, CV, ApplicationEntry } from "../../types";
+import { JobResult, JobMatchResult, CV } from "../../types";
 
 function stripHtml(raw: string): string {
+  // Fast path — most descriptions arrive pre-cleaned from external APIs
+  if (!raw || (!raw.includes("<") && !raw.includes("&"))) return raw;
   return raw
     .replace(/<[^>]+>/g, "\n")
     .replace(/&amp;/g, "&")
@@ -99,29 +99,19 @@ export default function JobDetailPage() {
     staleTime: 1000 * 60 * 10, // 10 min — backend caches for 6h anyway
   });
 
-  const { data: cvs = [] } = useQuery<CV[]>({
+  const { data: cvData } = useQuery<{ cvs: CV[]; total: number }>({
     queryKey: ["cvs"],
-    queryFn: cvApi.list,
+    queryFn: () => cvApi.list(),
     enabled: !!user,
     staleTime: 1000 * 60 * 2,
   });
+  const cvs = cvData?.cvs ?? [];
 
-  const { data: savedJobs = [] } = useQuery<ApplicationEntry[]>({
+  const { data: savedJobs = [] } = useQuery<Array<{ id: string; job_id: string; saved_at: string; job?: JobResult | null }>>({
     queryKey: ["saved-jobs"],
     queryFn: jobsApi.savedList,
     enabled: !!user,
   });
-
-  // Check if already applied to this job
-  const { data: applications = [] } = useQuery<ApplicationEntry[]>({
-    queryKey: ["applications"],
-    queryFn: jobsApi.applications,
-    enabled: !!user,
-  });
-  const alreadyApplied = useMemo(
-    () => applications.some((app) => app.job_id === id),
-    [applications, id],
-  );
 
   // Dynamic SEO for job detail page
   const seoTitle = job
@@ -158,12 +148,18 @@ export default function JobDetailPage() {
         job?.company || "",
         job?.description || "",
       ),
+    onMutate: () => {
+      setCoverLetter("");
+      setCoverOpen(true);
+    },
     onSuccess: (data) => {
       setCoverLetter(data.cover_letter);
-      setCoverOpen(true);
       toast.success("Cover letter generated");
     },
-    onError: () => toast.error("Could not generate cover letter"),
+    onError: () => {
+      setCoverOpen(false);
+      toast.error("Could not generate cover letter");
+    },
   });
 
   const toggleSaveMutation = useMutation({
@@ -174,35 +170,16 @@ export default function JobDetailPage() {
     },
   });
 
-  const trackMutation = useMutation({
-    mutationFn: () =>
-      jobsApi.createApplication({
-        job_id: id,
-        status: "saved",
-        cv_id: selectedCv?.id || null,
-      }),
-    onSuccess: () => {
-      toast.success("Added to tracker");
-      qc.invalidateQueries({ queryKey: ["applications"] });
-      navigate("/tracker");
-    },
-    onError: (error) => {
-      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
-      if (detail?.includes("already applied")) {
-        toast.error("You have already applied to this job");
-        qc.invalidateQueries({ queryKey: ["applications"] });
-      }
-    },
-  });
-
   const tailorMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCv) throw new Error("Select a CV first");
-      const duplicated = await cvApi.duplicate(selectedCv.id);
+      // Run AI match FIRST — if it fails, no CV is duplicated
       const matched = await cvApi.aiMatchJob(
         selectedCv.data,
         job?.description || "",
       );
+      // Only duplicate + update if AI succeeded
+      const duplicated = await cvApi.duplicate(selectedCv.id);
       await cvApi.update(duplicated.id, {
         title: `${selectedCv.title} — ${job?.title || "Tailored"}`,
         data: matched.data,
@@ -440,7 +417,7 @@ export default function JobDetailPage() {
                       : "Write cover letter"}
                   </button>
 
-                  <div className="border-t border-ash-border pt-3 space-y-2">
+                  <div className="border-t border-ash-border pt-3">
                     <button
                       className="btn-ghost w-full justify-center text-xs"
                       onClick={() => toggleSaveMutation.mutate()}
@@ -448,18 +425,6 @@ export default function JobDetailPage() {
                     >
                       <Save size={13} className={isSaved ? "fill-current text-indigo-600" : ""} />
                       {isSaved ? "Unsave" : "Save job"}
-                    </button>
-                    <button
-                      className="btn-primary w-full justify-center"
-                      onClick={() => trackMutation.mutate()}
-                      disabled={trackMutation.isPending || alreadyApplied}
-                    >
-                      <Briefcase size={14} />
-                      {alreadyApplied
-                        ? "Already applied"
-                        : trackMutation.isPending
-                          ? "Adding…"
-                          : "Track application"}
                     </button>
                   </div>
                 </div>
@@ -539,6 +504,7 @@ export default function JobDetailPage() {
         open={coverOpen}
         letter={coverLetter}
         title={job.title}
+        isGenerating={coverMutation.isPending}
         onClose={() => setCoverOpen(false)}
       />
     </div>

@@ -1,4 +1,5 @@
 import { TemplateProps, has, contactItems } from "./templateUtils";
+import { renderMarkdown } from "../../../lib/renderMarkdown";
 
 export default function GridTemplate({ cvData, t }: TemplateProps) {
   const pi = cvData.personal_info;
@@ -136,9 +137,7 @@ export default function GridTemplate({ cvData, t }: TemplateProps) {
       {/* ── Summary ── */}
       {has(cvData.summary) && (
         <Box style={{ marginBottom: 20 }}>
-          <p style={{ fontSize: 10.5, lineHeight: 1.7, color: t.text }}>
-            {cvData.summary}
-          </p>
+          <p style={{ fontSize: 10.5, lineHeight: 1.7, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(cvData.summary) }} />
         </Box>
       )}
 
@@ -211,9 +210,8 @@ export default function GridTemplate({ cvData, t }: TemplateProps) {
                   {has(exp.description) && (
                     <p
                       style={{ fontSize: 9.5, lineHeight: 1.65, color: t.text }}
-                    >
-                      {exp.description}
-                    </p>
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(exp.description) }}
+                    />
                   )}
                   {(exp.achievements || []).filter(has).map((a, ai) => (
                     <p
@@ -226,7 +224,7 @@ export default function GridTemplate({ cvData, t }: TemplateProps) {
                         color: t.text,
                       }}
                     >
-                      • {a}
+                      <span dangerouslySetInnerHTML={{ __html: renderMarkdown(a) }} />
                     </p>
                   ))}
                 </div>
@@ -309,9 +307,7 @@ export default function GridTemplate({ cvData, t }: TemplateProps) {
                     </p>
                   )}
                   {has(v.description) && (
-                    <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }}>
-                      {v.description}
-                    </p>
+                    <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(v.description) }} />
                   )}
                 </div>
               ))}
@@ -375,9 +371,8 @@ export default function GridTemplate({ cvData, t }: TemplateProps) {
                         lineHeight: 1.5,
                         marginTop: 3,
                       }}
-                    >
-                      {p.description}
-                    </p>
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(p.description) }}
+                    />
                   )}
                   {(p.technologies || []).filter(has).length > 0 && (
                     <p style={{ fontSize: 9, color: t.accent, marginTop: 3 }}>

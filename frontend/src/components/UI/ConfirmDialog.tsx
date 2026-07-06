@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   confirmLabel: string
   cancelLabel?: string
   variant?: 'default' | 'danger'
+  loading?: boolean
   onConfirm: () => void
   onClose: () => void
 }
@@ -19,14 +20,15 @@ export default function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   variant = 'default',
+  loading = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
   if (!open) return null
 
   const confirmClasses = variant === 'danger'
-    ? 'bg-red-600 text-white hover:bg-red-500'
-    : 'bg-ink text-white hover:bg-ink-light'
+    ? 'bg-red-600 text-white hover:bg-red-500 disabled:bg-red-300'
+    : 'bg-ink text-white hover:bg-ink-light disabled:opacity-50'
 
   return (
     <div
@@ -55,15 +57,17 @@ export default function ConfirmDialog({
         <div className="flex items-center gap-2 px-5 py-4">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg border border-ash-border py-2.5 text-xs text-ink-muted transition-colors hover:bg-ash"
+            disabled={loading}
+            className="flex-1 rounded-lg border border-ash-border py-2.5 text-xs text-ink-muted transition-colors hover:bg-ash disabled:opacity-30"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 rounded-lg py-2.5 text-xs font-medium transition-colors ${confirmClasses}`}
+            disabled={loading}
+            className={`flex-1 rounded-lg py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed ${confirmClasses}`}
           >
-            {confirmLabel}
+            {loading ? 'Deleting…' : confirmLabel}
           </button>
         </div>
       </div>

@@ -1,8 +1,10 @@
 import { Footer, Navbar } from "../../components/landing";
+import Seo from "../../components/Seo";
 
 export default function LegalPage() {
   return (
     <div className="min-h-screen bg-white">
+      <Seo title="Terms of Use & Privacy Policy" noindex />
       <Navbar />
       <main className="mx-auto max-w-4xl px-5 pb-16 pt-28">
         <p className="text-xs uppercase tracking-[0.22em] text-ink-muted">Legal</p>
@@ -16,7 +18,7 @@ export default function LegalPage() {
             <h2 className="font-display text-2xl font-bold text-ink">Terms of Use</h2>
             <p className="mt-3">
               AXIOM provides tools for CV creation, job discovery, application tracking,
-              recruiter workflows, and interview preparation. Users are responsible for
+              and interview preparation. Users are responsible for
               the accuracy of information they enter and submit through the platform.
             </p>
             <p className="mt-3">
@@ -29,12 +31,12 @@ export default function LegalPage() {
           <div>
             <h2 className="font-display text-2xl font-bold text-ink">Privacy Policy</h2>
             <p className="mt-3">
-              AXIOM stores account details, CV content, application records, recruiter
-              profiles, interview records, feedback, and platform analytics needed to
+              AXIOM stores account details, CV content, application records, interview
+              records, feedback, and platform analytics needed to
               operate the service. Authentication cookies are HttpOnly where supported.
             </p>
             <p className="mt-3">
-              Public CVs and public company pages are visible to anyone with the link.
+              Public CVs are visible to anyone with the link.
               Private workspace content requires authentication. Account deletion removes
               user-owned CVs and associated user data from core collections.
             </p>

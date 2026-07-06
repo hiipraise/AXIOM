@@ -28,19 +28,39 @@ from app.routers import (
     analytics,
     announcements,
     auth,
-    axiom_applications,
-    axiom_jobs,
+    comments,
     cv,
+    email,
     export,
     feedback,
     interview,
-    interview_live,
     jobs,
     notifications,
     public,
-    recruiter,
     search,
 )
+
+async def _cleanup_orphaned_recordings() -> None:
+    """Delete recording files on disk that no longer have a DB record."""
+    from app.database import db
+
+    media_root = os.path.join(settings.media_dir, "interviews")
+    if not os.path.isdir(media_root):
+        return
+    for user_dir in os.listdir(media_root):
+        user_path = os.path.join(media_root, user_dir)
+        if not os.path.isdir(user_path):
+            continue
+        for fname in os.listdir(user_path):
+            file_path = os.path.join(user_path, fname)
+            if not os.path.isfile(file_path):
+                continue
+            exists = await db.interview_recordings.find_one({"file_name": fname})
+            if not exists:
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
 
 
 def _enforce_production_cors() -> None:
@@ -70,7 +90,7 @@ def _enforce_production_secrets() -> None:
     required = {
         "JWT_SECRET":     os.getenv("JWT_SECRET"),
         "MONGO_URL":      os.getenv("MONGO_URL"),
-       # "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD"),
+        "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD"),
         "GROQ_API_KEY":   os.getenv("GROQ_API_KEY"),
     }
     missing = [name for name, value in required.items() if not value]
@@ -87,6 +107,7 @@ async def lifespan(app: FastAPI):
     _enforce_production_secrets()
     await connect_db()
     await init_admin()
+    await _cleanup_orphaned_recordings()
     yield
     await close_db()
 
@@ -180,12 +201,11 @@ app.include_router(feedback.router,           prefix="/api/v1/feedback",        
 app.include_router(announcements.router,      prefix="/api/v1/announcements",       tags=["Announcements"])
 app.include_router(jobs.router,               prefix="/api/v1/jobs",                tags=["Jobs"])
 app.include_router(interview.router,          prefix="/api/v1/interview",           tags=["Interview"])
-app.include_router(recruiter.router,          prefix="/api/v1/recruiter",           tags=["Recruiter"])
-app.include_router(axiom_jobs.router,         prefix="/api/v1/axiom-jobs",          tags=["AXIOM Jobs"])
-app.include_router(axiom_applications.router, prefix="/api/v1/axiom-applications",  tags=["AXIOM Applications"])
-app.include_router(interview_live.router,     prefix="/api/v1/interview-live",      tags=["Live Interview"])
+
 app.include_router(notifications.router,      prefix="/api/v1/notifications",       tags=["Notifications"])
+app.include_router(email.router,              prefix="/api/v1/email",               tags=["Email"])
 app.include_router(search.router,             prefix="/api/v1/search",             tags=["Search"])
+app.include_router(comments.router,            prefix="/api/v1/cv",                  tags=["CV Comments"])
 
 
 @app.get("/", tags=["Root"])

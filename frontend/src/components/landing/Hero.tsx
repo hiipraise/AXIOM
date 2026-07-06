@@ -13,17 +13,42 @@ const PROOF_POINTS = [
   "QR verification",
   "Live job search",
   "Import any PDF",
-  "Application tracker",
+  "Saved jobs",
   "Interview prep",
 ];
-const TICKER_ITEMS = [...PROOF_POINTS, ...PROOF_POINTS, ...PROOF_POINTS, ...PROOF_POINTS];
+const TICKER_ITEMS = [
+  ...PROOF_POINTS,
+  ...PROOF_POINTS,
+  ...PROOF_POINTS,
+  ...PROOF_POINTS,
+];
 
-function GridCell({ delay, duration, repeatDelay }: { delay: number; duration: number; repeatDelay: number }) {
+function GridCell({
+  delay,
+  duration,
+  repeatDelay,
+}: {
+  delay: number;
+  duration: number;
+  repeatDelay: number;
+}) {
   return (
     <motion.div
       className="border-r border-b border-[#E2E8F0]"
-      animate={{ backgroundColor: ["rgba(15,23,42,0)", "rgba(15,23,42,0.05)", "rgba(15,23,42,0)"] }}
-      transition={{ duration, delay, repeat: Infinity, repeatDelay, ease: "easeInOut" }}
+      animate={{
+        backgroundColor: [
+          "rgba(15,23,42,0)",
+          "rgba(15,23,42,0.05)",
+          "rgba(15,23,42,0)",
+        ],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        repeatDelay,
+        ease: "easeInOut",
+      }}
     />
   );
 }
@@ -32,27 +57,40 @@ function AnimatedGrid() {
   const COLS = 22;
   const ROWS = 13;
   const cells = useMemo(
-    () => Array.from({ length: COLS * ROWS }, (_, i) => ({
-      id: i,
-      delay: Math.random() * 10,
-      duration: 1.2 + Math.random() * 3,
-      repeatDelay: 1.5 + Math.random() * 9,
-    })),
+    () =>
+      Array.from({ length: COLS * ROWS }, (_, i) => ({
+        id: i,
+        delay: Math.random() * 10,
+        duration: 1.2 + Math.random() * 3,
+        repeatDelay: 1.5 + Math.random() * 9,
+      })),
     [],
   );
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden"
       style={{
-        maskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)",
-        WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)",
+        maskImage:
+          "radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)",
+        WebkitMaskImage:
+          "radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)",
       }}
     >
       <div
         className="w-full h-full grid border-l border-t border-[#E2E8F0]"
-        style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)`, gridTemplateRows: `repeat(${ROWS}, 1fr)` }}
+        style={{
+          gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+        }}
       >
-        {cells.map((c) => <GridCell key={c.id} delay={c.delay} duration={c.duration} repeatDelay={c.repeatDelay} />)}
+        {cells.map((c) => (
+          <GridCell
+            key={c.id}
+            delay={c.delay}
+            duration={c.duration}
+            repeatDelay={c.repeatDelay}
+          />
+        ))}
       </div>
     </div>
   );
@@ -63,8 +101,10 @@ function ProofTicker() {
     <div
       className="relative mt-12 overflow-hidden"
       style={{
-        maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+        maskImage:
+          "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+        WebkitMaskImage:
+          "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
       }}
     >
       <motion.div
@@ -78,7 +118,10 @@ function ProofTicker() {
         }}
       >
         {TICKER_ITEMS.map((t, i) => (
-          <span key={i} className="flex items-center gap-2 text-xs text-ink-muted flex-shrink-0 py-1 select-none">
+          <span
+            key={i}
+            className="flex items-center gap-2 text-xs text-ink-muted flex-shrink-0 py-1 select-none"
+          >
             <CheckCircle size={12} className="text-ink/30 flex-shrink-0" />
             {t}
           </span>
@@ -93,13 +136,20 @@ const fadeUp = {
   visible: (delay: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+    transition: {
+      duration: 0.55,
+      delay,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
   }),
 };
 
 const fadeIn = {
   hidden: { opacity: 0 },
-  visible: (delay: number) => ({ opacity: 1, transition: { duration: 0.6, delay } }),
+  visible: (delay: number) => ({
+    opacity: 1,
+    transition: { duration: 0.6, delay },
+  }),
 };
 
 export default function Hero() {
@@ -120,7 +170,7 @@ export default function Hero() {
           custom={0}
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-ash border border-ash-border text-xs text-ink-muted mb-8"
         >
-          CVs, jobs, applications, and interviews
+          CVs, jobs, saved jobs, and interviews
         </motion.div>
 
         <motion.h1
@@ -146,8 +196,8 @@ export default function Hero() {
           custom={0.22}
           className="text-ink-muted text-lg leading-relaxed max-w-xl mx-auto mb-10"
         >
-          AXIOM helps you build a truthful CV, explore live roles, apply with
-          stronger materials, track every application, and prepare for interviews.
+          AXIOM helps you build a truthful CV, explore live roles, save jobs for
+          later, and prepare for interviews.
         </motion.p>
 
         <motion.div
@@ -162,7 +212,14 @@ export default function Hero() {
             className="flex items-center gap-2 px-6 py-3.5 bg-ink text-white text-sm font-semibold rounded-xl hover:bg-ink-light transition-all shadow-lg shadow-ink/10 active:scale-95"
           >
             Get started free
-            <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+            <motion.span
+              animate={{ x: [0, 4, 0] }}
+              transition={{
+                duration: 1.4,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
               <ArrowRight size={14} />
             </motion.span>
           </Link>

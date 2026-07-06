@@ -2,13 +2,52 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAnnouncement } from '../../context/announcement'
 import { publicApi } from '../../api'
-import { BadgeCheck, Building2, FileText, ExternalLink, ArrowLeft } from 'lucide-react'
+import { FileText, ExternalLink, ArrowLeft, Globe, Mail, Github, Linkedin, User } from 'lucide-react'
+import Seo from "../../components/Seo"
+
+interface PublicContact {
+  email?: string
+  phone?: string
+  location?: string
+  linkedin?: string
+  github?: string
+  portfolio?: string
+  website?: string
+}
 
 interface PublicProfile {
   username: string
   role?: string
-  recruiter?: { company_name: string; company_slug: string; verified: boolean; is_approved: boolean } | null
+  contact?: PublicContact
   cvs: { id: string; title: string; slug: string; updated_at: string }[]
+}
+
+/** Render a single character as the avatar letter, falling back to User icon for special/digit-first names. */
+function AvatarLetter({ username }: { username: string }) {
+  const chars = Array.from(username).filter(c => c.trim().length > 0)
+  const first = chars[0]
+  if (!first || /^[0-9_\-.\s]$/.test(first)) return <User size={22} />
+  return <>{first.toUpperCase()}</>
+}
+
+
+function ContactLink({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+  if (!href) return null
+  const isEmail = href.includes('@')
+  const full = isEmail
+    ? (href.startsWith('mailto:') ? href : `mailto:${href}`)
+    : (href.startsWith('http') ? href : `https://${href}`)
+  return (
+    <a
+      href={full}
+      target={isEmail ? undefined : '_blank'}
+      rel={isEmail ? undefined : 'noopener noreferrer'}
+      className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors"
+    >
+      <Icon size={13} />
+      <span>{label}</span>
+    </a>
+  )
 }
 
 
@@ -31,8 +70,21 @@ export default function PublicProfilePage() {
     </div>
   )
 
+  const contact = data.contact || {}
+  const contactLinks: Array<{ key: keyof PublicContact; icon: React.ElementType; label: string }> = [
+    { key: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+    { key: 'github', icon: Github, label: 'GitHub' },
+    { key: 'portfolio', icon: Globe, label: 'Portfolio' },
+    { key: 'website', icon: Globe, label: 'Website' },
+    { key: 'email', icon: Mail, label: contact.email || '' },
+  ]
+
   return (
     <div className="min-h-screen bg-ash">
+      <Seo
+        title={`${data.username} — Public Profile`}
+        description={`Public CVs by ${data.username}`}
+      />
       {/* Top bar offset below banner */}
       <div
         className="bg-white border-b border-ash-border px-6 py-4 flex items-center justify-between sticky z-30"
@@ -51,16 +103,21 @@ export default function PublicProfilePage() {
       <div className="max-w-xl mx-auto py-12 px-4">
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center text-xl font-bold mx-auto mb-3">
-            {data.username.charAt(0).toUpperCase()}
+            <AvatarLetter username={data.username} />
           </div>
           <h1 className="font-display font-bold text-xl text-ink">@{data.username}</h1>
-          {data.recruiter?.is_approved && (
-            <Link to={`/company/${data.recruiter.company_slug}`} className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-              {data.recruiter.verified ? <BadgeCheck size={13} /> : <Building2 size={13} />}
-              {data.recruiter.verified ? "Verified recruiter" : "Recruiter"} · {data.recruiter.company_name}
-            </Link>
-          )}
           <p className="text-xs text-ink-muted mt-1">{data.cvs.length} public {data.cvs.length === 1 ? 'CV' : 'CVs'}</p>
+
+          {/* Contact links */}
+          {contactLinks.some(({ key }) => contact[key]) && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              {contactLinks.map(({ key, icon, label }) => {
+                const href = contact[key]
+                if (!href) return null
+                return <ContactLink key={key} href={href} label={label === 'email' ? href : label} icon={icon} />
+              })}
+            </div>
+          )}
         </div>
 
         {data.cvs.length === 0 ? (

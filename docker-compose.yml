@@ -33,9 +33,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey_change_in_prod_NOW}
       - GROQ_API_KEY=${GROQ_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-hiipraise}
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-info.praisechined@gmail.com}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-password123}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     ports:
       - "8000:8000"
     depends_on:

@@ -50,6 +50,7 @@ function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
     </div>
   )
 }
+import Seo from "../../components/Seo";
 
 export default function AdminAnalytics() {
   const [days, setDays] = useState(30)
@@ -73,6 +74,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
+      <Seo title="Admin Analytics" noindex />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-xl sm:text-2xl font-bold text-ink">Analytics</h1>

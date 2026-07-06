@@ -86,6 +86,8 @@ function PublicPrintPage({ username, slug }: { username: string; slug: string })
   )
 }
 
+import Seo from "../../components/Seo";
+
 // ─── Router — ?public=username/slug or just /:id ──────────────────────────────
 export default function CVPrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -95,10 +97,10 @@ export default function CVPrintPage() {
   if (publicParam) {
     const [username, ...slugParts] = publicParam.split('/')
     const slug = slugParts.join('/')
-    return <PublicPrintPage username={username} slug={slug} />
+    return <><Seo title="CV Preview" noindex /><PublicPrintPage username={username} slug={slug} /></>
   }
 
-  if (id) return <AuthPrintPage id={id} />
+  if (id) return <><Seo title="CV Preview" noindex /><AuthPrintPage id={id} /></>
 
-  return <div className="p-8 text-sm text-gray-400">No CV specified.</div>
+  return <><Seo title="CV Preview" noindex /><div className="p-8 text-sm text-gray-400">No CV specified.</div></>
 }

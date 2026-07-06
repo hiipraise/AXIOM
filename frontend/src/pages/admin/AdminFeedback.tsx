@@ -54,6 +54,7 @@ function RatingStars({ rating }: { rating: number | null }) {
     </div>
   )
 }
+import Seo from "../../components/Seo";
 
 export default function AdminFeedback() {
   const [filter, setFilter] = useState('')
@@ -71,6 +72,7 @@ export default function AdminFeedback() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
+      <Seo title="Admin Feedback" noindex />
       <div>
         <h1 className="font-display text-xl sm:text-2xl font-bold text-ink">Feedback</h1>
         <p className="text-sm text-ink-muted mt-0.5">
@@ -139,7 +141,20 @@ export default function AdminFeedback() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={6} className="text-center py-10 text-sm text-ink-muted">Loading…</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td colSpan={6} className="px-4 py-3">
+                    <div className="flex items-center gap-4">
+                      <div className="h-5 w-16 rounded-full bg-ash-dark" />
+                      <div className="h-4 w-20 rounded bg-ash-dark" />
+                      <div className="h-4 w-48 rounded bg-ash-dark" />
+                      <div className="hidden sm:block h-4 w-16 rounded bg-ash-dark" />
+                      <div className="hidden md:block h-4 w-12 rounded bg-ash-dark" />
+                      <div className="hidden lg:block h-4 w-24 rounded bg-ash-dark" />
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
             {!isLoading && data?.items.length === 0 && (
               <tr><td colSpan={6} className="text-center py-10 text-sm text-ink-muted">No feedback yet.</td></tr>

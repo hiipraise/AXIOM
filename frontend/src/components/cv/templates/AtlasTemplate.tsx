@@ -1,4 +1,5 @@
 import { TemplateProps, has, contactItems, initials } from './templateUtils'
+import { renderMarkdown } from '../../../lib/renderMarkdown'
 
 export default function AtlasTemplate({ cvData, t }: TemplateProps) {
   const pi = cvData.personal_info
@@ -109,7 +110,7 @@ export default function AtlasTemplate({ cvData, t }: TemplateProps) {
         {has(cvData.summary) && (
           <>
             {sideLabel('Profile')}
-            <p style={{ fontSize: 9.5, opacity: 0.8, lineHeight: 1.6 }}>{cvData.summary}</p>
+            <p style={{ fontSize: 9.5, opacity: 0.8, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(cvData.summary) }} />
           </>
         )}
       </div>
@@ -138,11 +139,11 @@ export default function AtlasTemplate({ cvData, t }: TemplateProps) {
                   )}
                 </div>
                 {has(exp.description) && (
-                  <p style={{ fontSize: 9.5, color: t.text, lineHeight: 1.65, marginTop: 4 }}>{exp.description}</p>
+                  <p style={{ fontSize: 9.5, color: t.text, lineHeight: 1.65, marginTop: 4 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(exp.description) }} />
                 )}
                 {(exp.achievements || []).filter(has).map((a, ai) => (
                   <p key={ai} style={{ fontSize: 9.5, color: t.text, lineHeight: 1.55, marginTop: 2, paddingLeft: 10 }}>
-                    • {a}
+                    <span dangerouslySetInnerHTML={{ __html: renderMarkdown(a) }} />
                   </p>
                 ))}
               </div>
@@ -179,7 +180,7 @@ export default function AtlasTemplate({ cvData, t }: TemplateProps) {
             {cvData.projects.filter(p => has(p.name)).map((p, i) => (
               <div key={i} style={{ marginBottom: 12 }}>
                 <p style={{ fontSize: 11, fontWeight: 700 }}>{p.name}</p>
-                {has(p.description) && <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }}>{p.description}</p>}
+                {has(p.description) && <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.description) }} />}
                 {(p.technologies || []).filter(has).length > 0 && (
                   <p style={{ fontSize: 9, color: t.secondary, marginTop: 3 }}>
                     {p.technologies.filter(has).join(' · ')}
@@ -227,7 +228,7 @@ export default function AtlasTemplate({ cvData, t }: TemplateProps) {
                 <p style={{ fontSize: 11, fontWeight: 700 }}>
                   {[v.role, v.organization].filter(has).join(' — ')}
                 </p>
-                {has(v.description) && <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }}>{v.description}</p>}
+                {has(v.description) && <p style={{ fontSize: 9.5, lineHeight: 1.6, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(v.description) }} />}
               </div>
             ))}
           </>

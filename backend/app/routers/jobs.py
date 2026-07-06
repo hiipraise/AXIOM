@@ -1,19 +1,11 @@
-import re
 from datetime import datetime, timezone
 
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request
-from starlette.requests import Request as StarletteRequest
 
 from app.database import get_db
 from app.limiter import limiter, DEFAULT_LIMIT, AI_LIMIT
 from app.middleware.auth import get_current_user, get_optional_user
-from app.middleware.validation import valid_object_id
 from app.models.schemas import (
-    ApplicationCreate,
-    ApplicationEntry,
-    ApplicationStatus,
-    ApplicationUpdate,
     CoverLetterRequest,
     CoverLetterResponse,
     JobMatchRequest,
@@ -31,26 +23,6 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _application_doc(doc: dict) -> ApplicationEntry:
-    return ApplicationEntry(
-        id=str(doc["_id"]),
-        user_id=doc["user_id"],
-        job_id=doc["job_id"],
-        status=ApplicationStatus(doc.get("status", "saved")),
-        cv_id=doc.get("cv_id"),
-        notes=doc.get("notes", ""),
-        applied_url=doc.get("applied_url"),
-        follow_up_at=doc.get("follow_up_at"),
-        created_at=doc["created_at"],
-        updated_at=doc["updated_at"],
-        job=JobResult.model_validate(doc["job"]) if doc.get("job") else None,
-    )
-
-
-def escape_mongo_regex(value: str) -> str:
-    return re.escape(value)
-
-
 @router.get("/search", response_model=JobSearchResponse)
 @limiter.limit(DEFAULT_LIMIT)
 async def search_jobs(
@@ -59,12 +31,13 @@ async def search_jobs(
     location: str = "",
     remote: bool | None = None,
     region: str = "",
+    nigeria_state: str = "",
     page: int = 1,
     per_page: int = 20,
     current_user=Depends(get_optional_user),
     db=Depends(get_db),
 ):
-    cache_key = job_service.make_search_cache_key(q, location, remote, page, per_page, region)
+    cache_key = job_service.make_search_cache_key(q, location, remote, page, per_page, region, nigeria_state)
     cached = await job_service.fetch_cached_search(db, cache_key)
     if cached:
         return JobSearchResponse(
@@ -75,42 +48,9 @@ async def search_jobs(
             cached=True,
         )
 
-    jobs = await job_service.search_jobs(q, location, remote, region)
-    axiom_jobs = []
-    axiom_filter = {"is_active": True, "is_approved": True}
-    if q:
-        safe_q = escape_mongo_regex(q)
-        axiom_filter["$or"] = [
-            {"title": {"$regex": safe_q, "$options": "i"}},
-            {"description": {"$regex": safe_q, "$options": "i"}},
-            {"skills_required": {"$regex": safe_q, "$options": "i"}},
-            {"company_name": {"$regex": safe_q, "$options": "i"}},
-        ]
-    cursor = db.axiom_jobs.find(axiom_filter).sort("created_at", -1).limit(50)
-    async for item in cursor:
-        if location and location.lower() not in item.get("location", "").lower() and location.lower() not in item.get("description", "").lower():
-            continue
-        if remote is True and not item.get("remote", False):
-            continue
-        axiom_jobs.append(JobResult(
-            id=f"axiom:{str(item['_id'])}",
-            title=item.get("title", ""),
-            company=item.get("company_name", "AXIOM employer"),
-            location=item.get("location", ""),
-            remote=bool(item.get("remote", False)),
-            salary_min=item.get("salary_min"),
-            salary_max=item.get("salary_max"),
-            currency=item.get("currency", ""),
-            description=item.get("description", ""),
-            apply_url=f"/jobs/axiom/{str(item['_id'])}",
-            posted_at=item.get("created_at"),
-            source="axiom",
-            category=item.get("job_type", ""),
-            logo_url=item.get("company_logo_url") or None,
-        ))
-    jobs = axiom_jobs + jobs
+    jobs, source_health = await job_service.search_jobs(q, location, remote, region, nigeria_state)
     await job_service.cache_search_results(db, cache_key, jobs, {"q": q, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})
-    return JobSearchResponse(items=jobs, total=len(jobs), page=page, per_page=per_page, cached=False)
+    return JobSearchResponse(items=jobs, total=len(jobs), page=page, per_page=per_page, cached=False, source_health=source_health)
 
 
 @router.post("/match-cv", response_model=JobMatchResponse)
@@ -182,26 +122,6 @@ async def save_job(job_id: str, current_user=Depends(get_current_user), db=Depen
         },
         upsert=True,
     )
-    now = _utcnow()
-    await db.applications.update_one(
-        {"user_id": str(current_user["_id"]), "job_id": job_id},
-        {
-            "$set": {
-                "user_id": str(current_user["_id"]),
-                "job_id": job_id,
-                "status": "saved",
-                "cv_id": None,
-                "job": job_doc.get("payload"),
-                "updated_at": now,
-            },
-            "$setOnInsert": {
-                "notes": "",
-                "applied_url": None,
-                "created_at": now,
-            },
-        },
-        upsert=True,
-    )
     return SavedJobToggleResponse(saved=True)
 
 
@@ -209,74 +129,6 @@ async def save_job(job_id: str, current_user=Depends(get_current_user), db=Depen
 async def unsave_job(job_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
     await db.saved_jobs.delete_one({"user_id": str(current_user["_id"]), "job_id": job_id})
     return SavedJobToggleResponse(saved=False)
-
-
-@router.get("/applications")
-async def list_applications(current_user=Depends(get_current_user), db=Depends(get_db)):
-    cursor = db.applications.find({"user_id": str(current_user["_id"])}).sort("updated_at", -1)
-    items = await cursor.to_list(200)
-    return [_application_doc(item).model_dump(mode="json") for item in items]
-
-
-@router.post("/applications")
-async def create_application(body: ApplicationCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
-    from pymongo.errors import DuplicateKeyError
-    if body.job_id.startswith("axiom:"):
-        raise HTTPException(status_code=400, detail="Use the AXIOM application flow for AXIOM jobs")
-    job_doc = await db.job_cache.find_one({"job_id": body.job_id})
-    if not job_doc:
-        raise HTTPException(status_code=404, detail="Job not found")
-    now = _utcnow()
-    try:
-        await db.applications.insert_one({
-            "user_id": str(current_user["_id"]),
-            "job_id": body.job_id,
-            "status": body.status.value,
-            "cv_id": body.cv_id,
-            "notes": body.notes,
-            "applied_url": body.applied_url,
-            "follow_up_at": body.follow_up_at,
-            "created_at": now,
-            "updated_at": now,
-            "job": job_doc.get("payload"),
-        })
-    except DuplicateKeyError:
-        raise HTTPException(status_code=409, detail="You have already applied to this job")
-    created = await db.applications.find_one({"user_id": str(current_user["_id"]), "job_id": body.job_id})
-    return _application_doc(created).model_dump(mode="json")
-
-
-@router.put("/applications/{application_id}")
-async def update_application(body: ApplicationUpdate, application_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
-    if not ObjectId.is_valid(application_id):
-        raise HTTPException(status_code=400, detail="Invalid ID format")
-    doc = await db.applications.find_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Application not found")
-    updates = {"updated_at": _utcnow()}
-    if body.status is not None:
-        updates["status"] = body.status.value
-    if body.cv_id is not None:
-        updates["cv_id"] = body.cv_id
-    if body.notes is not None:
-        updates["notes"] = body.notes
-    if body.applied_url is not None:
-        updates["applied_url"] = body.applied_url
-    if body.follow_up_at is not None:
-        updates["follow_up_at"] = body.follow_up_at
-    await db.applications.update_one({"_id": application_id}, {"$set": updates})
-    updated = await db.applications.find_one({"_id": application_id})
-    return _application_doc(updated).model_dump(mode="json")
-
-
-@router.delete("/applications/{application_id}")
-async def delete_application(application_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
-    if not ObjectId.is_valid(application_id):
-        raise HTTPException(status_code=400, detail="Invalid ID format")
-    result = await db.applications.delete_one({"_id": ObjectId(application_id), "user_id": str(current_user["_id"])})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Application not found")
-    return {"deleted": True}
 
 
 @router.get("/{job_id}", response_model=JobResult)

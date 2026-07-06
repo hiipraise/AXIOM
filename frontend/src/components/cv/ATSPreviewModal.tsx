@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, AlertTriangle, AlertCircle, Info, CheckCircle, TrendingUp, FileText, Search } from "lucide-react";
+import { X, AlertTriangle, AlertCircle, Info, CheckCircle, TrendingUp, FileText, Search, BarChart3, Building2 } from "lucide-react";
 import { cvApi } from "../../api";
 import { CVData } from "../../types";
 import { useAnnouncement } from "../../context/announcement";
@@ -11,14 +11,24 @@ interface ATSFlag {
   details: string | null;
 }
 
+interface ATSVendorScore {
+  vendor: string;
+  score: number;
+  flags: ATSFlag[];
+  quirks_detected: string[];
+}
+
 interface ATSResult {
   score: number;
   flags: ATSFlag[];
   extracted_text: string;
   section_headers_found: string[];
-  keyword_matches: string[];
+  keyword_matches: Array<{ keyword: string; tfidf: number; count: number }>;
   keyword_density: Record<string, number>;
   missing_keywords: string[];
+  tfidf_scores: Record<string, number>;
+  vendor_scores: ATSVendorScore[];
+  vendor_overall: number;
 }
 
 interface Props {
@@ -206,28 +216,82 @@ export default function ATSPreviewModal({ cvData, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Keyword Match (if job description provided) */}
+              {/* TF-IDF Keyword Match (if job description provided) */}
               {(result.keyword_matches.length > 0 || result.missing_keywords.length > 0) && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-ink mb-3">Matching Keywords</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {result.keyword_matches.slice(0, 10).map((kw, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-                          {kw}
-                        </span>
-                      ))}
+                <div>
+                  <h4 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+                    <BarChart3 size={14} /> TF-IDF Keyword Match
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] text-ink-muted mb-2">Matching keywords (by TF-IDF score)</p>
+                      <div className="space-y-1">
+                        {result.keyword_matches.slice(0, 8).map((kw, idx) => (
+                          <div key={idx} className="flex items-center justify-between px-2 py-1 bg-green-50 rounded text-xs">
+                            <span className="text-green-700 font-medium">{kw.keyword}</span>
+                            <span className="text-green-600 text-[10px]">{kw.tfidf.toFixed(3)}</span>
+                          </div>
+                        ))}
+                        {result.keyword_matches.length === 0 && (
+                          <p className="text-xs text-ink-muted">No keyword matches</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-ink-muted mb-2">Missing keywords (highest priority)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {result.missing_keywords.slice(0, 10).map((kw, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                            {kw}
+                          </span>
+                        ))}
+                        {result.missing_keywords.length === 0 && (
+                          <p className="text-xs text-ink-muted">No missing keywords!</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-ink mb-3">Missing Keywords</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {result.missing_keywords.slice(0, 10).map((kw, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
+                </div>
+              )}
+
+              {/* ATS Vendor Compatibility */}
+              {result.vendor_scores.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-ink mb-3 flex items-center gap-1.5">
+                    <Building2 size={14} /> ATS Vendor Compatibility
+                  </h4>
+                  <p className="text-[10px] text-ink-muted mb-2">
+                    Overall vendor score: {result.vendor_overall}/100
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {result.vendor_scores.map((vs) => (
+                      <div
+                        key={vs.vendor}
+                        className={`p-3 rounded-lg border ${
+                          vs.score >= 80
+                            ? 'border-green-200 bg-green-50/30'
+                            : vs.score >= 60
+                            ? 'border-amber-200 bg-amber-50/30'
+                            : 'border-red-200 bg-red-50/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-ink capitalize">{vs.vendor}</span>
+                          <span className={`text-xs font-bold ${getScoreColor(vs.score)}`}>
+                            {vs.score}/100
+                          </span>
+                        </div>
+                        {vs.quirks_detected.length > 0 && (
+                          <div className="space-y-0.5 mt-1">
+                            {vs.quirks_detected.slice(0, 2).map((q, qi) => (
+                              <p key={qi} className="text-[10px] text-ink-muted leading-tight">
+                                • {q}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

@@ -15,31 +15,30 @@ interface GhostCardProps {
 function GhostCard({ style, driftY, duration, delay, rotate }: GhostCardProps) {
   return (
     <motion.div
-      className="absolute w-44 bg-white border border-ash-border rounded-xl p-4 shadow-sm pointer-events-none"
+      className="absolute w-48 bg-white border border-ash-border rounded-xl p-4 shadow-sm pointer-events-none"
       style={{ rotate, ...style }}
       animate={{ y: [0, -driftY, 0] }}
       transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
     >
-      {/* Avatar + name row */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-full bg-ash-border flex-shrink-0" />
+      {/* Company logo + role row */}
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-ash-border flex-shrink-0" />
         <div className="space-y-1 flex-1">
-          <div className="h-2 bg-ash-border rounded-full w-3/4" />
+          <div className="h-2 bg-ash-border rounded-full w-4/5" />
           <div className="h-1.5 bg-ash-border/60 rounded-full w-1/2" />
         </div>
       </div>
-      {/* Body lines */}
+      {/* Salary / location lines */}
       <div className="space-y-1.5">
         <div className="h-1.5 bg-ash-border/70 rounded-full w-full" />
-        <div className="h-1.5 bg-ash-border/50 rounded-full w-5/6" />
-        <div className="h-1.5 bg-ash-border/40 rounded-full w-4/6" />
+        <div className="h-1.5 bg-ash-border/50 rounded-full w-3/4" />
       </div>
-      {/* Skill chips */}
+      {/* Job tags */}
       <div className="flex gap-1 mt-3">
-        {[12, 16, 10].map((w, i) => (
+        {[10, 14, 8].map((w, i) => (
           <div
             key={i}
-            className="h-4 bg-ash-border/50 rounded"
+            className="h-3.5 bg-ash-border/50 rounded-full"
             style={{ width: `${w * 4}px` }}
           />
         ))}
@@ -96,7 +95,7 @@ export default function ExploreTeaserSection() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
         >
-          See real CVs from real people.
+          See what's out there.
         </motion.h2>
 
         <motion.p
@@ -105,8 +104,8 @@ export default function ExploreTeaserSection() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.45, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
         >
-          Browse public CVs from the AXIOM community. Get inspiration, see how
-          others structure their experience, and share your own.
+          Browse live job listings from across the web, match your CV to each
+          role, and save the ones you like — all in one place.
         </motion.p>
 
         <motion.div

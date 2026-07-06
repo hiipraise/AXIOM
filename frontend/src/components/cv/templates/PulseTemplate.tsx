@@ -1,4 +1,5 @@
 import { TemplateProps, has, contactItems } from './templateUtils'
+import { renderMarkdown } from '../../../lib/renderMarkdown'
 
 function TimelineItem({
   title, subtitle, meta, description, bullets, accent, text, secondary, isLast,
@@ -31,9 +32,9 @@ function TimelineItem({
           {meta && <p style={{ fontSize: 9, color: secondary, whiteSpace: 'nowrap', flexShrink: 0 }}>{meta}</p>}
         </div>
         {subtitle && <p style={{ fontSize: 10, color: secondary, marginTop: 1, fontWeight: 500 }}>{subtitle}</p>}
-        {description && <p style={{ fontSize: 9.5, color: text, lineHeight: 1.65, marginTop: 5 }}>{description}</p>}
+        {description && <p style={{ fontSize: 9.5, color: text, lineHeight: 1.65, marginTop: 5 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }} />}
         {bullets && bullets.filter(has).map((b, i) => (
-          <p key={i} style={{ fontSize: 9.5, color: text, lineHeight: 1.55, marginTop: 3, paddingLeft: 8 }}>· {b}</p>
+          <p key={i} style={{ fontSize: 9.5, color: text, lineHeight: 1.55, marginTop: 3, paddingLeft: 8 }}><span dangerouslySetInnerHTML={{ __html: renderMarkdown(b) }} /></p>
         ))}
       </div>
     </div>
@@ -104,7 +105,7 @@ export default function PulseTemplate({ cvData, t }: TemplateProps) {
           background: `${t.accent}08`,
           borderRadius: '0 6px 6px 0',
         }}>
-          <p style={{ fontSize: 10.5, lineHeight: 1.7, color: t.text }}>{cvData.summary}</p>
+          <p style={{ fontSize: 10.5, lineHeight: 1.7, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(cvData.summary) }} />
         </div>
       )}
 

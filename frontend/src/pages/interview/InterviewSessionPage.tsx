@@ -27,12 +27,12 @@ function FeedbackCard({ feedback }: { feedback: InterviewFeedback }) {
       <div className="grid gap-3 text-sm md:grid-cols-2">
         <p><b className="text-ink">Strong:</b> <span className="text-ink-muted">{feedback.what_was_strong}</span></p>
         <p><b className="text-ink">Vague:</b> <span className="text-ink-muted">{feedback.what_was_vague}</span></p>
-        <p><b className="text-ink">Recruiter hears:</b> <span className="text-ink-muted">{feedback.recruiter_takeaway}</span></p>
         <p><b className="text-ink">Improve:</b> <span className="text-ink-muted">{feedback.suggested_improvement}</span></p>
       </div>
     </div>
   );
 }
+import Seo from "../../components/Seo";
 
 export default function InterviewSessionPage() {
   const { sessionId = "" } = useParams();
@@ -93,13 +93,43 @@ export default function InterviewSessionPage() {
   // use_star comes from the backend — typed as optional on InterviewSessionDetail
   const useStar = (session as InterviewSessionDetail & { use_star?: boolean }).use_star;
 
+  const exitMutation = useMutation({
+    mutationFn: () => interviewApi.pauseSession(sessionId),
+    onSuccess: () => {
+      toast.success("Session saved. Resume anytime from your interview list.");
+      navigate("/interview");
+    },
+    onError: () => toast.error("Failed to save session"),
+  });
+
+  const handleExit = () => {
+    exitMutation.mutate();
+  };
+
+  if (session.status === "paused") {
+    return (
+      <div className="min-h-screen bg-ash p-8">
+        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 text-center shadow-sm">
+          <p className="mb-2 text-xs uppercase tracking-[0.18em] text-ink-muted">Session paused</p>
+          <h1 className="font-display text-2xl font-bold text-ink">{session.job_title || "Interview practice"}</h1>
+          <p className="mt-2 text-sm text-ink-muted">{session.answered_count}/{session.question_count} questions answered</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button className="btn-primary" onClick={() => navigate(`/interview/${sessionId}`)}>Resume</button>
+            <button className="btn-secondary" onClick={() => navigate("/interview")}>Back to list</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-ash">
+      <Seo title="Interview Session" noindex />
       {/* 9b: Floating progress pill — always visible at the top */}
       <div className="sticky top-0 z-10 border-b border-ash-border bg-white/90 px-4 py-2 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           <span className="text-xs text-ink-muted">
-            Question {session.answered_count + 1} of {session.question_count}
+            Q{session.answered_count + 1}/{session.question_count}
           </span>
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-ash">
             <div
@@ -108,6 +138,13 @@ export default function InterviewSessionPage() {
             />
           </div>
           <span className="font-mono text-xs text-ink-muted">{progressPct}%</span>
+          <button
+            className="rounded-lg border border-ash-border px-2 py-1 text-xs text-ink-muted hover:bg-ash"
+            onClick={handleExit}
+            disabled={exitMutation.isPending}
+          >
+            {exitMutation.isPending ? "Saving..." : "Exit"}
+          </button>
         </div>
       </div>
 

@@ -10,7 +10,8 @@ from typing import Any, Optional
 import httpx
 
 from app.config import settings
-from app.models.schemas import JobResult
+from app.models.schemas import JobResult, SourceHealth
+from app.lib.nigeria_states import NIGERIA_STATES
 
 # Cache TTLs: 30 min for external API, 5 min for AXIOM internal
 EXTERNAL_TTL_MINUTES = 30
@@ -33,7 +34,6 @@ def _strip_html(raw: str) -> str:
             .replace("&#39;", "'")
             .replace("&quot;", '"')
     )
-    # Collapse runs of whitespace / newlines down to single spaces
     text = _re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
@@ -109,12 +109,18 @@ def _search_cache_key(query: dict[str, Any]) -> str:
     return hashlib.sha1(canonical.encode("utf-8")).hexdigest()
 
 
-async def _fetch_json(url: str, params: Optional[dict[str, Any]] = None, headers: Optional[dict[str, str]] = None) -> Any:
+async def _fetch_json(
+    url: str,
+    params: Optional[dict[str, Any]] = None,
+    headers: Optional[dict[str, str]] = None,
+) -> Any:
     async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
         response = await client.get(url, params=params)
         response.raise_for_status()
         return response.json()
 
+
+# ── Adzuna UK (global) ────────────────────────────────────────────────────────
 
 async def _search_adzuna(query: str, location: str, remote: Optional[bool]) -> list[JobResult]:
     if not settings.adzuna_app_id or not settings.adzuna_app_key:
@@ -131,11 +137,21 @@ async def _search_adzuna(query: str, location: str, remote: Optional[bool]) -> l
     if remote is True:
         params["where"] = f"remote {location}".strip()
 
-    payload = await _fetch_json("https://api.adzuna.com/v1/api/jobs/gb/search/1", params=params)
+    try:
+        payload = await _fetch_json(
+            "https://api.adzuna.com/v1/api/jobs/gb/search/1", params=params
+        )
+    except Exception:
+        return []
+
     jobs: list[JobResult] = []
     for item in payload.get("results", []):
         title = _normalize_text(item.get("title"))
-        company = _normalize_text(item.get("company", {}).get("display_name") if isinstance(item.get("company"), dict) else item.get("company"))
+        company = _normalize_text(
+            item.get("company", {}).get("display_name")
+            if isinstance(item.get("company"), dict)
+            else item.get("company")
+        )
         if not title or not company:
             continue
         jobs.append(
@@ -143,8 +159,12 @@ async def _search_adzuna(query: str, location: str, remote: Optional[bool]) -> l
                 id=f"adzuna:{item.get('id') or item.get('redirect_url') or title}",
                 title=title,
                 company=company,
-                location=_normalize_text(item.get("location", {}).get("display_name") if isinstance(item.get("location"), dict) else item.get("location")),
-                remote="remote" in _normalize_text(item.get("description")).lower(),
+                location=_normalize_text(
+                    item.get("location", {}).get("display_name")
+                    if isinstance(item.get("location"), dict)
+                    else item.get("location")
+                ),
+                remote="remote" in _normalize_text(item.get("description", "")).lower(),
                 salary_min=float(item["salary_min"]) if item.get("salary_min") not in (None, "") else None,
                 salary_max=float(item["salary_max"]) if item.get("salary_max") not in (None, "") else None,
                 currency=_normalize_text(item.get("salary_currency")),
@@ -152,7 +172,11 @@ async def _search_adzuna(query: str, location: str, remote: Optional[bool]) -> l
                 apply_url=_normalize_text(item.get("redirect_url")),
                 posted_at=_parse_datetime(item.get("created")),
                 source="adzuna",
-                category=_normalize_text(item.get("category", {}).get("label") if isinstance(item.get("category"), dict) else item.get("category")),
+                category=_normalize_text(
+                    item.get("category", {}).get("label")
+                    if isinstance(item.get("category"), dict)
+                    else item.get("category")
+                ),
                 logo_url=None,
             )
         )
@@ -161,8 +185,97 @@ async def _search_adzuna(query: str, location: str, remote: Optional[bool]) -> l
     return jobs
 
 
+# ── Adzuna Nigeria (/ng/) ─────────────────────────────────────────────────────
+
+async def _search_adzuna_nigeria(
+    query: str,
+    nigeria_state: str = "",
+    remote: Optional[bool] = None,
+) -> list[JobResult]:
+    """
+    Search Adzuna's Nigeria endpoint.
+    nigeria_state: lowercase state key from NIGERIA_STATES (e.g. "lagos", "rivers").
+    Falls back to a generic Nigeria search when no state is provided.
+    """
+    if not settings.adzuna_app_id or not settings.adzuna_app_key:
+        return []
+
+    params: dict[str, Any] = {
+        "app_id": settings.adzuna_app_id,
+        "app_key": settings.adzuna_app_key,
+        "results_per_page": DEFAULT_PER_PAGE,
+        "what": query or "jobs",
+    }
+
+    # Map state key → primary city for Adzuna `where`
+    if nigeria_state:
+        state_lower = nigeria_state.lower()
+        cities = NIGERIA_STATES.get(state_lower, [nigeria_state.title()])
+        params["where"] = cities[0]
+    elif remote is True:
+        params["where"] = "remote"
+    # If no state + not remote, omit `where` — Adzuna returns nationwide Nigeria results
+
+    try:
+        payload = await _fetch_json(
+            "https://api.adzuna.com/v1/api/jobs/ng/search/1", params=params
+        )
+    except Exception:
+        return []
+
+    jobs: list[JobResult] = []
+    for item in payload.get("results", []):
+        title = _normalize_text(item.get("title"))
+        company_raw = item.get("company", {})
+        company = _normalize_text(
+            company_raw.get("display_name")
+            if isinstance(company_raw, dict)
+            else company_raw
+        )
+        if not title or not company:
+            continue
+        loc_raw = item.get("location", {})
+        location = _normalize_text(
+            loc_raw.get("display_name") if isinstance(loc_raw, dict) else loc_raw
+        ) or (nigeria_state.title() if nigeria_state else "Nigeria")
+
+        jobs.append(
+            JobResult(
+                id=f"adzuna-ng:{item.get('id') or title}",
+                title=title,
+                company=company,
+                location=location,
+                remote="remote" in _normalize_text(item.get("description", "")).lower(),
+                salary_min=float(item["salary_min"]) if item.get("salary_min") not in (None, "") else None,
+                salary_max=float(item["salary_max"]) if item.get("salary_max") not in (None, "") else None,
+                currency="NGN",
+                description=_normalize_text(item.get("description", "")),
+                apply_url=_normalize_text(item.get("redirect_url", "")),
+                posted_at=_parse_datetime(item.get("created")),
+                source="adzuna-ng",
+                category=_normalize_text(
+                    (item.get("category", {}) or {}).get("label", "")
+                    if isinstance(item.get("category"), dict)
+                    else item.get("category", "")
+                ),
+                logo_url=None,
+            )
+        )
+    if remote is False:
+        jobs = [job for job in jobs if not job.remote]
+    return jobs
+
+
+# ── Remotive ──────────────────────────────────────────────────────────────────
+
 async def _search_remotive(query: str, location: str, remote: Optional[bool]) -> list[JobResult]:
-    payload = await _fetch_json("https://remotive.com/api/remote-jobs", params={"search": query})
+    try:
+        payload = await _fetch_json(
+            "https://remotive.com/api/remote-jobs", params={"search": query}
+        )
+    except Exception:
+        return []
+
     jobs: list[JobResult] = []
     for item in payload.get("jobs", []):
         title = _normalize_text(item.get("title"))
@@ -193,8 +306,16 @@ async def _search_remotive(query: str, location: str, remote: Optional[bool]) ->
     return jobs
 
 
+# ── Arbeitnow ─────────────────────────────────────────────────────────────────
+
 async def _search_arbeitnow(query: str, location: str, remote: Optional[bool]) -> list[JobResult]:
-    payload = await _fetch_json("https://www.arbeitnow.com/api/job-board-api", params={"search": query})
+    try:
+        payload = await _fetch_json(
+            "https://www.arbeitnow.com/api/job-board-api", params={"search": query}
+        )
+    except Exception:
+        return []
+
     jobs: list[JobResult] = []
     for item in payload.get("data", []):
         title = _normalize_text(item.get("title"))
@@ -225,70 +346,11 @@ async def _search_arbeitnow(query: str, location: str, remote: Optional[bool]) -
     return jobs
 
 
-async def _search_jsearch(query: str, location: str, remote: Optional[bool]) -> list[JobResult]:
-    """Search via RapidAPI JSearch (jsearch.p.rapidapi.com).
+# ── Jobicy ────────────────────────────────────────────────────────────────────
 
-    This is defensive: the JSearch response shapes vary across providers on RapidAPI,
-    so we attempt to extract common fields if present.
-    """
-    if not settings.rapidapi_key or not settings.rapidapi_host:
-        return []
-
-    headers = {
-        "X-RapidAPI-Key": settings.rapidapi_key,
-        "X-RapidAPI-Host": settings.rapidapi_host,
-    }
-    params: dict[str, Any] = {"query": query or "", "page": 1, "num_pages": 1}
-    if location:
-        params["location"] = location
-
-    try:
-        payload = await _fetch_json("https://jsearch.p.rapidapi.com/search", params=params, headers=headers)
-    except Exception:
-        return []
-
-    data = payload.get("data") or payload.get("results") or []
-    jobs: list[JobResult] = []
-    for item in data:
-        # tolerant field selection
-        title = _normalize_text(item.get("job_title") or item.get("title") or item.get("position") or item.get("name"))
-        company = _normalize_text(item.get("employer_name") or item.get("company_name") or (item.get("company") if isinstance(item.get("company"), str) else (item.get("company", {}).get("name") if isinstance(item.get("company"), dict) else None)))
-        if not title or not company:
-            continue
-        city = _normalize_text(item.get("job_city") or item.get("city") or item.get("location"))
-        location_text = city or _normalize_text(item.get("job_country") or item.get("country") or "")
-        highlights = item.get("job_highlights")
-        responsibility_text = ""
-        if isinstance(highlights, dict):
-            responsibility_text = " ".join(highlights.get("Responsibilities", []) or [])
-        description = _normalize_text(item.get("job_description") or item.get("snippet") or responsibility_text or item.get("description") or highlights)
-        apply_url = _normalize_text(item.get("job_apply_link") or item.get("job_link") or item.get("job_google_link") or item.get("apply_link") or item.get("url") or "")
-        jid = item.get("job_id") or item.get("id") or apply_url or f"{title}-{company}"
-        job = JobResult(
-            id=f"jsearch:{jid}",
-            title=title,
-            company=company,
-            location=location_text or "",
-            remote=(item.get("remote") is True) or ("remote" in description.lower()),
-            salary_min=None,
-            salary_max=None,
-            currency=_normalize_text(item.get("salary_currency") or ""),
-            description=description,
-            apply_url=apply_url,
-            posted_at=_parse_datetime(item.get("publication_date") or item.get("date") or item.get("posted_at")),
-            source="jsearch",
-            category=_normalize_text(item.get("job_employment_type") or item.get("job_type") or item.get("category")),
-            logo_url=_normalize_text(item.get("company_logo") or item.get("company_logo_url") or item.get("company_logo_url")) or None,
-        )
-        if remote is False and job.remote:
-            continue
-        if location and location.lower() not in job.location.lower() and location.lower() not in job.description.lower():
-            continue
-        jobs.append(job)
-    return jobs
-
-
-async def _search_jobicy(query: str, location: str, remote: Optional[bool], region: str = "") -> list[JobResult]:
+async def _search_jobicy(
+    query: str, location: str, remote: Optional[bool], region: str = ""
+) -> list[JobResult]:
     params: dict[str, Any] = {"count": DEFAULT_PER_PAGE}
     geo = _region_geo(region, location)
     if geo:
@@ -299,7 +361,19 @@ async def _search_jobicy(query: str, location: str, remote: Optional[bool], regi
         payload = await _fetch_json("https://jobicy.com/api/v2/remote-jobs", params=params)
     except Exception:
         return []
+    return _parse_jobicy_response(payload, remote, location)
 
+
+async def _search_jobicy_with_params(params: dict[str, Any]) -> list[JobResult]:
+    """Search Jobicy with pre-built params (used for per-country Africa queries)."""
+    try:
+        payload = await _fetch_json("https://jobicy.com/api/v2/remote-jobs", params=params)
+    except Exception:
+        return []
+    return _parse_jobicy_response(payload, None, "")
+
+
+def _parse_jobicy_response(payload: dict, remote: Optional[bool], location: str) -> list[JobResult]:
     jobs: list[JobResult] = []
     for item in payload.get("jobs", []):
         title = _normalize_text(item.get("jobTitle") or item.get("title"))
@@ -331,106 +405,118 @@ async def _search_jobicy(query: str, location: str, remote: Optional[bool], regi
     return jobs
 
 
-async def _search_muse(query: str, location: str, remote: Optional[bool]) -> list[JobResult]:
-    """Search The Muse public API and normalize results."""
-    url = "https://www.themuse.com/api/public/jobs"
-    params: dict[str, Any] = {"page": 1}
-    try:
-        payload = await _fetch_json(url, params=params)
-    except Exception:
-        return []
 
-    data = payload.get("results") or []
-    jobs: list[JobResult] = []
-    for item in data:
-        title = _normalize_text(item.get("name") or item.get("title"))
-        company = _normalize_text(item.get("company", {}).get("name") if isinstance(item.get("company"), dict) else item.get("company") or "")
-        if not title or not company:
-            continue
-        locs = item.get("locations") or []
-        location_text = ""
-        if isinstance(locs, list) and locs:
-            # locations can be objects with 'name' fields or strings
-            first = locs[0]
-            location_text = _normalize_text(first.get("name") if isinstance(first, dict) else first)
-        description = _normalize_text(item.get("contents") or item.get("contents_html") or item.get("description") or "")
-        refs = item.get("refs") or {}
-        apply_url = _normalize_text(refs.get("landing_page") or refs.get("job") or refs.get("url") or "")
-        jid = item.get("id") or apply_url or f"muse-{title}-{company}"
-        job = JobResult(
-            id=f"muse:{jid}",
-            title=title,
-            company=company,
-            location=location_text or "",
-            remote=("remote" in description.lower()) or False,
-            salary_min=None,
-            salary_max=None,
-            currency="",
-            description=description,
-            apply_url=apply_url,
-            posted_at=_parse_datetime(item.get("publication_date") or item.get("date")),
-            source="muse",
-            category=_normalize_text(item.get("category") or ""),
-            logo_url=None,
-        )
-        if remote is False and job.remote:
-            continue
-        if location and location.lower() not in job.location.lower() and location.lower() not in job.description.lower():
-            continue
-        jobs.append(job)
-    return jobs
+# ── Main search entry point ───────────────────────────────────────────────────
 
+async def search_jobs(
+    query: str = "",
+    location: str = "",
+    remote: Optional[bool] = None,
+    region: str = "",
+    nigeria_state: str = "",
+) -> tuple[list[JobResult], SourceHealth]:
+    """
+    Search external job boards. Returns (results, health_info).
+    health_info contains:
+      - configured: number of sources attempted
+      - succeeded: number of sources that returned data (possibly empty)
+      - failed: number of sources that raised exceptions
+      - sources_with_results: list of source names that returned >0 results
+      - warning: human-readable warning if all sources failed
+    """
 
-async def search_jobs(query: str = "", location: str = "", remote: Optional[bool] = None, region: str = "") -> list[JobResult]:
     effective_location = _region_location(region, location)
-    tasks = [
-        _search_remotive(query, effective_location, remote),
-        _search_arbeitnow(query, effective_location, remote),
-        _search_muse(query, effective_location, remote),
-        _search_jobicy(query, effective_location, remote, region),
-    ]
-    # RapidAPI JSearch (optional)
-    if settings.rapidapi_key and settings.rapidapi_host:
-        tasks.append(_search_jsearch(query, effective_location, remote))
-    if settings.adzuna_app_id and settings.adzuna_app_key:
-        tasks.append(_search_adzuna(query, effective_location, remote))
+    is_nigeria = region.lower() == "nigeria" or bool(nigeria_state)
 
-    batches = await asyncio.gather(*tasks, return_exceptions=True)
+    # Build tasks with source labels
+    source_tasks: list[tuple[str, Any]] = [
+        ("remotive", _search_remotive(query, effective_location, remote)),
+        ("arbeitnow", _search_arbeitnow(query, effective_location, remote)),
+        ("jobicy", _search_jobicy(query, effective_location, remote, region)),
+    ]
+
+    has_adzuna = bool(settings.adzuna_app_id and settings.adzuna_app_key)
+    if has_adzuna:
+        if is_nigeria:
+            source_tasks.append(("adzuna-ng", _search_adzuna_nigeria(query, nigeria_state, remote)))
+        else:
+            source_tasks.append(("adzuna", _search_adzuna(query, effective_location, remote)))
+
+    # If region is Africa and not filtered to Nigeria, try additional Jobicy geos
+    if region.lower() == "africa" and not is_nigeria:
+        for geo in ["south-africa", "kenya", "ghana", "nigeria"]:
+            geo_params: dict[str, Any] = {"count": DEFAULT_PER_PAGE, "geo": geo}
+            if query:
+                geo_params["tag"] = query
+            source_tasks.append((
+                f"jobicy-africa-{geo}",
+                _search_jobicy_with_params(geo_params),
+            ))
+
+    # Run all sources in parallel
+    batches = await asyncio.gather(
+        *[task for _, task in source_tasks],
+        return_exceptions=True,
+    )
+
     results: list[JobResult] = []
     seen: set[str] = set()
-    for batch in batches:
+    succeeded = 0
+    failed = 0
+    sources_with_results: list[str] = []
+
+    for (source_name, _), batch in zip(source_tasks, batches):
         if isinstance(batch, Exception):
+            failed += 1
             continue
+        succeeded += 1
+        job_count = 0
         for job in batch:
             if job.id in seen or not _matches_region(job, region):
                 continue
             seen.add(job.id)
             results.append(job)
-    return results
+            job_count += 1
+        if job_count > 0:
+            sources_with_results.append(source_name)
 
+    configured = len(source_tasks)
+    warning = ""
+    if configured > 0 and succeeded == 0:
+        warning = "All job sources are currently unavailable. Try again later or check your internet connection."
+    elif configured > 0 and failed > succeeded:
+        warning = "Some job sources are unavailable — results may be limited."
+
+    return results, SourceHealth(
+        configured=configured,
+        succeeded=succeeded,
+        failed=failed,
+        sources_with_results=sources_with_results,
+        warning=warning,
+    )
+
+
+# ── Cache helpers ─────────────────────────────────────────────────────────────
 
 async def fetch_cached_search(db, cache_key: str) -> Optional[dict[str, Any]]:
-    """Fetch cached search if not expired."""
     now = _now()
     cached = await db.job_cache.find_one({"cache_key": cache_key})
     if not cached:
         return None
-    # Check TTL based on source type - external jobs get 30 min, axiom jobs get 5 min
     expires_at = cached.get("expires_at")
-    # MongoDB returns naive datetime - make timezone-aware for comparison
     if expires_at and expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if not expires_at or now >= expires_at:
-        # Expired - delete and return None
         await db.job_cache.delete_one({"cache_key": cache_key})
         return None
     return cached
 
 
-async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_payload: dict[str, Any]) -> None:
+async def cache_search_results(
+    db, cache_key: str, jobs: list[JobResult], query_payload: dict[str, Any]
+) -> None:
     now = _now()
     payload = [job.model_dump(mode="json") for job in jobs]
-    # Determine source and set appropriate TTL
     has_axiom = any(job.source == "axiom" for job in jobs)
     ttl = AXIOM_TTL_MINUTES if has_axiom else EXTERNAL_TTL_MINUTES
     expires_at = now + timedelta(minutes=ttl)
@@ -467,16 +553,28 @@ async def cache_search_results(db, cache_key: str, jobs: list[JobResult], query_
         )
 
 
-def make_search_cache_key(query: str, location: str, remote: Optional[bool], page: int, per_page: int, region: str = "") -> str:
-    return _search_cache_key({"q": query, "location": location, "remote": remote, "region": region, "page": page, "per_page": per_page})
+def make_search_cache_key(
+    query: str,
+    location: str,
+    remote: Optional[bool],
+    page: int,
+    per_page: int,
+    region: str = "",
+    nigeria_state: str = "",
+) -> str:
+    return _search_cache_key({
+        "q": query,
+        "location": location,
+        "remote": remote,
+        "region": region,
+        "nigeria_state": nigeria_state,
+        "page": page,
+        "per_page": per_page,
+    })
 
 
 async def invalidate_job_cache(db, job_id: str, source: str = "axiom") -> None:
-    """Invalidate all cached entries for a job or search results when a job changes."""
     if source == "axiom":
-        # Delete the individual job cache entry
         await db.job_cache.delete_one({"job_id": job_id})
-        # Invalidate all search cache entries (they may contain this job)
         await db.job_cache.delete_many({"kind": "search"})
-        # Also delete any general job cache entries
         await db.job_cache.delete_many({"job_id": {"$regex": ".*"}})

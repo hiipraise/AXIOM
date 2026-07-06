@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from app.database import get_db
 from app.limiter import limiter
 from app.middleware.auth import get_current_user
@@ -22,25 +22,24 @@ from app.models.schemas import (
     CVKeywordTrendOut,
     SkillGapRequest,
     SkillGapResponse,
+    SkillEndorsementCreate,
+    SkillEndorsementOut,
+    SectionSuggestionsResponse,
+    SectionSuggestion,
+    ToneAdjustRequest,
+    ToneAdjustResponse,
 )
 from app.services import ai_service
 from app.services.ats_service import simulateATS
+from app.services.skill_market_service import fetch_market_data, find_courses
 from datetime import datetime, timezone
 from bson import ObjectId
 import pdfplumber
 import io
 import re
 
-# Magic bytes for file type validation
 MAGIC_PDF = b"%PDF"
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
-
-def _validate_pdf(content: bytes) -> None:
-    """Validate PDF by magic bytes and size. Raises HTTPException on failure."""
-    if len(content) > MAX_FILE_SIZE:
-        raise too_large(f"File too large. Maximum size is {MAX_FILE_SIZE // 1024 // 1024}MB")
-    if not content.startswith(MAGIC_PDF):
-        raise bad_request("Invalid file type. Only PDF files are accepted")
 
 router = APIRouter()
 
@@ -59,6 +58,10 @@ def serialize_cv(cv: dict) -> dict:
         "title": cv["title"],
         "data": cv["data"],
         "is_public": cv.get("is_public", False),
+        "show_name": cv.get("show_name", True),
+        "show_email": cv.get("show_email", False),
+        "show_phone": cv.get("show_phone", False),
+        "show_experience": cv.get("show_experience", True),
         "theme": cv.get("theme", "minimal"),
         "page_count": cv.get("page_count", 1),
         "template": cv.get("template", "standard"),
@@ -139,6 +142,10 @@ async def create_cv(body: CVCreate, current_user=Depends(get_current_user), db=D
         "title": body.title,
         "data": body.data.model_dump(),
         "is_public": body.is_public,
+        "show_name": body.show_name,
+        "show_email": body.show_email,
+        "show_phone": body.show_phone,
+        "show_experience": body.show_experience,
         "theme": body.theme,
         "page_count": body.page_count,
         "template": body.template,
@@ -152,10 +159,42 @@ async def create_cv(body: CVCreate, current_user=Depends(get_current_user), db=D
 
 
 @router.get("")
-async def list_cvs(current_user=Depends(get_current_user), db=Depends(get_db)):
-    cursor = db.cvs.find({"owner_id": str(current_user["_id"])}).sort("updated_at", -1)
-    cvs = await cursor.to_list(100)
-    return [serialize_cv(c) for c in cvs]
+async def list_cvs(
+    skip: int = 0,
+    limit: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    user_id = str(current_user["_id"])
+    total = await db.cvs.count_documents({"owner_id": user_id})
+    cursor = db.cvs.find({"owner_id": user_id}).sort("updated_at", -1).skip(skip).limit(limit)
+    cvs = await cursor.to_list(limit)
+    return {
+        "cvs": [serialize_cv(c) for c in cvs],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+    }
+
+
+@router.get("/my-endorsements")
+async def get_my_endorsements(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Get all skills endorsed by the current user."""
+    endorsements = await db.skill_endorsements.find(
+        {"user_id": str(current_user["_id"])}
+    ).sort("created_at", -1).limit(100).to_list(100)
+    return [
+        SkillEndorsementOut(
+            id=str(e["_id"]),
+            user_id=e["user_id"],
+            skill=e["skill"],
+            cv_id=e.get("cv_id"),
+            endorser_username=e.get("endorser_username", ""),
+            comment=e.get("comment", ""),
+            created_at=e["created_at"],
+        )
+        for e in endorsements
+    ]
 
 
 @router.get("/{cv_id}")
@@ -211,6 +250,14 @@ async def update_cv(body: CVUpdate, cv_id: str, current_user=Depends(get_current
             updates["slug"] = f"{current_user['username']}-{base_slug}"
         else:
             updates["slug"] = None
+    if body.show_name is not None:
+        updates["show_name"] = body.show_name
+    if body.show_email is not None:
+        updates["show_email"] = body.show_email
+    if body.show_phone is not None:
+        updates["show_phone"] = body.show_phone
+    if body.show_experience is not None:
+        updates["show_experience"] = body.show_experience
     if body.theme is not None:
         updates["theme"] = body.theme
     if body.page_count is not None:
@@ -220,6 +267,13 @@ async def update_cv(body: CVUpdate, cv_id: str, current_user=Depends(get_current
 
     await db.cvs.update_one({"_id": ObjectId(cv_id)}, {"$set": updates})
     updated = await db.cvs.find_one({"_id": ObjectId(cv_id)})
+
+    # Invalidate PDF cache since CV data/theme/template may have changed
+    try:
+        await db.pdf_cache.delete_many({"cv_id": cv_id})
+    except Exception:
+        pass
+
     return serialize_cv(updated)
 
 
@@ -369,19 +423,52 @@ async def create_cv_analytics_event(body: CVAnalyticsCreate, cv_id: str, current
 @router.post("/ai/chat")
 @limiter.limit("20/minute")
 async def ai_chat(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
-    response = await ai_service.chat_with_ai(
+    result = await ai_service.chat_with_ai(
         body.message,
         cv_data=body.cv_data.model_dump() if body.cv_data else None,
         context=body.context or ""
     )
+    usage = result.get("usage", {})
+    tokens = usage.get("total_tokens", 0) or usage.get("completion_tokens", 0) or 0
     await db.ai_events.insert_one({
         "user_id": str(current_user["_id"]),
         "feature": "chat",
         "success": True,
-        "tokens_approx": 0,
+        "tokens_approx": tokens,
         "ts": datetime.now(timezone.utc),
     })
-    return {"response": response}
+    return {"response": result["response"], "usage": usage}
+
+
+@router.post("/ai/chat/stream")
+@limiter.limit("20/minute")
+async def ai_chat_stream(request: Request, body: AIPromptRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    
+    async def event_stream():
+        loop = asyncio.get_event_loop()
+        gen = ai_service.chat_with_ai_stream(
+            body.message,
+            cv_data=body.cv_data.model_dump() if body.cv_data else None,
+            context=body.context or "",
+        )
+        while True:
+            try:
+                event = await loop.run_in_executor(None, next, gen)
+                yield event
+            except StopIteration:
+                break
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/ai/generate-summary")
@@ -504,17 +591,63 @@ async def ai_keyword_gap(request: Request, body: KeywordGapRequest, current_user
 @router.post("/upload-cv")
 async def upload_cv(file: UploadFile = File(...), current_user=Depends(get_current_user)):
     content = await file.read()
-    # Validate magic bytes and size
-    _validate_pdf(content)
-    # Extract text from PDF
-    text = ""
-    with pdfplumber.open(io.BytesIO(content)) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text() or ""
-    if not text.strip():
-        raise bad_request("Could not extract text from PDF")
-    extracted = await ai_service.extract_cv_from_text(text)
-    return {"data": extracted}
+    if len(content) > MAX_FILE_SIZE:
+        raise too_large(f"File too large. Maximum size is {MAX_FILE_SIZE // 1024 // 1024}MB")
+
+    filename = (file.filename or "").lower()
+
+    # ── JSON import ────────────────────────────────────────────────────────
+    if filename.endswith(".json"):
+        try:
+            data = json.loads(content.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise bad_request("Invalid JSON file — could not parse")
+        # Normalize into CVData shape
+        try:
+            validated = CVData(**data).model_dump()
+        except Exception as e:
+            raise bad_request(f"JSON does not match CV schema: {e}")
+        return {"data": validated}
+
+    # ── PDF import ─────────────────────────────────────────────────────────
+    if content.startswith(MAGIC_PDF):
+        text = ""
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages:
+                    text += page.extract_text() or ""
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "encrypt" in error_msg or "password" in error_msg:
+                raise bad_request("Encrypted or password-protected PDFs are not supported")
+            raise bad_request(f"Could not read PDF: {e}")
+        if not text.strip():
+            raise bad_request("Could not extract any text from PDF — it may be a scanned image")
+        extracted = await ai_service.extract_cv_from_text(text)
+        return {"data": extracted}
+
+    # ── DOCX import ────────────────────────────────────────────────────────
+    if filename.endswith(".docx"):
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(content))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            # Also extract text from tables
+            table_texts = []
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if cells:
+                        table_texts.append(" | ".join(cells))
+            text = "\n".join(paragraphs + table_texts)
+        except Exception as e:
+            raise bad_request(f"Could not read DOCX file: {e}")
+        if not text.strip():
+            raise bad_request("Could not extract any text from DOCX")
+        extracted = await ai_service.extract_cv_from_text(text)
+        return {"data": extracted}
+
+    raise bad_request("Unsupported file type. Accepted formats: PDF, DOCX, JSON")
 
 
 # Skill Gap Engine
@@ -522,10 +655,17 @@ async def upload_cv(file: UploadFile = File(...), current_user=Depends(get_curre
 @router.post("/ai/skill-gap", response_model=SkillGapResponse)
 @limiter.limit("20/minute")
 async def analyze_skill_gaps(request: Request, body: SkillGapRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    # Fetch real job market data first (Adzuna, cached 1h), then run AI analysis with market context
+    cv_data = body.cv_data.model_dump()
+    target_role = body.target_role
+
+    market_data = await fetch_market_data(target_role, db)
     analysis = await ai_service.analyze_skill_gaps(
-        body.cv_data.model_dump(),
-        body.target_role,
+        cv_data,
+        target_role,
+        market_data=market_data,
     )
+
     await db.ai_events.insert_one({
         "user_id": str(current_user["_id"]),
         "feature": "skill_gap",
@@ -534,6 +674,87 @@ async def analyze_skill_gaps(request: Request, body: SkillGapRequest, current_us
         "ts": datetime.now(timezone.utc),
     })
     return SkillGapResponse(**analysis)
+
+
+# ── Skill Endorsements ────────────────────────────────────────────────────────
+
+@router.post("/ai/skill-endorsements", response_model=SkillEndorsementOut)
+@limiter.limit("30/minute")
+async def create_skill_endorsement(request: Request, body: SkillEndorsementCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Endorse a skill (self-endorsement or peer endorsement)."""
+    now = datetime.now(timezone.utc)
+    doc = {
+        "user_id": str(current_user["_id"]),
+        "skill": body.skill.strip().lower(),
+        "cv_id": body.cv_id,
+        "endorser_username": current_user["username"],
+        "comment": body.comment.strip()[:200],
+        "created_at": now,
+    }
+    # Upsert: one endorsement per user per skill
+    await db.skill_endorsements.update_one(
+        {"user_id": doc["user_id"], "skill": doc["skill"]},
+        {"$set": doc},
+        upsert=True,
+    )
+    created = await db.skill_endorsements.find_one(
+        {"user_id": doc["user_id"], "skill": doc["skill"]}
+    )
+    return SkillEndorsementOut(
+        id=str(created["_id"]),
+        user_id=created["user_id"],
+        skill=created["skill"],
+        cv_id=created.get("cv_id"),
+        endorser_username=created.get("endorser_username", ""),
+        comment=created.get("comment", ""),
+        created_at=created["created_at"],
+    )
+
+
+@router.get("/ai/skill-endorsements/{skill_name}")
+@limiter.limit("30/minute")
+async def get_skill_endorsements(request: Request, skill_name: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Get endorsements for a specific skill across all users."""
+    endorsements = await db.skill_endorsements.find(
+        {"skill": skill_name.strip().lower()}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    return {
+        "skill": skill_name.strip().lower(),
+        "count": len(endorsements),
+        "endorsements": [
+            SkillEndorsementOut(
+                id=str(e["_id"]),
+                user_id=e["user_id"],
+                skill=e["skill"],
+                cv_id=e.get("cv_id"),
+                endorser_username=e.get("endorser_username", ""),
+                comment=e.get("comment", ""),
+                created_at=e["created_at"],
+            )
+            for e in endorsements
+        ],
+    }
+
+
+@router.delete("/ai/skill-endorsements/{skill_name}")
+@limiter.limit("30/minute")
+async def remove_skill_endorsement(request: Request, skill_name: str, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Remove a skill endorsement."""
+    result = await db.skill_endorsements.delete_one({
+        "user_id": str(current_user["_id"]),
+        "skill": skill_name.strip().lower(),
+    })
+    return {"deleted": result.deleted_count > 0}
+
+
+# ── Course suggestions ─────────────────────────────────────────────────────────
+
+@router.get("/ai/courses/{skill_name}")
+@limiter.limit("60/minute")
+async def get_courses_for_skill(request: Request, skill_name: str):
+    """Get learning course suggestions for a specific skill."""
+    courses = find_courses(skill_name)
+    return {"skill": skill_name.strip().lower(), "courses": courses}
 
 
 # ATS Simulation
@@ -553,14 +774,62 @@ class ATSFlagOut(BaseModel):
     details: str | None = None
 
 
+class ATSVendorScoreOut(BaseModel):
+    vendor: str
+    score: int
+    flags: list[ATSFlagOut] = []
+    quirks_detected: list[str] = []
+
+
 class ATSResultOut(BaseModel):
     score: int
     flags: list[ATSFlagOut]
     extracted_text: str
     section_headers_found: list[str]
-    keyword_matches: list[str]
+    keyword_matches: list[dict]  # {keyword, tfidf, count}
     keyword_density: dict[str, float]
     missing_keywords: list[str]
+    tfidf_scores: dict[str, float] = {}
+    vendor_scores: list[ATSVendorScoreOut] = []
+    vendor_overall: int = 0
+
+
+@router.post("/ai/section-suggestions", response_model=SectionSuggestionsResponse)
+@limiter.limit("20/minute")
+async def ai_section_suggestions(request: Request, body: JobMatchRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Generate per-section suggestions to align CV to a job description."""
+    suggestions = await ai_service.generate_section_suggestions(
+        body.cv_data.model_dump(),
+        body.job_description,
+    )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "section_suggestions",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
+    return SectionSuggestionsResponse(suggestions=[SectionSuggestion(**s) for s in suggestions])
+
+
+@router.post("/ai/adjust-tone", response_model=ToneAdjustResponse)
+@limiter.limit("20/minute")
+async def ai_adjust_tone(request: Request, body: ToneAdjustRequest, current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Adjust the tone/style of a specific CV section."""
+    result = await ai_service.adjust_section_tone(
+        body.cv_data.model_dump(),
+        body.section,
+        body.tone,
+        body.custom_instruction or "",
+    )
+    await db.ai_events.insert_one({
+        "user_id": str(current_user["_id"]),
+        "feature": "adjust_tone",
+        "success": True,
+        "tokens_approx": 0,
+        "ts": datetime.now(timezone.utc),
+    })
+    return ToneAdjustResponse(**result)
 
 
 @router.post("/ai/ats-preview", response_model=ATSResultOut)
@@ -592,4 +861,23 @@ async def ats_preview(request: Request, body: ATSRequest, current_user=Depends(g
         keyword_matches=result.keyword_matches,
         keyword_density=result.keyword_density,
         missing_keywords=result.missing_keywords,
+        tfidf_scores=result.tfidf_scores,
+        vendor_scores=[
+            ATSVendorScoreOut(
+                vendor=vs.vendor,
+                score=vs.score,
+                flags=[
+                    ATSFlagOut(
+                        severity=f.severity,
+                        category=f.category,
+                        message=f.message,
+                        details=f.details,
+                    )
+                    for f in vs.flags
+                ],
+                quirks_detected=vs.quirks_detected,
+            )
+            for vs in result.vendor_scores
+        ],
+        vendor_overall=result.vendor_overall,
     )

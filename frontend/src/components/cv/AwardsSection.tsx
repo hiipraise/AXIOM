@@ -1,5 +1,5 @@
 import { AwardItem, LanguageItem, VolunteerItem, EMPTY_AWARD, EMPTY_LANGUAGE, EMPTY_VOLUNTEER } from '../../types'
-import { Field, Input, Textarea, SectionHeader, Card } from '../UI/FormElements'
+import { Field, Input, Textarea, SectionHeader, Card, MarkdownToolbar } from '../UI/FormElements'
 import { Plus, Trash2 } from 'lucide-react'
 
 // ---- AWARDS ----
@@ -20,7 +20,21 @@ export function AwardsSection({ items, onChange }: AwardsProps) {
             <Field label="Issuer"><Input value={item.issuer} onChange={(e) => update(i, { issuer: e.target.value })} placeholder="IEEE" /></Field>
           </div>
           <Field label="Date"><Input value={item.date} onChange={(e) => update(i, { date: e.target.value })} placeholder="Nov 2023" /></Field>
-          <Field label="Description"><Textarea value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} /></Field>
+          <MarkdownToolbar onInsert={(before, after, placeholder) => {
+            const input = document.querySelector<HTMLTextAreaElement>(`textarea[name="award-desc-${i}"]`)
+            if (input) {
+              const start = input.selectionStart
+              const end = input.selectionEnd
+              const current = items[i].description
+              const selected = current.substring(start, end) || (placeholder || '')
+              update(i, { description: current.substring(0, start) + before + selected + after + current.substring(end) })
+              setTimeout(() => { input.focus(); input.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
+            } else {
+              const insert = (placeholder || '') ? before + (placeholder || '') + after : before + after
+              update(i, { description: items[i].description + insert })
+            }
+          }} />
+          <Field label="Description"><Textarea name={`award-desc-${i}`} showWordCount value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} /></Field>
         </Card>
       ))}
     </div>
@@ -77,7 +91,21 @@ export function VolunteerSection({ items, onChange }: VolProps) {
             <Field label="Start"><Input value={item.start_date} onChange={(e) => update(i, { start_date: e.target.value })} placeholder="Jan 2023" /></Field>
             <Field label="End"><Input value={item.end_date} onChange={(e) => update(i, { end_date: e.target.value })} placeholder="Present" /></Field>
           </div>
-          <Field label="Description"><Textarea value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} /></Field>
+          <MarkdownToolbar onInsert={(before, after, placeholder) => {
+            const input = document.querySelector<HTMLTextAreaElement>(`textarea[name="vol-desc-${i}"]`)
+            if (input) {
+              const start = input.selectionStart
+              const end = input.selectionEnd
+              const current = items[i].description
+              const selected = current.substring(start, end) || (placeholder || '')
+              update(i, { description: current.substring(0, start) + before + selected + after + current.substring(end) })
+              setTimeout(() => { input.focus(); input.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
+            } else {
+              const insert = (placeholder || '') ? before + (placeholder || '') + after : before + after
+              update(i, { description: items[i].description + insert })
+            }
+          }} />
+          <Field label="Description"><Textarea name={`vol-desc-${i}`} showWordCount value={item.description} onChange={(e) => update(i, { description: e.target.value })} rows={2} /></Field>
         </Card>
       ))}
     </div>

@@ -13,7 +13,6 @@ from enum import Enum
 
 class UserRole(str, Enum):
     user = "user"
-    recruiter = "recruiter"
     staff = "staff"
     admin = "admin"
     superadmin = "superadmin"
@@ -30,6 +29,17 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+
+class RegisterWithCV(BaseModel):
+    """Register a new user and import their guest CV data."""
+    username: str = Field(..., min_length=3, max_length=30, pattern=r"^[a-zA-Z0-9_\-]+$")
+    password: str = Field(..., min_length=6, max_length=72)
+    email: Optional[EmailStr] = None
+    secret_question: Optional[str] = None
+    secret_answer: Optional[str] = None
+    cv_title: str = "My CV"
+    cv_data: dict
 
 
 class RoadmapProgressItem(BaseModel):
@@ -187,12 +197,20 @@ class CVCreate(BaseModel):
     theme: str = "minimal"
     page_count: int = Field(default=1, ge=1, le=3)
     template: str = "standard"
+    show_name: bool = True
+    show_email: bool = False
+    show_phone: bool = False
+    show_experience: bool = True
 
 
 class CVUpdate(BaseModel):
     title: Optional[str] = None
     data: Optional[CVData] = None
     is_public: Optional[bool] = None
+    show_name: Optional[bool] = None
+    show_email: Optional[bool] = None
+    show_phone: Optional[bool] = None
+    show_experience: Optional[bool] = None
     theme: Optional[str] = None
     page_count: Optional[int] = None
     template: Optional[str] = None
@@ -216,6 +234,10 @@ class CVOut(BaseModel):
     title: str
     data: CVData
     is_public: bool
+    show_name: bool = True
+    show_email: bool = False
+    show_phone: bool = False
+    show_experience: bool = True
     theme: str
     page_count: int
     template: str
@@ -284,193 +306,6 @@ class JobResult(BaseModel):
     logo_url: Optional[str] = None
 
 
-class AxiomJobStatus(str, Enum):
-    full_time = "full-time"
-    part_time = "part-time"
-    contract = "contract"
-    internship = "internship"
-
-
-class AxiomJobCreate(BaseModel):
-    title: str = Field(..., min_length=2, max_length=160)
-    description: str = Field(..., min_length=20)
-    location: str = ""
-    remote: bool = False
-    job_type: str = "full-time"
-    salary_min: Optional[float] = None
-    salary_max: Optional[float] = None
-    currency: str = "USD"
-    skills_required: List[str] = Field(default_factory=list)
-    experience_level: str = "mid"
-    industry: str = ""
-    apply_deadline: Optional[datetime] = None
-    is_active: bool = True
-
-
-class AxiomJobUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    location: Optional[str] = None
-    remote: Optional[bool] = None
-    job_type: Optional[str] = None
-    salary_min: Optional[float] = None
-    salary_max: Optional[float] = None
-    currency: Optional[str] = None
-    skills_required: Optional[List[str]] = None
-    experience_level: Optional[str] = None
-    industry: Optional[str] = None
-    apply_deadline: Optional[datetime] = None
-    is_active: Optional[bool] = None
-
-
-class AxiomJobOut(AxiomJobCreate):
-    id: str
-    employer_id: str
-    company_name: str
-    company_slug: str = ""
-    company_logo_url: str = ""
-    is_approved: bool = True
-    share_token: str
-    views: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-
-class AxiomApplicationStatus(str, Enum):
-    applied = "applied"
-    reviewed = "reviewed"
-    shortlisted = "shortlisted"
-    interview_scheduled = "interview_scheduled"
-    interviewed = "interviewed"
-    offered = "offered"
-    rejected = "rejected"
-    accepted = "accepted"
-    declined = "declined"
-
-
-class AxiomApplicationCreate(BaseModel):
-    job_id: str
-    cv_id: str
-    cover_letter: str = ""
-
-
-class AxiomApplicationUpdate(BaseModel):
-    status: Optional[AxiomApplicationStatus] = None
-    employer_notes: Optional[str] = None
-
-
-class AxiomApplicationOut(BaseModel):
-    id: str
-    job_id: str
-    candidate_id: str
-    employer_id: str
-    cv_id: str
-    cv_snapshot: Optional[dict] = None
-    cover_letter: str = ""
-    status: AxiomApplicationStatus = AxiomApplicationStatus.applied
-    employer_notes: str = ""
-    created_at: datetime
-    updated_at: datetime
-    job: Optional[AxiomJobOut] = None
-
-
-class RecruiterRegisterRequest(BaseModel):
-    company_name: str = Field(..., min_length=2, max_length=140)
-    website: str = ""
-    description: str = ""
-    logo_url: str = ""
-    industry: str = ""
-    size: str = ""
-    location: str = ""
-
-
-class RecruiterProfileOut(RecruiterRegisterRequest):
-    id: str
-    user_id: str
-    company_slug: str
-    verified: bool = False
-    is_approved: bool = True
-    created_at: datetime
-    updated_at: datetime
-
-
-class TalentPoolCreate(BaseModel):
-    name: str = Field(..., min_length=2, max_length=120)
-    description: str = ""
-
-
-class TalentPoolOut(TalentPoolCreate):
-    id: str
-    recruiter_id: str
-    candidate_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-
-class SavedCandidateCreate(BaseModel):
-    application_id: str
-    pool_id: Optional[str] = None
-    notes: str = ""
-
-
-class SavedCandidateUpdate(BaseModel):
-    pool_id: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class SavedCandidateOut(BaseModel):
-    id: str
-    recruiter_id: str
-    pool_id: Optional[str] = None
-    application_id: str
-    candidate_id: str
-    job_id: str
-    cv_id: str
-    candidate_name: str = ""
-    candidate_title: str = ""
-    candidate_location: str = ""
-    skills: List[str] = Field(default_factory=list)
-    cv_snapshot: Optional[dict] = None
-    notes: str = ""
-    source_job_title: str = ""
-    status: str = ""
-    created_at: datetime
-    updated_at: datetime
-
-
-class LiveInterviewStart(BaseModel):
-    application_id: str
-    session_type: str = "live_manual"
-    scheduled_at: Optional[datetime] = None
-    duration_minutes: int = Field(default=30, ge=15, le=120)
-
-
-class LiveInterviewSession(BaseModel):
-    id: str
-    session_type: str
-    axiom_application_id: Optional[str] = None
-    jitsi_room: Optional[str] = None
-    jitsi_password: Optional[str] = None
-    scheduled_at: Optional[datetime] = None
-    duration_minutes: int = 30
-    employer_id: Optional[str] = None
-    candidate_id: Optional[str] = None
-    employer_joined_at: Optional[datetime] = None
-    candidate_joined_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
-    recording_consent: bool = False
-    transcript: List[dict] = Field(default_factory=list)
-    question_queue: List[str] = Field(default_factory=list)
-    current_question: str = ""
-    employer_question: str = ""
-    employer_question_updated_at: Optional[datetime] = None
-    ai_summary: str = ""
-    employer_notes: str = ""
-    employer_decision: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-
 class NotificationCreate(BaseModel):
     user_id: str
     title: str
@@ -490,12 +325,21 @@ class NotificationOut(BaseModel):
     created_at: datetime
 
 
+class SourceHealth(BaseModel):
+    configured: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    sources_with_results: List[str] = Field(default_factory=list)
+    warning: str = ""
+
+
 class JobSearchResponse(BaseModel):
     items: List[JobResult]
     total: int = 0
     page: int = 1
     per_page: int = 20
     cached: bool = False
+    source_health: SourceHealth = Field(default_factory=SourceHealth)
 
 
 class CoverLetterRequest(BaseModel):
@@ -528,45 +372,6 @@ class JobSaveEntry(BaseModel):
     job_id: str
     saved_at: datetime
     job: Optional[JobResult] = None
-
-
-class ApplicationStatus(str, Enum):
-    saved = "saved"
-    applied = "applied"
-    interview = "interview"
-    offer = "offer"
-    rejected = "rejected"
-
-
-class ApplicationEntry(BaseModel):
-    id: str
-    user_id: str
-    job_id: str
-    status: ApplicationStatus = ApplicationStatus.saved
-    cv_id: Optional[str] = None
-    notes: str = ""
-    applied_url: Optional[str] = None
-    follow_up_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
-    job: Optional[JobResult] = None
-
-
-class ApplicationCreate(BaseModel):
-    job_id: str
-    status: ApplicationStatus = ApplicationStatus.saved
-    cv_id: Optional[str] = None
-    notes: str = ""
-    applied_url: Optional[str] = None
-    follow_up_at: Optional[datetime] = None
-
-
-class ApplicationUpdate(BaseModel):
-    status: Optional[ApplicationStatus] = None
-    cv_id: Optional[str] = None
-    notes: Optional[str] = None
-    applied_url: Optional[str] = None
-    follow_up_at: Optional[datetime] = None
 
 
 class CVKeywordTrendItem(BaseModel):
@@ -634,6 +439,105 @@ class SkillGapResponse(BaseModel):
     roadmap: List[LearningRoadmapStep] = Field(default_factory=list)
     notes: str = ""
 
+    # ── NEW: Market data ────────────────────────────────────────────────────
+    skill_demand: dict[str, float] = Field(default_factory=dict)
+    """Skill demand scores (0-100) from real job postings. key=skill, value=demand."""
+    total_jobs_analyzed: int = 0
+    sample_titles: List[str] = Field(default_factory=list)
+
+
+# ─── Skill Endorsement models ────────────────────────────────────────────────
+
+class SkillEndorsementCreate(BaseModel):
+    skill: str = Field(..., min_length=1, max_length=120)
+    cv_id: Optional[str] = None
+    comment: str = ""
+
+
+class SkillEndorsementOut(BaseModel):
+    id: str
+    user_id: str
+    skill: str
+    cv_id: Optional[str] = None
+    endorser_username: str = ""
+    comment: str = ""
+    created_at: datetime
+
+
+class SkillEndorsementSummary(BaseModel):
+    skill: str
+    count: int = 0
+    endorsements: List[SkillEndorsementOut] = Field(default_factory=list)
+
+
+# ─── Course Link models ───────────────────────────────────────────────────────
+
+class CourseLink(BaseModel):
+    title: str
+    url: str
+    platform: str = ""
+    cost: str = "free"  # free | paid
+
+
+class SkillCourses(BaseModel):
+    skill: str
+    courses: List[CourseLink] = Field(default_factory=list)
+
+
+class SkillGapWithCourses(SkillGapItem):
+    courses: List[CourseLink] = Field(default_factory=list)
+
+class ReviewCardDifficulty(str, Enum):
+    easy = "easy"
+    medium = "medium"
+    hard = "hard"
+
+
+class InterviewTopic(BaseModel):
+    name: str
+    count: int = 0
+    avg_score: Optional[float] = None
+    trend: str = "stable"  # improving | declining | stable
+
+
+class ReviewCardCreate(BaseModel):
+    session_id: str
+    question: str
+    answer: str = ""
+    topic: str = "general"
+    difficulty: ReviewCardDifficulty = ReviewCardDifficulty.medium
+
+
+class ReviewCardRating(BaseModel):
+    card_id: str
+    rating: ReviewCardDifficulty
+
+
+class ReviewCardOut(BaseModel):
+    id: str
+    user_id: str
+    session_id: str
+    question: str
+    answer: str = ""
+    topic: str = "general"
+    difficulty: str = "medium"
+    last_reviewed: Optional[datetime] = None
+    review_count: int = 0
+    next_review_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class DifficultyAdjustRequest(BaseModel):
+    mode: str = ""
+    recent_scores: List[int] = Field(default_factory=list)
+
+
+class DifficultyAdjustResponse(BaseModel):
+    level: str  # beginner | intermediate | advanced
+    max_questions: int
+    description: str
+
+
 class InterviewMode(str, Enum):
     behavioural = "behavioural"
     technical = "technical"
@@ -646,6 +550,7 @@ class InterviewStartRequest(BaseModel):
     job_description: Optional[str] = None
     mode: InterviewMode = InterviewMode.behavioural
     use_star: bool = True
+    force: bool = False
 
 
 class InterviewStartResponse(BaseModel):
@@ -670,7 +575,6 @@ class InterviewFeedback(BaseModel):
     overall_score: int = Field(default=0, ge=0, le=100)
     what_was_strong: str = ""
     what_was_vague: str = ""
-    recruiter_takeaway: str = ""
     suggested_improvement: str = ""
 
 
@@ -693,6 +597,7 @@ class InterviewSessionListItem(BaseModel):
     question_count: int = 0
     answered_count: int = 0
     overall_score: Optional[int] = None
+    share_token: Optional[str] = None
 
 
 class InterviewMessageOut(BaseModel):
@@ -716,10 +621,31 @@ class InterviewSessionDetail(InterviewSessionListItem):
 class AnnouncementCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
     type: str = Field(default="info", pattern=r"^(info|success|warning|error)$")
+    scheduled_at: Optional[datetime] = None
+    target_segment: str = Field(default="all", pattern=r"^(all|new_users|active_users|role:user|role:staff|role:admin)$")
+
+
+class AnnouncementUpdate(BaseModel):
+    text: Optional[str] = Field(None, min_length=1, max_length=2000)
+    type: Optional[str] = Field(None, pattern=r"^(info|success|warning|error)$")
+    scheduled_at: Optional[datetime] = None
+    target_segment: Optional[str] = Field(None, pattern=r"^(all|new_users|active_users|role:user|role:staff|role:admin)$")
+
+
+TARGET_SEGMENT_LABELS = {
+    "all": "All users",
+    "new_users": "New users (first 7 days)",
+    "active_users": "Active users (last 30 days)",
+    "role:user": "Role: User",
+    "role:staff": "Role: Staff",
+    "role:admin": "Role: Admin",
+}
 
 
 class FeedbackSubmit(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
+    type: str = Field(default="other", pattern=r"^(rate|keep|add|remove|other)$")
+    rating: Optional[int] = Field(None, ge=1, le=5)
     page_url: Optional[str] = None
 
 
@@ -750,25 +676,62 @@ class ForgotUsernameRequest(BaseModel):
 
 
 class UserRoleUpdate(BaseModel):
-    role: str = Field(..., pattern=r"^(user|recruiter|staff|admin|superadmin)$")
+    role: str = Field(..., pattern=r"^(user|staff|admin|superadmin)$")
 
 
-class RecruiterApprovalUpdate(BaseModel):
-    is_approved: bool
+# Email request/response models
+class EmailSendRequest(BaseModel):
+    to: str | List[str] = Field(..., min_length=1)
+    subject: str = Field(..., min_length=1, max_length=200)
+    html: Optional[str] = Field(None, max_length=500_000)
+    template_key: Optional[str] = None
+    variables: Optional[dict] = None
 
 
-class LiveAnswer(BaseModel):
-    answer: str = Field(..., min_length=1, max_length=5000)
-    question_id: str = Field(..., min_length=1)
+class EmailBatchRequest(BaseModel):
+    to: List[str] = Field(..., min_length=1)
+    subject: str = Field(..., min_length=1, max_length=200)
+    html: Optional[str] = Field(None, max_length=500_000)
+    template_key: Optional[str] = None
+    variables: Optional[dict] = None
+    batch_size: int = Field(default=50, ge=1, le=500)
+    batch_interval_minutes: int = Field(default=15, ge=1, le=1440)
 
 
-class LiveFollowUp(BaseModel):
-    question: str = Field(..., min_length=1, max_length=1000)
+class EmailSendResponse(BaseModel):
+    success: bool
+    message: str = ""
 
 
-class LiveFeedbackUpdate(BaseModel):
-    rating: int = Field(..., ge=1, le=5)
-    notes: Optional[str] = Field(None, max_length=1000)
+# ─── Notification preferences ──────────────────────────────────────────────────
+
+class QuietHours(BaseModel):
+    enabled: bool = False
+    start: str = "22:00"  # HH:MM in UTC
+    end: str = "08:00"    # HH:MM in UTC
+
+
+class NotificationPreferences(BaseModel):
+    email_notifications: bool = True
+    push_notifications: bool = False
+    quiet_hours: QuietHours = Field(default_factory=QuietHours)
+    kinds: dict[str, bool] = Field(default_factory=lambda: {
+        "general": True,
+        "application": True,
+        "interview": True,
+        "review_card": True,
+        "announcement": True,
+    })
+
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: dict  # { p256dh: str, auth: str }
+
+
+class PushSubscriptionResponse(BaseModel):
+    success: bool
+    message: str = ""
 
 
 # Search result models
@@ -788,17 +751,79 @@ class JobSearchResult(BaseModel):
     posted_at: Optional[str] = None
 
 
-class AxiomJobSearchResult(BaseModel):
-    id: str
-    title: str
-    company: str
-    location: str
-    remote: bool = False
-    job_type: str = ""
-    created_at: Optional[str] = None
-
-
 class SearchResults(BaseModel):
     cvs: List[CVSearchResult] = []
     jobs: List[JobSearchResult] = []
-    axiom_jobs: List[AxiomJobSearchResult] = []
+
+
+# ─── Comment & Suggestion models ─────────────────────────────────────────────
+
+class CommentCreate(BaseModel):
+    section: str = Field(..., min_length=1, max_length=50)
+    field_path: str = ""
+    text: str = Field(..., min_length=1, max_length=2000)
+    is_suggestion: bool = False
+    suggested_value: Optional[str] = Field(None, max_length=5000)
+    parent_id: Optional[str] = None
+
+
+class CommentUpdate(BaseModel):
+    text: Optional[str] = Field(None, min_length=1, max_length=2000)
+    resolved: Optional[bool] = None
+
+
+class CommentOut(BaseModel):
+    id: str
+    cv_id: str
+    section: str
+    field_path: str = ""
+    user_id: str
+    username: str = ""
+    text: str
+    is_suggestion: bool = False
+    suggested_value: Optional[str] = None
+    resolved: bool = False
+    parent_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── Section Suggestion models ────────────────────────────────────────────────
+
+class SectionSuggestion(BaseModel):
+    section: str
+    field: str = ""
+    title: str
+    description: str
+    suggested_change: Optional[str] = None
+    priority: str = "medium"  # high | medium | low
+
+
+class SectionSuggestionsResponse(BaseModel):
+    suggestions: List[SectionSuggestion] = Field(default_factory=list)
+
+
+# ─── Tone Adjustment models ───────────────────────────────────────────────────
+
+class ToneAdjustRequest(BaseModel):
+    cv_data: CVData
+    section: str
+    tone: str = "professional"  # professional | concise | assertive | confident | moderate | enthusiastic
+    custom_instruction: Optional[str] = Field(None, max_length=500)
+
+
+TONE_OPTIONS = [
+    "professional",
+    "concise",
+    "assertive",
+    "confident",
+    "moderate",
+    "enthusiastic",
+]
+
+
+class ToneAdjustResponse(BaseModel):
+    original: str
+    adjusted: str
+    section: str
+    tone: str

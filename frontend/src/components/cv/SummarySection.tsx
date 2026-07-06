@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { cvApi } from '../../api'
 import { CVData } from '../../types'
-import { Field, Textarea, SectionHeader, Card } from '../UI/FormElements'
+import { Field, Textarea, SectionHeader, Card, MarkdownToolbar } from '../UI/FormElements'
 import { Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { countWords, countListWords } from '../../lib/wordCount'
 
 interface Props {
   value: string
@@ -29,9 +30,12 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
     }
   }
 
+  // Calculate total word count for the section header
+  const totalWords = countWords(value) + countWords(jobDesc)
+
   return (
     <div className="space-y-5 animate-fade-in">
-      <SectionHeader title="Professional Summary" subtitle="A concise, factual overview of your career — no filler phrases" />
+      <SectionHeader title="Professional Summary" subtitle="A concise, factual overview of your career — no filler phrases" wordCount={totalWords} />
       <Card className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-xs font-medium text-ink">Profile Summary</label>
@@ -40,8 +44,20 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
             <Wand2 size={12} /> {generating ? 'Generating…' : 'AI Generate'}
           </button>
         </div>
+        <MarkdownToolbar onInsert={(before, after, placeholder) => {
+          const ta = document.querySelector<HTMLTextAreaElement>('textarea[name="summary"]')
+          if (!ta) return
+          const start = ta.selectionStart
+          const end = ta.selectionEnd
+          const selected = value.substring(start, end) || placeholder || ''
+          const next = value.substring(0, start) + before + selected + after + value.substring(end)
+          onChange(next)
+          setTimeout(() => { ta.focus(); ta.setSelectionRange(start + before.length, start + before.length + selected.length) }, 0)
+        }} />
         <Textarea
+          name="summary"
           value={value}
+          showWordCount
           onChange={(e) => onChange(e.target.value)}
           rows={5}
           placeholder="Describe your career in concrete terms. Use specific job titles, years of experience, and measurable achievements."
@@ -51,7 +67,9 @@ export default function SummarySection({ value, jobDesc, onChange, onJobDescChan
       <Card className="space-y-3">
         <Field label="Job Description (optional)" hint="Paste a job description here to align your CV language to the role. AI will match your experience without fabricating anything.">
           <Textarea
+            name="job-desc"
             value={jobDesc}
+            showWordCount
             onChange={(e) => onJobDescChange(e.target.value)}
             rows={6}
             placeholder="Paste the job description you're applying for…"

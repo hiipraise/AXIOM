@@ -8,14 +8,16 @@ import React, {
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { axiomApplicationsApi, cvApi, interviewApi, jobsApi } from "../../api";
+import { cvApi, interviewApi, jobsApi, notificationsApi } from "../../api";
 import {
-  ApplicationEntry,
-  AxiomApplication,
   CV,
   InterviewSessionListItem,
   JobResult,
+  NotificationItem,
 } from "../../types";
+import { GenericError } from "../../components/UI/ErrorState";
+import { Skeleton } from "../../components/UI/Skeleton";
+import { EmptyState } from "../../components/UI/EmptyState";
 import {
   Plus,
   FileText,
@@ -37,15 +39,18 @@ import {
   Lightbulb,
   ArrowRight,
   Search,
-  Send,
   Map,
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  MessageSquare,
+  ImageIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/auth";
 import ConfirmDialog from "../../components/UI/ConfirmDialog";
+import ShareCardModal from "../../components/cv/ShareCardModal";
 import OnboardingWizard from "../../components/OnboardingWizard";
 import clsx from "clsx";
 
@@ -54,18 +59,10 @@ const WEEKLY_GOAL_KEYS = ["Update CV", "Apply to jobs", "Practise interview"];
 // Goal engine: auto-detect goals based on actual activity (weekly)
 function computeGoalStatus(args: {
   primaryCv: CV | undefined;
-  applications: ApplicationEntry[] | undefined;
-  axiomApplications: AxiomApplication[] | undefined;
   interviewSessions: InterviewSessionListItem[] | undefined;
   careerLevel: string;
 }) {
-  const {
-    primaryCv,
-    applications,
-    axiomApplications,
-    interviewSessions,
-    careerLevel,
-  } = args;
+  const { primaryCv, interviewSessions, careerLevel } = args;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -79,22 +76,8 @@ function computeGoalStatus(args: {
     cvUpdated = false;
   }
 
-  // Goal 2: Apply to jobs - at least 1 application per week (more for exec level)
-  const minApplications = careerLevel?.toLowerCase().includes("executive")
-    ? 3
-    : 1;
-  const apps = applications || [];
-  const axiomApps = axiomApplications || [];
-  const allApplications = [...apps, ...axiomApps];
-  let recentApplications = [];
-  try {
-    recentApplications = allApplications.filter(
-      (app) => app?.created_at && new Date(app.created_at) >= weekAgo,
-    );
-  } catch {
-    recentApplications = [];
-  }
-  const applied = recentApplications.length >= minApplications;
+  // Goal 2: Apply to jobs - track via saved jobs count (at least 1 saved this week)
+  const applied = false; // external job saves are tracked elsewhere
 
   // Goal 3: Practise interview - at least 1 completed session per week
   const sessions = interviewSessions || [];
@@ -127,6 +110,7 @@ interface MetricCardProps {
   progress?: number;
   progressColor?: string;
   tooltip: string;
+  isLoading?: boolean;
   children?: React.ReactNode;
 }
 
@@ -137,6 +121,7 @@ function MetricCard({
   progress,
   progressColor = "bg-amber-500",
   tooltip,
+  isLoading = false,
   children,
 }: MetricCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -196,18 +181,39 @@ function MetricCard({
         )}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-ink">{label}</p>
-        {icon}
+        {isLoading ? (
+          <Skeleton variant="circular" width={17} height={17} />
+        ) : (
+          icon
+        )}
       </div>
-      <p className="mt-3 text-3xl font-bold text-ink">{value}</p>
-      {progress !== undefined && (
-        <div className="mt-3 h-2 rounded-full bg-ash-dark">
-          <div
-            className={`h-2 rounded-full ${progressColor}`}
-            style={{ width: `${progress}%` }}
-          />
+      {isLoading ? (
+        <div className="mt-3 space-y-2">
+          <Skeleton width="60%" height={28} className="rounded-md" />
+          {progress !== undefined && (
+            <Skeleton width="100%" height={8} className="rounded-full" />
+          )}
+          {children && (
+            <div className="pt-2 space-y-1">
+              <Skeleton width="90%" height={12} />
+              <Skeleton width="70%" height={12} />
+            </div>
+          )}
         </div>
+      ) : (
+        <>
+          <p className="mt-3 text-3xl font-bold text-ink">{value}</p>
+          {progress !== undefined && (
+            <div className="mt-3 h-2 rounded-full bg-ash-dark">
+              <div
+                className={`h-2 rounded-full ${progressColor}`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+          {children}
+        </>
       )}
-      {children}
     </div>
   );
 }
@@ -443,6 +449,7 @@ function KebabMenu({
 }
 
 // ─── DashboardPage ────────────────────────────────────────────────────────────
+import Seo from "../../components/Seo";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -455,12 +462,21 @@ export default function DashboardPage() {
   const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
   const [skillGapCV, setSkillGapCV] = useState<CV | null>(null);
   const [carouselIdx, setCarouselIdx] = useState(0);
+  const [shareCardCV, setShareCardCV] = useState<CV | null>(null);
 
-  const { data: cvs = [], isLoading } = useQuery<CV[]>({
-    queryKey: ["cvs"],
-    queryFn: cvApi.list,
+  const [cvPage, setCvPage] = useState(0);
+  const {
+    data: cvData,
+    isLoading,
+    error: cvsError,
+    refetch: refetchCvs,
+  } = useQuery({
+    queryKey: ["cvs", cvPage],
+    queryFn: () => cvApi.list(cvPage * 20, 20),
     enabled: !!user,
   });
+  const cvs = cvData?.cvs ?? [];
+  const cvTotal = cvData?.total ?? cvs.length;
 
   const primaryCv = cvs[0];
   const matchSeed =
@@ -469,7 +485,9 @@ export default function DashboardPage() {
     primaryCv?.title ||
     "";
 
-  const { data: matchJobs = [] } = useQuery<JobResult[]>({
+  const { data: matchJobs = [], isError: matchJobsError } = useQuery<
+    JobResult[]
+  >({
     queryKey: ["dashboard-jobs", primaryCv?.id, matchSeed],
     queryFn: async () => {
       const res = await jobsApi.search({
@@ -480,18 +498,7 @@ export default function DashboardPage() {
       return res.items.slice(0, 5);
     },
     enabled: !!user && !!primaryCv && !!matchSeed,
-  });
-
-  const { data: applications = [] } = useQuery<ApplicationEntry[]>({
-    queryKey: ["applications"],
-    queryFn: jobsApi.applications,
-    enabled: !!user,
-  });
-
-  const { data: axiomApplications = [] } = useQuery<AxiomApplication[]>({
-    queryKey: ["axiom-applications"],
-    queryFn: axiomApplicationsApi.list,
-    enabled: !!user,
+    throwOnError: false,
   });
 
   const { data: interviewSessions = [] } = useQuery<InterviewSessionListItem[]>(
@@ -501,6 +508,12 @@ export default function DashboardPage() {
       enabled: !!user,
     },
   );
+
+  const { data: recentNotifications = [] } = useQuery<NotificationItem[]>({
+    queryKey: ["recent-notifications"],
+    queryFn: () => notificationsApi.list(0, 20),
+    enabled: !!user,
+  });
 
   const commandCenter = useMemo(() => {
     const cv = primaryCv;
@@ -529,26 +542,13 @@ export default function DashboardPage() {
       rawLatestScore <= 10 ? rawLatestScore * 10 : rawLatestScore;
     const interviewReadiness = Math.min(
       100,
-      Math.round(
-        latestScore +
-          Math.min(completedSessions.length, 5) * 8 +
-          ((applications || []).some((app) => app.status === "interview")
-            ? 15
-            : 0) +
-          ((axiomApplications || []).some(
-            (app) => app.status === "interview_scheduled",
-          )
-            ? 15
-            : 0),
-      ),
+      Math.round(latestScore + Math.min(completedSessions.length, 5) * 8),
     );
     // Goal engine: compute weekly goals from actual activity
     // Use empty arrays as fallbacks to prevent errors during data loading
     const careerLevel = cv?.data?.career_level || "";
     const weeklyGoalsComputed = computeGoalStatus({
       primaryCv: cv,
-      applications: applications || [],
-      axiomApplications: axiomApplications || [],
       interviewSessions: interviewSessions || [],
       careerLevel,
     });
@@ -556,20 +556,7 @@ export default function DashboardPage() {
       (key) => weeklyGoalsComputed[key as keyof typeof weeklyGoalsComputed],
     ).length;
 
-    const now = new Date();
-    const overdueFollowUps = (applications || []).filter((app) => {
-      if (!app.follow_up_at) return false;
-      return new Date(app.follow_up_at).getTime() <= now.getTime();
-    }).length;
-
-    const activeApplications =
-      (applications || []).filter(
-        (app) => !["offer", "rejected"].includes(app.status),
-      ).length +
-      (axiomApplications || []).filter(
-        (app) =>
-          !["offered", "rejected", "accepted", "declined"].includes(app.status),
-      ).length;
+    const activeApplications = 0; // AXIOM applications feature removed
 
     let suggestedNextAction: {
       message: string;
@@ -597,12 +584,6 @@ export default function DashboardPage() {
         action: `/cv/${primaryCv.id}`,
         icon: <Globe size={16} />,
       };
-    } else if (overdueFollowUps > 0) {
-      suggestedNextAction = {
-        message: `You have ${overdueFollowUps} overdue follow-up${overdueFollowUps > 1 ? "s" : ""} — check your tracker.`,
-        action: "/tracker",
-        icon: <CalendarClock size={16} />,
-      };
     } else if (completedSessions.length === 0) {
       suggestedNextAction = {
         message:
@@ -610,16 +591,10 @@ export default function DashboardPage() {
         action: "/interview",
         icon: <CalendarClock size={16} />,
       };
-    } else if (activeApplications === 0) {
-      suggestedNextAction = {
-        message: "You haven't applied to any jobs — start applying today.",
-        action: "/jobs",
-        icon: <Send size={16} />,
-      };
     } else {
       suggestedNextAction = {
         message:
-          "Great progress! Keep applying and practising to stay job-ready.",
+          "Great progress! Keep browsing jobs and practising to stay job-ready.",
         action: "/jobs",
         icon: <Search size={16} />,
       };
@@ -633,7 +608,7 @@ export default function DashboardPage() {
       activeApplications,
       suggestedNextAction,
     };
-  }, [applications, axiomApplications, interviewSessions, primaryCv, user]);
+  }, [interviewSessions, primaryCv, user]);
 
   const handleDuplicate = async (id: string) => {
     if (duplicatingId) return;
@@ -700,10 +675,111 @@ export default function DashboardPage() {
   const showOnboarding = user?.is_first_login;
   const touchStartX = useRef<number>(0);
 
+  // ── Activity feed: merge CV updates, interview sessions, and notifications ──
+  const activityFeed = useMemo(() => {
+    const items: Array<{
+      id: string;
+      kind: "cv_update" | "interview" | "notification" | "cv_created";
+      title: string;
+      description: string;
+      timestamp: string;
+      link?: string;
+    }> = [];
+
+    // CV creation/update events
+    cvs.forEach((cv) => {
+      items.push({
+        id: `cv-${cv.id}`,
+        kind: "cv_created",
+        title: `"${cv.title}" updated`,
+        description: cv.data.personal_info.job_title
+          ? `${cv.data.personal_info.job_title}`
+          : "No job title set",
+        timestamp: cv.updated_at,
+        link: `/cv/${cv.id}`,
+      });
+    });
+
+    // Interview sessions
+    (interviewSessions || []).forEach((session) => {
+      const statusLabel =
+        session.status === "completed"
+          ? "completed"
+          : session.status === "paused"
+            ? "paused"
+            : "active";
+      items.push({
+        id: `interview-${session.id}`,
+        kind: "interview",
+        title: `${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)} interview — ${session.mode}`,
+        description: session.job_title
+          ? `For ${session.job_title}`
+          : `${session.answered_count}/${session.question_count} answered`,
+        timestamp: session.updated_at || session.created_at,
+        link: `/interview/review/${session.id}`,
+      });
+    });
+
+    // Recent notifications
+    (recentNotifications || []).forEach((n) => {
+      items.push({
+        id: `notif-${n.id}`,
+        kind: "notification",
+        title: n.title,
+        description: n.body,
+        timestamp: n.created_at,
+        link: n.link || undefined,
+      });
+    });
+
+    // Sort by timestamp descending (most recent first)
+    items.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+
+    return items.slice(0, 15);
+  }, [cvs, interviewSessions, recentNotifications]);
+
+  if (cvsError) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto overflow-x-hidden">
+        <GenericError
+          title="Failed to load your data"
+          message="We couldn't load your CVs and dashboard data. Please check your connection and try again."
+          retry={() => refetchCvs()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto overflow-x-hidden">
-      {showOnboarding && <OnboardingWizard />}
-
+      <Seo title="Dashboard" noindex />
+      {showOnboarding && (
+        <>
+          <OnboardingWizard />
+          {/* Welcome banner - visible alongside the modal as a backdrop cue */}
+          {!isLoading && cvs.length === 0 && (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/60 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-amber-100 p-2 flex-shrink-0">
+                  <FileText size={20} className="text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display font-bold text-lg text-ink tracking-tight">
+                    Welcome to Axiom!
+                  </h2>
+                  <p className="text-sm text-ink-muted mt-1 leading-snug">
+                    Get started by creating your first CV, then practise
+                    interviews and browse matching jobs — all powered by AI.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-3 mb-6 sm:mb-8">
         <div className="min-w-0">
@@ -711,8 +787,29 @@ export default function DashboardPage() {
             Career Command Center
           </h1>
           <p className="text-sm text-ink-muted mt-0.5">
-            {cvs.length} {cvs.length === 1 ? "resume" : "resumes"} saved
+            {cvTotal} {cvTotal === 1 ? "resume" : "resumes"} saved
           </p>
+          {cvTotal > 20 && (
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                className="text-xs text-ink-muted hover:text-ink disabled:opacity-30"
+                onClick={() => setCvPage((p) => Math.max(0, p - 1))}
+                disabled={cvPage === 0}
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-ink-muted">
+                Page {cvPage + 1} of {Math.ceil(cvTotal / 20)}
+              </span>
+              <button
+                className="text-xs text-ink-muted hover:text-ink disabled:opacity-30"
+                onClick={() => setCvPage((p) => p + 1)}
+                disabled={(cvPage + 1) * 20 >= cvTotal}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
         <button
           className="btn-primary flex-shrink-0"
@@ -720,205 +817,246 @@ export default function DashboardPage() {
         >
           <Plus size={14} /> New CV
         </button>
-      </div>
-
-      {/* ── Metric cards + What to do next ──
-          Mobile:  full-width stack (Profile → Interview → Next action → Weekly goals)
-          lg+:     [left col: Profile+Interview 2-up, then Next action] | [right col: Weekly goals]
-      ── */}
-      <section className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.25fr] lg:items-start">
-        {/* Left column */}
-        <div className="flex flex-col gap-4">
-          {/* Profile + Interview — carousel on mobile, 2-col from lg */}
-          <div className="relative">
-            {/* Carousel: hide on lg+ where we show both side by side */}
-            <div
-              className="lg:hidden overflow-hidden"
-              onTouchStart={(e) => {
-                touchStartX.current = e.touches[0].clientX;
-              }}
-              onTouchEnd={(e) => {
-                const delta = touchStartX.current - e.changedTouches[0].clientX;
-                if (delta > 40) setCarouselIdx(1); // swipe left → next
-                if (delta < -40) setCarouselIdx(0); // swipe right → prev
-              }}
-            >
+      </div>{" "}
+      {/* ── Metric cards + Weekly goals (hidden when no CV exists) ── */}
+      {cvs.length > 0 && (
+        <section className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.25fr] lg:items-start">
+          {/* Left column */}
+          <div className="flex flex-col gap-4">
+            {/* Profile + Interview — carousel on mobile, 2-col from lg */}
+            <div className="relative">
               <div
-                className="flex transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(-${carouselIdx * 100}%)` }}
+                className="lg:hidden overflow-hidden"
+                onTouchStart={(e) => {
+                  touchStartX.current = e.touches[0].clientX;
+                }}
+                onTouchEnd={(e) => {
+                  const delta =
+                    touchStartX.current - e.changedTouches[0].clientX;
+                  if (delta > 40) setCarouselIdx(1);
+                  if (delta < -40) setCarouselIdx(0);
+                }}
               >
-                <div className="w-full flex-shrink-0">
-                  <MetricCard
-                    label="Profile strength"
-                    icon={<Target size={17} />}
-                    value={`${commandCenter.profileStrength}%`}
-                    progress={commandCenter.profileStrength}
-                    progressColor="bg-amber-500"
-                    tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
-                  >
-                    <p className="mt-2 text-xs text-ink-muted break-words">
-                      Based on CV completeness, public profile, and, targeting.
-                    </p>
-                  </MetricCard>
-                </div>
-                <div className="w-full flex-shrink-0">
-                  <MetricCard
-                    label="Interview readiness"
-                    icon={<TrendingUp size={17} />}
-                    value={`${commandCenter.interviewReadiness}%`}
-                    progress={commandCenter.interviewReadiness}
-                    progressColor="bg-[#a0449f]"
-                    tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
-                  >
-                    <p className="mt-2 text-xs text-ink-muted break-words">
-                      Practice sessions and interview-stage applications raise
-                      this score.
-                    </p>
-                  </MetricCard>
-                </div>
-              </div>
-              {/* Carousel dots */}
-              <div className="flex justify-center gap-2 mt-3">
-                <button
-                  onClick={() => setCarouselIdx(0)}
-                  className={clsx(
-                    "w-2 h-2 rounded-full transition-colors",
-                    carouselIdx === 0 ? "bg-amber-500" : "bg-ink-20",
-                  )}
-                  aria-label="Show Profile strength"
-                />
-                <button
-                  onClick={() => setCarouselIdx(1)}
-                  className={clsx(
-                    "w-2 h-2 rounded-full transition-colors",
-                    carouselIdx === 1 ? "bg-[#a0449f]" : "bg-ink-20",
-                  )}
-                  aria-label="Show Interview readiness"
-                />
-              </div>
-            </div>
-            {/* lg+: side by side */}
-            <div className="hidden lg:grid grid-cols-2 gap-4">
-              <MetricCard
-                label="Profile strength"
-                icon={<Target size={17} />}
-                value={`${commandCenter.profileStrength}%`}
-                progress={commandCenter.profileStrength}
-                progressColor="bg-amber-500"
-                tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
-              >
-                <p className="mt-2 text-xs text-ink-muted break-words">
-                  Based on CV completeness, public profile, and targeting.
-                </p>
-              </MetricCard>
-
-              <MetricCard
-                label="Interview readiness"
-                icon={<TrendingUp size={17} />}
-                value={`${commandCenter.interviewReadiness}%`}
-                progress={commandCenter.interviewReadiness}
-                progressColor="bg-[#a0449f]"
-                tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
-              >
-                <p className="mt-2 text-xs text-ink-muted break-words">
-                  Practice sessions and interview-stage applications raise this
-                  score.
-                </p>
-              </MetricCard>
-            </div>
-          </div>
-
-          {/* What to do next */}
-          {user && commandCenter.suggestedNextAction && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-4 flex flex-col gap-3">
-              <div className="flex items-start gap-3">
-                <Lightbulb
-                  size={18}
-                  className="text-amber-500 flex-shrink-0 mt-0.5"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700 font-medium">
-                    What to do next
-                  </p>
-                  {/* FIX: break-words ensures long action messages wrap instead of clipping */}
-                  <p className="text-sm text-ink mt-1 leading-snug break-words">
-                    {commandCenter.suggestedNextAction.message}
-                  </p>
-                </div>
-              </div>
-              <button
-                className="btn-primary self-start w-full sm:w-auto !px-4 !py-2 text-sm"
-                onClick={() =>
-                  navigate(commandCenter.suggestedNextAction!.action)
-                }
-              >
-                {commandCenter.suggestedNextAction.icon}
-                Take action
-                <ArrowRight size={14} className="ml-1" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right column: Weekly goals — full-width on mobile, right col on lg */}
-        <MetricCard
-          label="Weekly goals"
-          icon={<CheckSquare size={17} />}
-          value={`${commandCenter.weeklyCompleted}/${WEEKLY_GOAL_KEYS.length}`}
-          tooltip="Track your weekly career goals. Update your CV, apply to jobs, or practise interviews to stay on track."
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
-            <p className="text-xs text-ink-muted">
-              {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length} complete
-            </p>
-            <div className="flex items-center gap-2 rounded-lg bg-ash px-3 py-2 text-sm text-ink-muted">
-              <Briefcase size={15} />
-              {commandCenter.activeApplications} active
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {WEEKLY_GOAL_KEYS.map((goal) => {
-              const isComplete =
-                commandCenter.weeklyGoals[
-                  goal as keyof typeof commandCenter.weeklyGoals
-                ];
-              return (
                 <div
-                  key={goal}
-                  className={clsx(
-                    "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
-                    isComplete
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-ash-border",
-                  )}
+                  className="flex transition-transform duration-300 ease-out"
+                  style={{ transform: `translateX(-${carouselIdx * 100}%)` }}
                 >
-                  <span
-                    className={
-                      isComplete
-                        ? "text-green-700 dark:text-green-400"
-                        : "text-ink"
-                    }
-                  >
-                    {goal}
-                  </span>
-                  {isComplete ? (
-                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                  ) : (
-                    <span className="text-ink-muted text-xs">pending</span>
-                  )}
+                  <div className="w-full flex-shrink-0">
+                    <MetricCard
+                      label="Profile strength"
+                      icon={<Target size={17} />}
+                      value={`${commandCenter.profileStrength}%`}
+                      progress={commandCenter.profileStrength}
+                      progressColor="bg-amber-500"
+                      tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
+                      isLoading={isLoading}
+                    >
+                      <p className="mt-2 text-xs text-ink-muted break-words">
+                        Based on CV completeness, public profile, and targeting.
+                      </p>
+                    </MetricCard>
+                  </div>
+                  <div className="w-full flex-shrink-0">
+                    <MetricCard
+                      label="Interview readiness"
+                      icon={<TrendingUp size={17} />}
+                      value={`${commandCenter.interviewReadiness}%`}
+                      progress={commandCenter.interviewReadiness}
+                      progressColor="bg-[#a0449f]"
+                      tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
+                      isLoading={isLoading}
+                    >
+                      <p className="mt-2 text-xs text-ink-muted break-words">
+                        Practice sessions and interview-stage applications raise
+                        this score.
+                      </p>
+                    </MetricCard>
+                  </div>
                 </div>
-              );
-            })}
+                <div className="flex justify-center gap-2 mt-3">
+                  <button
+                    onClick={() => setCarouselIdx(0)}
+                    className={clsx(
+                      "w-2 h-2 rounded-full transition-colors",
+                      carouselIdx === 0 ? "bg-amber-500" : "bg-ink-20",
+                    )}
+                    aria-label="Show Profile strength"
+                  />
+                  <button
+                    onClick={() => setCarouselIdx(1)}
+                    className={clsx(
+                      "w-2 h-2 rounded-full transition-colors",
+                      carouselIdx === 1 ? "bg-[#a0449f]" : "bg-ink-20",
+                    )}
+                    aria-label="Show Interview readiness"
+                  />
+                </div>
+              </div>
+              <div className="hidden lg:grid grid-cols-2 gap-4">
+                <MetricCard
+                  label="Profile strength"
+                  icon={<Target size={17} />}
+                  value={`${commandCenter.profileStrength}%`}
+                  progress={commandCenter.profileStrength}
+                  progressColor="bg-amber-500"
+                  tooltip="How complete your CV profile is. Add personal info, summary, skills, experience, education, and a target role to reach 100%."
+                  isLoading={isLoading}
+                >
+                  <p className="mt-2 text-xs text-ink-muted break-words">
+                    Based on CV completeness, public profile, and targeting.
+                  </p>
+                </MetricCard>
+                <MetricCard
+                  label="Interview readiness"
+                  icon={<TrendingUp size={17} />}
+                  value={`${commandCenter.interviewReadiness}%`}
+                  progress={commandCenter.interviewReadiness}
+                  progressColor="bg-[#a0449f]"
+                  tooltip="Your interview preparation score. Complete practice sessions and get interview-stage applications to raise this score."
+                  isLoading={isLoading}
+                >
+                  <p className="mt-2 text-xs text-ink-muted break-words">
+                    Practice sessions and interview-stage applications raise
+                    this score.
+                  </p>
+                </MetricCard>
+              </div>
+            </div>
+          </div>
+
+          {/* Right column: Weekly goals */}
+          <MetricCard
+            label="Weekly goals"
+            icon={<CheckSquare size={17} />}
+            value={`${commandCenter.weeklyCompleted}/${WEEKLY_GOAL_KEYS.length}`}
+            tooltip="Track your weekly career goals. Update your CV, apply to jobs, or practise interviews to stay on track."
+            isLoading={isLoading}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <p className="text-xs text-ink-muted">
+                {commandCenter.weeklyCompleted}/{WEEKLY_GOAL_KEYS.length}{" "}
+                complete
+              </p>
+              <div className="flex items-center gap-2 rounded-lg bg-ash px-3 py-2 text-sm text-ink-muted">
+                <Briefcase size={15} />
+                {commandCenter.activeApplications} active
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {WEEKLY_GOAL_KEYS.map((goal) => {
+                const isComplete =
+                  commandCenter.weeklyGoals[
+                    goal as keyof typeof commandCenter.weeklyGoals
+                  ];
+                return (
+                  <div
+                    key={goal}
+                    className={clsx(
+                      "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
+                      isComplete
+                        ? "border-green-500/30 bg-green-500/5"
+                        : "border-ash-border",
+                    )}
+                  >
+                    <span
+                      className={isComplete ? "text-green-700" : "text-ink"}
+                    >
+                      {goal}
+                    </span>
+                    {isComplete ? (
+                      <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <span className="text-ink-muted text-xs">pending</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              className="btn-secondary mt-4 !px-3 !py-1.5 !text-xs"
+              onClick={() => navigate("/interview")}
+            >
+              <CalendarClock size={13} /> Practise now
+            </button>
+          </MetricCard>
+        </section>
+      )}
+      {/* ── What to do next (always visible, even without CV) ── */}
+      {user && commandCenter.suggestedNextAction && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-4 flex flex-col gap-3 mb-6">
+          <div className="flex items-start gap-3">
+            <Lightbulb
+              size={18}
+              className="text-amber-500 flex-shrink-0 mt-0.5"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700 font-medium">
+                What to do next
+              </p>
+              <p className="text-sm text-ink mt-1 leading-snug break-words">
+                {commandCenter.suggestedNextAction.message}
+              </p>
+            </div>
           </div>
           <button
-            className="btn-secondary mt-4 !px-3 !py-1.5 !text-xs"
+            className="btn-primary self-start w-full sm:w-auto !px-4 !py-2 text-sm"
+            onClick={() => navigate(commandCenter.suggestedNextAction!.action)}
+          >
+            {commandCenter.suggestedNextAction.icon}
+            Take action
+            <ArrowRight size={14} className="ml-1" />
+          </button>
+        </div>
+      )}
+      {/* ── Quick Actions ── */}
+      {user && cvs.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm hover:-translate-y-0.5 transition-all"
+            onClick={() => navigate("/cv/new")}
+          >
+            <div className="rounded-lg bg-amber-50 p-2.5">
+              <FileText size={18} className="text-amber-600" />
+            </div>
+            <span className="text-xs font-medium text-ink text-center">
+              New CV
+            </span>
+          </button>
+          <button
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm hover:-translate-y-0.5 transition-all"
             onClick={() => navigate("/interview")}
           >
-            <CalendarClock size={13} /> Practise now
+            <div className="rounded-lg bg-violet-50 p-2.5">
+              <Calendar size={18} className="text-violet-600" />
+            </div>
+            <span className="text-xs font-medium text-ink text-center">
+              Start Interview
+            </span>
           </button>
-        </MetricCard>
-      </section>
-
+          <button
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm hover:-translate-y-0.5 transition-all"
+            onClick={() => navigate("/jobs")}
+          >
+            <div className="rounded-lg bg-blue-50 p-2.5">
+              <Search size={18} className="text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-ink text-center">
+              Browse Jobs
+            </span>
+          </button>
+          <button
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm hover:-translate-y-0.5 transition-all"
+            onClick={() => navigate("/saved-jobs")}
+          >
+            <div className="rounded-lg bg-emerald-50 p-2.5">
+              <Target size={18} className="text-emerald-600" />
+            </div>
+            <span className="text-xs font-medium text-ink text-center">
+              Saved Jobs
+            </span>
+          </button>
+        </div>
+      )}
       {/* ── Skill Gap + Roadmap ── */}
       <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         {/* Skill Gap Analysis */}
@@ -949,11 +1087,11 @@ export default function DashboardPage() {
                       const selected = cvs.find((c) => c.id === e.target.value);
                       setSkillGapCV(selected || null);
                     }}
-                    className="w-full sm:flex-1 text-sm border border-ash-border rounded-lg px-3 py-2 bg-white min-w-0"
+                    className="w-full sm:flex-1 text-sm border border-ash-border rounded-lg px-3 py-2 bg-white min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
                   >
                     <option value="">Select a CV to analyze</option>
                     {cvs.map((cv) => (
-                      <option key={cv.id} value={cv.id}>
+                      <option key={cv.id} value={cv.id} className="truncate">
                         {cv.title || `CV ${cv.id.slice(0, 8)}`}
                       </option>
                     ))}
@@ -961,14 +1099,8 @@ export default function DashboardPage() {
                   <button
                     className="btn-primary !px-4 !py-2 !bg-violet-600 hover:!bg-violet-700 sm:flex-shrink-0 whitespace-nowrap"
                     onClick={() => {
-                      const cvToUse = skillGapCV || primaryCv;
-                      if (cvToUse) {
-                        navigate(`/cv/${cvToUse.id}?skill_gap=true`);
-                      } else {
-                        navigate("/cv/new?skill_gap=true");
-                      }
+                      navigate("/skill-gap");
                     }}
-                    disabled={!skillGapCV && !primaryCv}
                   >
                     <Map size={14} className="mr-1" />
                     Analyze
@@ -1024,7 +1156,6 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-
       {/* ── Jobs matching CV ── */}
       {user && primaryCv && (
         <div className="card mb-6 border-ink/10 bg-gradient-to-br from-white to-ash/40">
@@ -1060,25 +1191,27 @@ export default function DashboardPage() {
               </button>
               <button
                 className="btn-primary flex-1 sm:flex-none"
-                onClick={() => navigate("/tracker")}
+                onClick={() => navigate("/saved-jobs")}
               >
-                View tracker
+                View saved jobs
               </button>
             </div>
           </div>
 
-          {matchJobs.length > 0 ? (
+          {matchJobsError ? (
+            <div className="mt-5 text-center py-6">
+              <p className="text-xs text-ink-muted">
+                Could not fetch job matches right now.
+              </p>
+            </div>
+          ) : matchJobs.length > 0 ? (
             /* 1 col on mobile, 2 col from sm, 3 col from xl */
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {matchJobs.map((job) => (
                 <button
                   key={job.id}
                   onClick={() => {
-                    const jobUrl =
-                      job.source === "axiom" && job.id.startsWith("axiom:")
-                        ? `/jobs/axiom/${job.id.slice("axiom:".length)}`
-                        : `/jobs/${encodeURIComponent(job.id)}`;
-                    navigate(jobUrl);
+                    navigate(`/jobs/${encodeURIComponent(job.id)}`);
                   }}
                   className="text-left rounded-xl border border-ash-border bg-white p-4 hover:border-ink/20 hover:shadow-sm transition-all"
                 >
@@ -1118,7 +1251,6 @@ export default function DashboardPage() {
           )}
         </div>
       )}
-
       {/* ── Empty state ── */}
       {!isLoading && cvs.length === 0 && (
         <div className="card text-center py-16 border-dashed">
@@ -1131,7 +1263,24 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
-
+      {/* ── CV list loading skeleton ── */}
+      {isLoading && cvs.length === 0 && (
+        <div className="space-y-2" aria-label="Loading CVs">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="card !p-4 animate-pulse">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-40 rounded bg-ash-dark" />
+                <div className="h-4 w-16 rounded-full bg-ash-dark ml-auto" />
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="h-3 w-24 rounded bg-ash-dark" />
+                <div className="h-3 w-16 rounded bg-ash-dark" />
+                <div className="h-3 w-12 rounded bg-ash-dark" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {/* ── CV list ── */}
       <div className="space-y-2">
         {cvs.map((cv) => (
@@ -1228,8 +1377,17 @@ export default function DashboardPage() {
 
               {/* Row 4: public URL */}
               {cv.is_public && cv.slug && (
-                <p className="text-[11px] text-ink-muted/60 font-mono mt-1 truncate">
-                  /cv/{cv.owner_username}/{cv.slug}
+                <p className="text-[11px] text-ink-muted/60 font-mono mt-1 truncate flex items-center gap-2">
+                  <span className="truncate">
+                    /cv/{cv.owner_username}/{cv.slug}
+                  </span>
+                  <button
+                    onClick={() => setShareCardCV(cv)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-ink text-white rounded-md hover:bg-ink-light transition-colors flex-shrink-0"
+                  >
+                    <ImageIcon size={10} />
+                    Card
+                  </button>
                 </p>
               )}
             </div>
@@ -1348,15 +1506,102 @@ export default function DashboardPage() {
 
               {/* Desktop row 3: public URL */}
               {cv.is_public && cv.slug && (
-                <p className="text-[11px] text-ink-muted/60 font-mono mt-1 truncate">
-                  /cv/{cv.owner_username}/{cv.slug}
+                <p className="text-[11px] text-ink-muted/60 font-mono mt-1 truncate flex items-center gap-2">
+                  <span className="truncate">
+                    /cv/{cv.owner_username}/{cv.slug}
+                  </span>
+                  <button
+                    onClick={() => setShareCardCV(cv)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-ink text-white rounded-md hover:bg-ink-light transition-colors flex-shrink-0"
+                  >
+                    <ImageIcon size={10} />
+                    Share card
+                  </button>
                 </p>
               )}
             </div>
           </div>
         ))}
       </div>
+      {/* ── Recent Activity ── */}
+      {user && (
+        <section className="mt-8 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-base font-bold text-ink tracking-tight">
+              Recent Activity
+            </h2>
+            {activityFeed.length > 0 && (
+              <span className="text-xs text-ink-muted">
+                {activityFeed.length} recent{" "}
+                {activityFeed.length === 1 ? "event" : "events"}
+              </span>
+            )}
+          </div>
 
+          {activityFeed.length > 0 ? (
+            <div className="space-y-1">
+              {activityFeed.map((item) => {
+                const iconMap = {
+                  cv_update: <Edit size={13} className="text-amber-500" />,
+                  cv_created: <FileText size={13} className="text-blue-500" />,
+                  interview: <Calendar size={13} className="text-violet-500" />,
+                  notification: (
+                    <MessageSquare size={13} className="text-ink-muted" />
+                  ),
+                };
+                const bgMap = {
+                  cv_update: "bg-amber-50",
+                  cv_created: "bg-blue-50",
+                  interview: "bg-violet-50",
+                  notification: "bg-ash",
+                };
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-start gap-3 rounded-xl px-3.5 py-2.5 ${bgMap[item.kind]} hover:bg-ash-dark transition-colors`}
+                  >
+                    <div className="mt-0.5 flex-shrink-0">
+                      {iconMap[item.kind]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-ink font-medium truncate">
+                        {item.link ? (
+                          <button
+                            className="hover:underline text-left w-full truncate"
+                            onClick={() => navigate(item.link!)}
+                          >
+                            {item.title}
+                          </button>
+                        ) : (
+                          item.title
+                        )}
+                      </p>
+                      <p className="text-xs text-ink-muted mt-0.5 line-clamp-1">
+                        {item.description}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-ink-muted flex-shrink-0 whitespace-nowrap pt-0.5">
+                      {fmt(item.timestamp)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-ash-border">
+              <EmptyState
+                variant="list"
+                title="No activity yet"
+                description="Create a CV or start an interview — your recent activity will show up here."
+                action={{
+                  label: "Create CV",
+                  onClick: () => navigate("/cv/new"),
+                }}
+              />
+            </div>
+          )}
+        </section>
+      )}
       {/* ── Modals ── */}
       <ConfirmDialog
         open={!!deleteTarget}
@@ -1374,6 +1619,17 @@ export default function DashboardPage() {
         variant="danger"
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && handleDelete(deleteTarget.id)}
+      />
+      <ShareCardModal
+        open={!!shareCardCV}
+        onClose={() => setShareCardCV(null)}
+        fullName={shareCardCV?.data?.personal_info?.full_name || ""}
+        jobTitle={shareCardCV?.data?.personal_info?.job_title || ""}
+        summary={shareCardCV?.data?.summary || ""}
+        skills={shareCardCV?.data?.skills || []}
+        location={shareCardCV?.data?.personal_info?.location || ""}
+        publicUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/cv/${shareCardCV?.owner_username || ""}/${shareCardCV?.slug || ""}`}
+        username={shareCardCV?.owner_username || ""}
       />
     </div>
   );

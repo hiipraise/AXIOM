@@ -1,4 +1,5 @@
 import { TemplateProps, has, contactItems } from './templateUtils'
+import { renderMarkdown } from '../../../lib/renderMarkdown'
 
 export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
   const pi = cvData.personal_info
@@ -79,7 +80,7 @@ export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
       {/* ── Summary ── */}
       {has(cvData.summary) && (
         <Row label="Profile">
-          <p style={{ fontSize: 10.5, lineHeight: 1.8, color: t.text }}>{cvData.summary}</p>
+          <p style={{ fontSize: 10.5, lineHeight: 1.8, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(cvData.summary) }} />
         </Row>
       )}
 
@@ -104,11 +105,11 @@ export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
                 <p style={{ fontSize: 10, color: t.secondary, fontWeight: 500, marginTop: 1, marginBottom: 6 }}>{exp.company}</p>
               )}
               {has(exp.description) && (
-                <p style={{ fontSize: 10, lineHeight: 1.7, color: t.text }}>{exp.description}</p>
+                <p style={{ fontSize: 10, lineHeight: 1.7, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(exp.description) }} />
               )}
               {(exp.achievements || []).filter(has).map((a, ai) => (
                 <p key={ai} style={{ fontSize: 10, lineHeight: 1.6, marginTop: 4, paddingLeft: 12, color: t.text, borderLeft: `1px solid ${t.line}` }}>
-                  {a}
+                  <span dangerouslySetInnerHTML={{ __html: renderMarkdown(a) }} />
                 </p>
               ))}
             </div>
@@ -161,7 +162,7 @@ export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
               borderBottom: i < projects.length - 1 ? `1px solid ${t.line}` : 'none',
             }}>
               <p style={{ fontSize: 12, fontWeight: 700 }}>{p.name}</p>
-              {has(p.description) && <p style={{ fontSize: 10, lineHeight: 1.65, marginTop: 4, color: t.text }}>{p.description}</p>}
+              {has(p.description) && <p style={{ fontSize: 10, lineHeight: 1.65, marginTop: 4, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.description) }} />}
               {(p.technologies || []).filter(has).length > 0 && (
                 <p style={{ fontSize: 9.5, color: t.secondary, marginTop: 4 }}>
                   {p.technologies.filter(has).join('  ·  ')}
@@ -208,7 +209,7 @@ export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
             <div key={i} style={{ marginBottom: i < awards.length - 1 ? 10 : 0 }}>
               <p style={{ fontSize: 11, fontWeight: 600 }}>{a.title}</p>
               {has(a.issuer) && <p style={{ fontSize: 10, color: t.secondary }}>{a.issuer}{has(a.date) ? `  ·  ${a.date}` : ''}</p>}
-              {has(a.description) && <p style={{ fontSize: 10, lineHeight: 1.6, marginTop: 3, color: t.text }}>{a.description}</p>}
+              {has(a.description) && <p style={{ fontSize: 10, lineHeight: 1.6, marginTop: 3, color: t.text }} dangerouslySetInnerHTML={{ __html: renderMarkdown(a.description) }} />}
             </div>
           ))}
         </Row>
@@ -221,7 +222,7 @@ export default function MinimalProTemplate({ cvData, t }: TemplateProps) {
             <div key={i} style={{ marginBottom: i < volunteer.length - 1 ? 14 : 0 }}>
               <p style={{ fontSize: 11, fontWeight: 600 }}>{v.role}</p>
               {has(v.organization) && <p style={{ fontSize: 10, color: t.secondary }}>{v.organization}</p>}
-              {has(v.description) && <p style={{ fontSize: 10, lineHeight: 1.65, marginTop: 4 }}>{v.description}</p>}
+              {has(v.description) && <p style={{ fontSize: 10, lineHeight: 1.65, marginTop: 4 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(v.description) }} />}
             </div>
           ))}
         </Row>

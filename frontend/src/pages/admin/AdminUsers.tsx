@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api'
-import { Building2, UserX, UserCheck, Trash2 } from 'lucide-react'
+import { UserX, UserCheck, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import ConfirmDialog from '../../components/UI/ConfirmDialog'
@@ -13,17 +13,7 @@ interface AdminUser {
   is_active: boolean
   created_at: string
 }
-
-interface RecruiterProfile {
-  id: string
-  user_id: string
-  company_name: string
-  company_slug: string
-  website?: string
-  verified: boolean
-  is_approved: boolean
-  created_at: string
-}
+import Seo from "../../components/Seo";
 
 export default function AdminUsers() {
   const qc = useQueryClient()
@@ -31,10 +21,6 @@ export default function AdminUsers() {
   const { data, isLoading } = useQuery<{ users: AdminUser[]; total: number }>({
     queryKey: ['admin-users'],
     queryFn: () => adminApi.users(),
-  })
-  const { data: recruiters = [] } = useQuery<RecruiterProfile[]>({
-    queryKey: ['admin-recruiters'],
-    queryFn: adminApi.recruiters,
   })
 
   const setRole = useMutation({
@@ -54,47 +40,11 @@ export default function AdminUsers() {
     onError: () => toast.error('Cannot delete this user'),
   })
 
-  const recruiterApproval = useMutation({
-    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
-      adminApi.setRecruiterApproval(id, { is_approved: approved, verified: approved }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-recruiters'] })
-      qc.invalidateQueries({ queryKey: ['admin-users'] })
-      toast.success('Recruiter updated')
-    },
-  })
-
   return (
     <div className="p-8">
+      <Seo title="Admin Users" noindex />
       <h1 className="font-display text-2xl font-bold text-ink mb-1">Users</h1>
       <p className="text-sm text-ink-muted mb-6">{data?.total ?? 0} total</p>
-      {recruiters.length > 0 && (
-        <section className="mb-6 rounded-xl border border-ash-border bg-white p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Building2 size={16} className="text-ink-muted" />
-            <h2 className="font-display text-lg font-bold text-ink">Recruiter approvals</h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {recruiters.map((profile) => (
-              <article key={profile.id} className="rounded-lg border border-ash-border bg-ash/40 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-ink">{profile.company_name}</p>
-                    <p className="text-xs text-ink-muted">/{profile.company_slug}</p>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${profile.is_approved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                    {profile.is_approved ? 'Approved' : 'Pending'}
-                  </span>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button className="btn-secondary !py-1.5 !px-3 !text-xs" onClick={() => recruiterApproval.mutate({ id: profile.id, approved: true })}>Approve</button>
-                  <button className="btn-ghost !py-1.5 !px-3 !text-xs" onClick={() => recruiterApproval.mutate({ id: profile.id, approved: false })}>Reject</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
       <div className="bg-white border border-ash-border rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>
@@ -109,7 +59,20 @@ export default function AdminUsers() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-ink-muted">Loading…</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td colSpan={6} className="px-4 py-3">
+                    <div className="flex items-center gap-4">
+                      <div className="h-4 w-24 rounded bg-ash-dark" />
+                      <div className="h-4 w-36 rounded bg-ash-dark" />
+                      <div className="h-4 w-16 rounded bg-ash-dark" />
+                      <div className="h-4 w-12 rounded bg-ash-dark" />
+                      <div className="h-4 w-20 rounded bg-ash-dark" />
+                      <div className="ml-auto h-4 w-12 rounded bg-ash-dark" />
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
             {data?.users.map((u) => (
               <tr key={u._id} className="border-b border-ash-border last:border-0 hover:bg-ash/50 transition-colors">
@@ -123,7 +86,6 @@ export default function AdminUsers() {
                     className="text-xs border border-ash-border rounded px-2 py-1 bg-white focus:outline-none disabled:opacity-50"
                   >
                     <option value="user">user</option>
-                    <option value="recruiter">recruiter</option>
                     <option value="staff">staff</option>
                     <option value="admin">admin</option>
                     {u.role === 'superadmin' && <option value="superadmin">superadmin</option>}

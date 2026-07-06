@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { cvApi } from "../../api";
 import { EMPTY_CV_DATA, CVData, normalizeCVData } from "../../types";
 import toast from "react-hot-toast";
@@ -14,19 +14,31 @@ import {
 import { useAnnouncement } from "../../context/announcement";
 import CVContextSelector from "../../components/cv/CVContextSelector";
 
+interface OnboardingData {
+  jobTitle: string;
+  industry: string;
+  fullName: string;
+}
+
 type Mode = "choose" | "blank" | "upload" | "interview";
+import Seo from "../../components/Seo";
 
 export default function CVNewPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const onboardingData = (location.state as { onboardingData?: OnboardingData })?.onboardingData;
+  const shouldTour = searchParams.get("tour") === "true";
+
   const [mode, setMode] = useState<Mode>("choose");
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(onboardingData?.jobTitle || "");
   const [pageCount, setPageCount] = useState(1);
   const [targeting, setTargeting] = useState<
     Pick<CVData, "career_level" | "industry" | "target_role">
   >({
     career_level: "",
-    industry: "",
-    target_role: "",
+    industry: onboardingData?.industry || "",
+    target_role: onboardingData?.jobTitle || "",
   });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -56,12 +68,16 @@ export default function CVNewPage() {
     }
     setLoading(true);
     try {
+      const baseData = applyTargeting(EMPTY_CV_DATA);
+      if (onboardingData?.fullName) {
+        baseData.personal_info.full_name = onboardingData.fullName;
+      }
       const cv = await cvApi.create({
         title,
-        data: applyTargeting(EMPTY_CV_DATA),
+        data: baseData,
         page_count: pageCount,
       });
-      navigate(`/cv/${cv.id}`);
+      navigate(`/cv/${cv.id}${shouldTour ? "?tour=true" : ""}`);
     } catch {
       toast.error("Failed to create CV");
     } finally {
@@ -74,11 +90,23 @@ export default function CVNewPage() {
     if (!file) return;
     setUploading(true);
     try {
-      const res = await cvApi.uploadCV(file);
-      setExtractedData(normalizeCVData(res.data));
-      toast.success("CV extracted — review and create");
-    } catch {
-      toast.error("Could not parse PDF");
+      // Handle JSON locally — no backend needed
+      if (file.name.toLowerCase().endsWith(".json")) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        setExtractedData(normalizeCVData(parsed));
+        toast.success("JSON CV imported");
+      } else {
+        const res = await cvApi.uploadCV(file);
+        setExtractedData(normalizeCVData(res.data));
+        const fmt = file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF";
+        toast.success(`${fmt} extracted — review and create`);
+      }
+    } catch (err) {
+      const msg = err instanceof SyntaxError
+        ? "Invalid JSON file"
+        : "Could not parse file";
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
@@ -91,12 +119,16 @@ export default function CVNewPage() {
     }
     setLoading(true);
     try {
+      const baseData = applyTargeting(extractedData || EMPTY_CV_DATA);
+      if (onboardingData?.fullName && !baseData.personal_info.full_name) {
+        baseData.personal_info.full_name = onboardingData.fullName;
+      }
       const cv = await cvApi.create({
         title,
-        data: applyTargeting(extractedData || EMPTY_CV_DATA),
+        data: baseData,
         page_count: pageCount,
       });
-      navigate(`/cv/${cv.id}`);
+      navigate(`/cv/${cv.id}${shouldTour ? "?tour=true" : ""}`);
     } catch {
       toast.error("Failed to create CV");
     } finally {
@@ -142,12 +174,16 @@ export default function CVNewPage() {
         `Extract structured CV data from this interview conversation: ${conversation}`,
         applyTargeting(EMPTY_CV_DATA),
       );
+      const baseData = applyTargeting(normalizeCVData(editRes.data));
+      if (onboardingData?.fullName && !baseData.personal_info.full_name) {
+        baseData.personal_info.full_name = onboardingData.fullName;
+      }
       const cv = await cvApi.create({
         title,
-        data: applyTargeting(normalizeCVData(editRes.data)),
+        data: baseData,
         page_count: pageCount,
       });
-      navigate(`/cv/${cv.id}`);
+      navigate(`/cv/${cv.id}${shouldTour ? "?tour=true" : ""}`);
     } catch {
       toast.error("Failed to create CV");
     } finally {
@@ -157,6 +193,7 @@ export default function CVNewPage() {
 
   return (
     <div className="min-h-screen bg-ash px-4 sm:px-6 py-6 sm:py-8">
+      <Seo title="New CV" noindex />
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() =>
@@ -270,19 +307,28 @@ export default function CVNewPage() {
             {mode === "upload" && (
               <div>
                 <label className="block text-xs font-medium text-ink mb-1.5">
-                  Upload existing CV (PDF)
+                  Upload existing CV
                 </label>
+                <p className="text-[11px] text-ink-muted mb-3 leading-relaxed">
+                  Upload a CV file and we'll extract the content.{" "}
+                  <span className="font-medium">PDF</span>,{" "}
+                  <span className="font-medium">DOCX</span>, and{" "}
+                  <span className="font-medium">JSON</span> supported.
+                </p>
                 {!extractedData ? (
                   <label
                     className={`flex flex-col items-center justify-center border-2 border-dashed border-ash-border rounded-xl p-6 sm:p-8 cursor-pointer hover:border-ink transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}
                   >
                     <Upload size={22} className="text-ink-muted mb-2" />
                     <span className="text-sm text-ink-muted text-center">
-                      {uploading ? "Extracting…" : "Tap to upload PDF"}
+                      {uploading ? "Extracting…" : "Choose a file"}
+                    </span>
+                    <span className="text-[10px] text-ink-muted/60 mt-1">
+                      PDF · DOCX · JSON
                     </span>
                     <input
                       type="file"
-                      accept=".pdf"
+                      accept=".pdf,.docx,.json"
                       className="hidden"
                       onChange={handleFileUpload}
                     />
@@ -355,6 +401,35 @@ export default function CVNewPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Progress indicator toward 4-message minimum */}
+            <div className="px-4 py-2 border-t border-ash-border">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-ash rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      interviewMessages.length >= 4
+                        ? "bg-emerald-500"
+                        : "bg-ink/30"
+                    }`}
+                    style={{
+                      width: `${Math.min((interviewMessages.length / 4) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+                <span
+                  className={`text-[11px] font-medium whitespace-nowrap ${
+                    interviewMessages.length >= 4
+                      ? "text-emerald-600"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  {interviewMessages.length >= 4
+                    ? "Ready to build"
+                    : `${interviewMessages.length}/4 messages`}
+                </span>
+              </div>
             </div>
 
             <div className="border-t border-ash-border p-3 flex gap-2">

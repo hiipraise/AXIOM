@@ -81,13 +81,46 @@ export const authApi = {
   recoverAccount: (data: object) =>
     api.post("/auth/recover-account", data).then((r) => r.data),
   deleteAccount: () => api.delete("/auth/delete-account").then((r) => r.data),
+  registerWithCV: (data: {
+    username: string;
+    password: string;
+    email?: string;
+    secret_question?: string;
+    secret_answer?: string;
+    cv_title: string;
+    cv_data: object;
+  }) =>
+    api
+      .post("/auth/register-with-cv", data, {
+        headers: { "X-Return-Token": "true" },
+      })
+      .then((r) => r.data),
+  setPassword: (data: { new_password: string }) =>
+    api.post("/auth/set-password", data).then((r) => r.data as { message: string }),
+  downloadMyData: () =>
+    api.get("/auth/download-my-data", { responseType: "blob" }).then((r) => {
+      const url = window.URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-axiom-data.json";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }),
   getRoadmapProgress: () => api.get("/auth/roadmap-progress").then((r) => r.data),
   completeRoadmapStep: (stepId: string) =>
     api.post("/auth/roadmap-progress", { step_id: stepId }).then((r) => r.data),
+
+  // ── OAuth ──
+  oauthLogin: (provider: string) =>
+    api.get(`/auth/oauth/${provider}`).then((r) => r.data as { url: string }),
+
+  oauthProviders: () =>
+    api.get("/auth/oauth/providers").then((r) => r.data as { providers: string[] }),
 };
 
 export const cvApi = {
-  list: () => api.get("/cv").then((r) => r.data),
+  list: (skip = 0, limit = 20) =>
+    api.get(`/cv?skip=${skip}&limit=${limit}`).then((r) => r.data as { cvs: import("../types").CV[]; total: number; skip: number; limit: number }),
   get: (id: string) => api.get(`/cv/${id}`).then((r) => r.data),
   create: (data: object) => api.post("/cv", data).then((r) => r.data),
   update: (id: string, data: object) =>
@@ -160,7 +193,34 @@ export const cvApi = {
         cv_data: cvData,
         target_role: targetRole,
       })
-      .then((r) => r.data),
+      .then((r) => r.data as import("../types").SkillGapResponse),
+
+  // ── Skill endorsements ──────────────────────────────────────────────
+  endorseSkill: (skill: string, cvId?: string, comment?: string) =>
+    api
+      .post("/cv/ai/skill-endorsements", { skill, cv_id: cvId, comment: comment || "" })
+      .then((r) => r.data as import("../types").SkillEndorsement),
+
+  skillEndorsements: (skill: string) =>
+    api
+      .get(`/cv/ai/skill-endorsements/${encodeURIComponent(skill)}`)
+      .then((r) => r.data as import("../types").SkillEndorsementSummary),
+
+  myEndorsements: () =>
+    api
+      .get("/cv/my-endorsements")
+      .then((r) => r.data as import("../types").SkillEndorsement[]),
+
+  removeEndorsement: (skill: string) =>
+    api
+      .delete(`/cv/ai/skill-endorsements/${encodeURIComponent(skill)}`)
+      .then((r) => r.data as { deleted: boolean }),
+
+  // ── Course suggestions ──────────────────────────────────────────────
+  coursesForSkill: (skill: string) =>
+    api
+      .get(`/cv/ai/courses/${encodeURIComponent(skill)}`)
+      .then((r) => r.data as import("../types").SkillCourses),
   uploadCV: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -170,6 +230,25 @@ export const cvApi = {
       })
       .then((r) => r.data);
   },
+
+  // ── Section suggestions & tone adjustment ──────────────────────────────
+  sectionSuggestions: (cvData: object, jobDescription: string) =>
+    api
+      .post("/cv/ai/section-suggestions", {
+        cv_data: cvData,
+        job_description: jobDescription,
+      })
+      .then((r) => r.data as import("../types").SectionSuggestionsResponse),
+
+  adjustTone: (cvData: object, section: string, tone: string, customInstruction?: string) =>
+    api
+      .post("/cv/ai/adjust-tone", {
+        cv_data: cvData,
+        section,
+        tone,
+        custom_instruction: customInstruction || "",
+      })
+      .then((r) => r.data as import("../types").ToneAdjustResponse),
 };
 
 export const exportApi = {
@@ -210,17 +289,36 @@ export const exportApi = {
         responseType: "blob",
       })
       .then((r) => r.data),
+
+  // ── PDF/A ──
+  downloadPDFA: (cvId: string): Promise<Blob> =>
+    api
+      .get(`/export/pdf/${cvId}`, { params: { pdfa: true }, responseType: "blob" })
+      .then((r) => r.data),
+  downloadPublicPDFA: (username: string, slug: string): Promise<Blob> =>
+    axios
+      .get(`${BASE}/api/v1/export/public-pdf/${username}/${slug}`, {
+        params: { pdfa: true },
+        responseType: "blob",
+      })
+      .then((r) => r.data),
+
+  // ── Download analytics ──
+  downloadAnalytics: (cvId: string): Promise<import("../types").DownloadAnalytics> =>
+    api.get(`/export/analytics/${cvId}`).then((r) => r.data as import("../types").DownloadAnalytics),
+
+  // ── Cache invalidation ──
+  invalidateCache: (cvId: string) =>
+    api.post(`/export/invalidate-cache/${cvId}`).then((r) => r.data as { deleted: number }),
 };
 
 export const publicApi = {
-  getFeed: (skip = 0, limit = 12) =>
-    api.get(`/public/feed?skip=${skip}&limit=${limit}`).then((r) => r.data),
   getCV: (username: string, slug: string) =>
     axios.get(`${BASE}/api/v1/public/cv/${username}/${slug}`).then((r) => r.data),
   getProfile: (username: string) =>
     axios.get(`${BASE}/api/v1/public/profile/${username}`).then((r) => r.data),
-  getCompany: (slug: string) =>
-    api.get(`/recruiter/company/${slug}`).then((r) => r.data),
+  browseCVs: (params: { q?: string; skills?: string; page?: number; per_page?: number }) =>
+    axios.get(`${BASE}/api/v1/public/cvs/browse`, { params }).then((r) => r.data as { items: import("../types").CVBrowseCard[]; total: number; page: number; per_page: number }),
 };
 
 export const adminApi = {
@@ -229,13 +327,9 @@ export const adminApi = {
     api.get(`/admin/users?skip=${skip}&limit=${limit}`).then((r) => r.data),
   setRole: (id: string, role: string) =>
     api.put(`/admin/users/${id}/role`, { role }).then((r) => r.data),
-  recruiters: () => api.get("/admin/recruiters").then((r) => r.data),
-  recruiterActivity: () => api.get("/admin/recruiter-activity").then((r) => r.data),
   aiStats: () => api.get("/admin/ai-stats").then((r) => r.data),
   securityStats: () => api.get("/admin/security-stats").then((r) => r.data),
   exportStats: () => api.get("/admin/export-stats").then((r) => r.data),
-  setRecruiterApproval: (id: string, body: { is_approved: boolean; verified?: boolean }) =>
-    api.put(`/admin/recruiters/${id}/approval`, body).then((r) => r.data),
   deactivate: (id: string) =>
     api.put(`/admin/users/${id}/deactivate`).then((r) => r.data),
   activate: (id: string) =>
@@ -247,6 +341,12 @@ export const adminApi = {
   auditLog: (skip = 0, limit = 100) =>
     api.get(`/admin/audit-log?skip=${skip}&limit=${limit}`).then((r) => r.data),
   engagementStats: () => api.get("/admin/engagement-stats").then((r) => r.data),
+  pushStats: () =>
+    api.get("/admin/push-stats").then((r) => r.data as { total_subscriptions: number; distinct_users: number; vapid_configured: boolean }),
+  pushSubscriptions: (skip = 0, limit = 100) =>
+    api.get(`/admin/push-subscriptions?skip=${skip}&limit=${limit}`).then((r) => r.data as { subscriptions: import("../types").PushSubscriptionEntry[]; total: number }),
+  searchUsers: (params: { q?: string; role?: string; status?: string; date_from?: string; date_to?: string; skip?: number; limit?: number }) =>
+    api.get("/admin/users/search", { params }).then((r) => r.data as { users: Record<string, unknown>[]; total: number }),
 };
 
 export const jobsApi = {
@@ -255,6 +355,7 @@ export const jobsApi = {
     location?: string;
     remote?: boolean | null;
     region?: string;
+    nigeria_state?: string;
     page?: number;
     per_page?: number;
   }) =>
@@ -295,74 +396,36 @@ export const jobsApi = {
     api.delete(`/jobs/saved/${encodeURIComponent(jobId)}`).then((r) => r.data),
 
   savedList: () => api.get("/jobs/saved").then((r) => r.data),
-
-  applications: () => api.get("/jobs/applications").then((r) => r.data),
-
-  createApplication: (body: object) =>
-    api.post("/jobs/applications", body).then((r) => r.data),
-
-  updateApplication: (id: string, body: object) =>
-    api.put(`/jobs/applications/${id}`, body).then((r) => r.data),
-
-  deleteApplication: (id: string) =>
-    api.delete(`/jobs/applications/${id}`).then((r) => r.data),
 };
 
-export const recruiterApi = {
-  register: (body: object) => api.post("/recruiter/register", body).then((r) => r.data as import("../types").RecruiterProfile),
-  profile: () => api.get("/recruiter/profile").then((r) => r.data as import("../types").RecruiterProfile),
-  updateProfile: (body: object) => api.put("/recruiter/profile", body).then((r) => r.data as import("../types").RecruiterProfile),
-  deleteProfile: () => api.delete("/recruiter/profile").then((r) => r.data),
-  talentPools: () => api.get("/recruiter/talent-pools").then((r) => r.data as import("../types").TalentPool[]),
-  createTalentPool: (body: object) => api.post("/recruiter/talent-pools", body).then((r) => r.data as import("../types").TalentPool),
-  savedCandidates: (poolId?: string) =>
-    api.get("/recruiter/saved-candidates", { params: poolId ? { pool_id: poolId } : undefined }).then((r) => r.data as import("../types").SavedCandidate[]),
-  saveCandidate: (body: object) => api.post("/recruiter/saved-candidates", body).then((r) => r.data as import("../types").SavedCandidate),
-  updateSavedCandidate: (id: string, body: object) => api.put(`/recruiter/saved-candidates/${id}`, body).then((r) => r.data as import("../types").SavedCandidate),
-  deleteSavedCandidate: (id: string) => api.delete(`/recruiter/saved-candidates/${id}`).then((r) => r.data),
-  // Interview results
-  listInterviewCandidates: (limit = 20, skip = 0) =>
-    api.get("/recruiter/interview-candidates", { params: { limit, skip } }).then((r) => r.data as { candidates: import("../types").InterviewCandidate[] }),
-  candidateInterviews: (candidateId: string) =>
-    api.get(`/recruiter/candidates/${candidateId}/interviews`).then((r) => r.data as import("../types").CandidateInterviewSessions),
-  interviewDetail: (candidateId: string, sessionId: string) =>
-    api.get(`/recruiter/candidates/${candidateId}/interviews/${sessionId}`).then((r) => r.data as import("../types").RecruiterInterviewDetail),
-};
 
-export const axiomJobsApi = {
-  list: (params?: { q?: string; region?: string; mine?: boolean }) =>
-    api.get("/axiom-jobs", { params }).then((r) => r.data as import("../types").AxiomJob[]),
-  mine: () => api.get("/axiom-jobs/mine").then((r) => r.data as import("../types").AxiomJob[]),
-  get: (id: string) => api.get(`/axiom-jobs/${id}`).then((r) => r.data as import("../types").AxiomJob),
-  create: (body: object) => api.post("/axiom-jobs", body).then((r) => r.data as import("../types").AxiomJob),
-  update: (id: string, body: object) => api.put(`/axiom-jobs/${id}`, body).then((r) => r.data as import("../types").AxiomJob),
-  close: (id: string) => api.delete(`/axiom-jobs/${id}`).then((r) => r.data),
-  share: (id: string) => api.post(`/axiom-jobs/${id}/share`).then((r) => r.data),
-  meta: (id: string) => api.get(`/axiom-jobs/${id}/meta`).then((r) => r.data),
-};
-
-export const axiomApplicationsApi = {
-  list: () => api.get("/axiom-applications").then((r) => r.data as import("../types").AxiomApplication[]),
-  apply: (body: object) => api.post("/axiom-applications", body).then((r) => r.data as import("../types").AxiomApplication),
-  employer: () => api.get("/axiom-applications/employer").then((r) => r.data as import("../types").AxiomApplication[]),
-  updateStatus: (id: string, body: object) => api.put(`/axiom-applications/${id}/status`, body).then((r) => r.data as import("../types").AxiomApplication),
-};
-
-export const liveInterviewApi = {
-  list: () => api.get("/interview-live").then((r) => r.data as import("../types").LiveInterviewSession[]),
-  schedule: (body: object) => api.post("/interview-live/schedule", body).then((r) => r.data as import("../types").LiveInterviewSession),
-  get: (id: string) => api.get(`/interview-live/${id}`).then((r) => r.data as import("../types").LiveInterviewSession),
-  nextQuestion: (id: string) => api.post(`/interview-live/${id}/next-question`).then((r) => r.data as import("../types").LiveInterviewSession),
-  answer: (id: string, body: object) => api.post(`/interview-live/${id}/answer`, body).then((r) => r.data as import("../types").LiveInterviewSession),
-  followUp: (id: string, body: object) => api.post(`/interview-live/${id}/follow-up`, body).then((r) => r.data as import("../types").LiveInterviewSession),
-  summarize: (id: string) => api.post(`/interview-live/${id}/summarize`).then((r) => r.data as import("../types").LiveInterviewSession),
-  feedback: (id: string, body: object) => api.put(`/interview-live/${id}/feedback`, body).then((r) => r.data as import("../types").LiveInterviewSession),
-};
 
 export const notificationsApi = {
-  list: () => api.get("/notifications").then((r) => r.data as import("../types").NotificationItem[]),
+  list: (skip: number = 0, limit: number = 50) =>
+    api.get(`/notifications?skip=${skip}&limit=${limit}`).then((r) => r.data as import("../types").NotificationItem[]),
+  count: () => api.get("/notifications/count").then((r) => r.data.total as number),
   read: (id: string) => api.put(`/notifications/${id}/read`).then((r) => r.data as import("../types").NotificationItem),
   readAll: () => api.put("/notifications/read-all").then((r) => r.data),
+
+  // ── Preferences ──
+  preferences: () =>
+    api.get("/notifications/preferences").then((r) => r.data as import("../types").NotificationPreferences),
+  updatePreferences: (body: import("../types").NotificationPreferences) =>
+    api.put("/notifications/preferences", body).then((r) => r.data as import("../types").NotificationPreferences),
+
+  // ── Quiet hours ──
+  quietHours: () =>
+    api.get("/notifications/quiet-hours").then((r) => r.data as import("../types").QuietHoursStatus),
+
+  // ── Push subscription ──
+  subscribePush: (body: import("../types").PushSubscription) =>
+    api.post("/notifications/push/subscribe", body).then((r) => r.data as { success: boolean; message: string }),
+  unsubscribePush: () =>
+    api.delete("/notifications/push/subscribe").then((r) => r.data as { success: boolean; message: string }),
+
+  // ── Review-due check ──
+  checkReviewDue: () =>
+    api.post("/notifications/review-due-check").then((r) => r.data as { notified: boolean; due_count: number; reason?: string }),
 };
 
 export const searchApi = {
@@ -370,6 +433,40 @@ export const searchApi = {
     api.get("/search", { params: { q, limit } }).then((r) => r.data as import("../types").SearchResults),
 };
 
+export const emailApi = {
+  send: (body: import("../types").EmailSendRequest) =>
+    api.post("/email/send", body).then((r) => r.data as import("../types").EmailSendResponse),
+  sendBatch: (body: import("../types").EmailBatchRequest) =>
+    api.post("/email/batch", body).then((r) => r.data as import("../types").EmailSendResponse),
+};
+
+
+export const commentsApi = {
+  list: (cvId: string, section?: string, resolved?: boolean) =>
+    api
+      .get(`/cv/${cvId}/comments`, {
+        params: { section, resolved },
+      })
+      .then((r) => r.data as import("../types").CommentItem[]),
+
+  create: (cvId: string, body: import("../types").CommentCreate) =>
+    api
+      .post(`/cv/${cvId}/comments`, body)
+      .then((r) => r.data as import("../types").CommentItem),
+
+  update: (cvId: string, commentId: string, body: { text?: string; resolved?: boolean }) =>
+    api
+      .put(`/cv/${cvId}/comments/${commentId}`, body)
+      .then((r) => r.data as import("../types").CommentItem),
+
+  delete: (cvId: string, commentId: string) =>
+    api.delete(`/cv/${cvId}/comments/${commentId}`).then((r) => r.data),
+
+  counts: (cvId: string) =>
+    api
+      .get(`/cv/${cvId}/comments/count`)
+      .then((r) => r.data as import("../types").CommentCounts),
+};
 
 export const interviewApi = {
   start: (body: {
@@ -378,6 +475,7 @@ export const interviewApi = {
     job_description?: string;
     mode: import("../types").InterviewMode;
     use_star?: boolean;
+    force?: boolean;
   }) => api.post("/interview/start", body).then((r) => r.data as { session_id: string; first_question: string }),
 
   answer: (sessionId: string, answer: string) =>
@@ -387,6 +485,9 @@ export const interviewApi = {
 
   sessions: () =>
     api.get("/interview/sessions").then((r) => r.data as import("../types").InterviewSessionListItem[]),
+
+  pauseSession: (sessionId: string) =>
+    api.post(`/interview/sessions/${sessionId}/pause`).then((r) => r.data as { message: string }),
 
   session: (id: string) =>
     api.get(`/interview/sessions/${id}`).then((r) => r.data as import("../types").InterviewSessionDetail),
@@ -401,5 +502,53 @@ export const interviewApi = {
   },
 
   getRecording: (fileName: string) =>
-    `/api/interview/recordings/${fileName}`,
+    `${BASE}/api/v1/interview/recordings/${fileName}`,
+
+  // ── Spaced-repetition review cards ──
+  generateReviewCards: (sessionId: string) =>
+    api.post(`/interview/review/generate?session_id=${sessionId}`).then(r => r.data as { cards: import("../types").ReviewCard[]; count: number }),
+
+  reviewCards: () =>
+    api.get("/interview/review/cards").then(r => r.data as import("../types").ReviewCard[]),
+
+  rateReviewCard: (cardId: string, rating: import("../types").ReviewCardDifficulty) =>
+    api.post("/interview/review/rate", { card_id: cardId, rating }).then(r => r.data),
+
+  reviewCardStats: () =>
+    api.get("/interview/review/stats").then(r => r.data as import("../types").ReviewCardStats),
+
+  // ── All review cards (with search/filter) ──
+  reviewCardsAll: (params?: { topic?: string; status?: string }) =>
+    api.get('/interview/review/cards/all', { params }).then(r => r.data as import("../types").ReviewCard[]),
+
+  // ── All sessions (history) ──
+  allSessions: (params?: { status?: string; limit?: number; skip?: number }) =>
+    api.get("/interview/sessions", { params }).then(r => r.data as import("../types").InterviewSessionListItem[]),
+
+  // ── Share results ──
+  createShareToken: (sessionId: string) =>
+    api.post(`/interview/sessions/${sessionId}/share`).then(r => r.data as { share_token: string; share_url: string }),
+
+  getSharedSession: (shareToken: string) =>
+    axios.get(`${BASE}/api/v1/interview/shared/${shareToken}`).then(r => r.data as {
+      username: string;
+      job_title: string;
+      company: string;
+      mode: string;
+      overall_score: number | null;
+      summary: import("../types").InterviewSessionDetail['summary'];
+      question_count: number;
+      answered_count: number;
+      messages: import("../types").InterviewMessage[];
+    }),
+
+  revokeShareToken: (shareToken: string) =>
+    api.delete(`/interview/shared/${shareToken}`).then(r => r.data as { message: string }),
+
+  // ── Topics & difficulty ──
+  topics: () =>
+    api.get("/interview/topics").then(r => r.data as { topics: import("../types").InterviewTopic[]; total_sessions: number }),
+
+  difficulty: (mode: string = "behavioural") =>
+    api.get(`/interview/difficulty?mode=${mode}`).then(r => r.data as import("../types").DifficultyInfo),
 };

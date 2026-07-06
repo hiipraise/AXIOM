@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useAnnouncement } from "../../context/announcement";
 import { publicApi } from "../../api";
 import { CVData } from "../../types";
-import { Download, ArrowLeft, Globe } from "lucide-react";
+import { Download, ArrowLeft, Globe, ImageIcon } from "lucide-react";
+import { useState } from "react";
 import { usePrintCV } from "../../hooks/usePrintCV";
 import CVRenderer from "../../components/cv/CVRenderer";
+import ShareCardModal from "../../components/cv/ShareCardModal";
 import CVScaleWrapper from "../../components/cv/CVScaleWrapper";
 import Seo from "../../components/Seo";
 
@@ -23,6 +25,7 @@ export default function PublicCVPage() {
   const navigate = useNavigate();
   const { bannerH } = useAnnouncement();
   const { printPublicCV, printJob, clearJob, isPrinting } = usePrintCV();
+  const [showShareCard, setShowShareCard] = useState(false);
 
   const {
     data: cv,
@@ -92,17 +95,26 @@ export default function PublicCVPage() {
             </Link>
           </div>
         </div>
-        <button
-          onClick={() => printPublicCV(username!, slug!)}
-          disabled={isPrinting}
-          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light disabled:opacity-50 transition-colors"
-        >
-          <Download size={13} />
-          <span className="hidden sm:inline">
-            {isPrinting ? "Preparing…" : "Download PDF"}
-          </span>
-          <span className="sm:hidden">PDF</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowShareCard(true)}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-ash-border text-ink-muted text-xs rounded-lg hover:bg-ash hover:text-ink transition-colors"
+          >
+            <ImageIcon size={13} />
+            <span className="hidden sm:inline">Share card</span>
+          </button>
+          <button
+            onClick={() => printPublicCV(username!, slug!)}
+            disabled={isPrinting}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-ink text-white text-xs rounded-lg hover:bg-ink-light disabled:opacity-50 transition-colors"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">
+              {isPrinting ? "Preparing…" : "Download PDF"}
+            </span>
+            <span className="sm:hidden">PDF</span>
+          </button>
+        </div>
       </div>
 
       {/* CV content — fills the screen width then scales on mobile */}
@@ -118,6 +130,18 @@ export default function PublicCVPage() {
           />
         </CVScaleWrapper>
       </main>
+
+      <ShareCardModal
+        open={showShareCard}
+        onClose={() => setShowShareCard(false)}
+        fullName={cv.data.personal_info?.full_name || ''}
+        jobTitle={cv.data.personal_info?.job_title || ''}
+        summary={cv.data.summary || ''}
+        skills={cv.data.skills || []}
+        location={cv.data.personal_info?.location || ''}
+        publicUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/cv/${username}/${slug}`}
+        username={username || ''}
+      />
     </div>
   );
 }

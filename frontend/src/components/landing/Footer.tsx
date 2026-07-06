@@ -55,8 +55,8 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted">
               <Link to="/about" className="hover:text-ink">About</Link>
-              <Link to="/recruiter" className="hover:text-ink">For Recruiters</Link>
-              <Link to="/recruiter/help" className="hover:text-ink">Recruiter help</Link>
+              <Link to="/why-axiom" className="hover:text-ink">Why AXIOM</Link>
+              <Link to="/faq" className="hover:text-ink">FAQ</Link>
               <Link to="/terms-privacy" className="hover:text-ink">Terms & Privacy</Link>
             </nav>
 

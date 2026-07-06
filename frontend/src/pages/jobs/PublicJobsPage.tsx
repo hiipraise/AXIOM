@@ -8,6 +8,7 @@ import { JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
 import { useAnnouncement } from "../../context/announcement";
 import { EmptyJobs } from "../../components/UI/EmptyState";
+import { NIGERIA_STATES } from "../../lib/nigeriaStates";
 
 const PAGE_SIZE = 12;
 
@@ -66,6 +67,7 @@ function JobsGridSkeleton() {
     </div>
   );
 }
+import Seo from "../../components/Seo";
 
 export default function PublicJobsPage() {
   const { user }  = useAuthStore();
@@ -74,11 +76,12 @@ export default function PublicJobsPage() {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState("");
   const [region, setRegion] = useState("");
+  const [nigeriaState, setNigeriaState] = useState("");
   const [page, setPage] = useState(0);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["public-jobs", active, region],
-    queryFn:  () => jobsApi.search({ q: active, region, per_page: 60 }),
+    queryKey: ["public-jobs", active, region, nigeriaState],
+    queryFn:  () => jobsApi.search({ q: active, region, nigeria_state: nigeriaState, per_page: 60 }),
     staleTime: 0, // Job listings need fresh data for accurate availability
   });
 
@@ -106,11 +109,16 @@ export default function PublicJobsPage() {
 
   function selectRegion(value: string) {
     setRegion((current) => current === value ? "" : value);
+    if (value !== "nigeria") setNigeriaState("");
     setPage(0);
   }
 
   return (
     <div className="min-h-screen bg-ash">
+      <Seo
+        title="Browse Jobs"
+        description="Browse live roles from Adzuna, Remotive, The Muse and more. Sign in to get an AI match score, tailor your CV, and generate cover letters."
+      />
       {/* ── Top bar ── */}
       <header
         className="bg-white border-b border-ash-border sticky z-30"
@@ -193,7 +201,7 @@ export default function PublicJobsPage() {
               onClick={() => selectRegion(option.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 region === option.value
-                  ? "bg-emerald-600 text-white border-emerald-600"
+                  ? "bg-[#a0449f] text-white border-[#a0449f]"
                   : "border-ash-border text-ink-muted hover:border-ink/30 hover:text-ink bg-white"
               }`}
             >
@@ -201,6 +209,24 @@ export default function PublicJobsPage() {
             </button>
           ))}
         </div>
+
+        {region === "nigeria" && (
+          <div className="flex flex-wrap gap-2 justify-center mb-6">
+            {NIGERIA_STATES.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setNigeriaState(s.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  nigeriaState === s.key
+                    ? "bg-[#a0449f] text-white border-[#a0449f]"
+                    : "border-ash-border text-ink-muted hover:border-ink/30 hover:text-ink bg-white"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Mobile search ── */}
         <div className="sm:hidden relative mb-5">

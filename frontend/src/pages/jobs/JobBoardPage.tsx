@@ -6,13 +6,15 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { jobsApi, cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
-import { JobResult } from "../../types";
+import { CV, JobResult } from "../../types";
 import JobCard from "../../components/jobs/JobCard";
 import { useAnnouncement } from "../../context/announcement";
 import { EmptySearch } from "../../components/UI/EmptyState";
+import { NIGERIA_STATES } from "../../lib/nigeriaStates";
 
 const PAGE_SIZE = 12;
 
@@ -60,6 +62,7 @@ function JobBoardSkeleton() {
     </section>
   );
 }
+import Seo from "../../components/Seo";
 
 export default function JobBoardPage() {
   const { user } = useAuthStore();
@@ -71,6 +74,7 @@ export default function JobBoardPage() {
   const [location, setLocation] = useState("");
   const [remote, setRemote] = useState<boolean | "">("");
   const [region, setRegion] = useState("");
+  const [nigeriaState, setNigeriaState] = useState("");
 
   // ── Committed search (fires query)
   const [committed, setCommitted] = useState({
@@ -78,14 +82,11 @@ export default function JobBoardPage() {
     location: "",
     remote: "" as boolean | "",
     region: "",
+    nigeria_state: "",
   });
 
   // ── Filters / sort (client-side)
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sourceMode, setSourceMode] = useState<"all" | "axiom" | "external">(() => {
-    const s = searchParams.get("source");
-    return s === "axiom" || s === "external" ? s : "all";
-  });
   const [sortBy, setSortBy] = useState("default");
   const [sourceFilter, setSourceFilter] = useState("");
   const [useCvMatch, setUseCvMatch] = useState(false);
@@ -115,29 +116,24 @@ export default function JobBoardPage() {
     }
   }, [page]);
 
-  // Sync sourceMode changes to URL
-  useEffect(() => {
-    if (!isInitialUrlLoad.current) {
-      if (sourceMode === "all") {
-        searchParams.delete("source");
-      } else {
-        searchParams.set("source", sourceMode);
-      }
-      setSearchParams(searchParams);
-    }
-  }, [sourceMode]);
-
   function commit() {
-    setCommitted({ q: query, location, remote, region });
+    setCommitted({
+      q: query,
+      location,
+      remote,
+      region,
+      nigeria_state: nigeriaState,
+    });
     setPage(0);
   }
 
   // ── CV tokens for client-side match scoring
-  const { data: cvs = [] } = useQuery({
+  const { data: cvData } = useQuery<{ cvs: CV[]; total: number }>({
     queryKey: ["cvs"],
-    queryFn: cvApi.list,
+    queryFn: () => cvApi.list(),
     enabled: !!user,
   });
+  const cvs = cvData?.cvs ?? [];
   const primaryCv = cvs[0];
   const tokens = useMemo(() => {
     const skills = primaryCv?.data.skills ?? [];
@@ -164,7 +160,13 @@ export default function JobBoardPage() {
     if (!cvSearch) return;
     setUseCvMatch(true);
     setQuery(cvSearch);
-    setCommitted({ q: cvSearch, location, remote, region });
+    setCommitted({
+      q: cvSearch,
+      location,
+      remote,
+      region,
+      nigeria_state: nigeriaState,
+    });
     setSortBy("match-desc");
     setPage(0);
   }
@@ -173,7 +175,13 @@ export default function JobBoardPage() {
     setUseCvMatch(false);
     if (query === cvSearch) {
       setQuery("");
-      setCommitted({ q: "", location, remote, region });
+      setCommitted({
+        q: "",
+        location,
+        remote,
+        region,
+        nigeria_state: nigeriaState,
+      });
     }
     if (sortBy.startsWith("match")) setSortBy("default");
     setPage(0);
@@ -187,6 +195,7 @@ export default function JobBoardPage() {
       committed.location,
       committed.remote,
       committed.region,
+      committed.nigeria_state,
     ],
     queryFn: () =>
       jobsApi.search({
@@ -194,6 +203,7 @@ export default function JobBoardPage() {
         location: committed.location,
         remote: committed.remote === "" ? null : committed.remote,
         region: committed.region,
+        nigeria_state: committed.nigeria_state,
         per_page: 60,
       }),
     staleTime: 0, // Job listings need fresh data for accurate availability
@@ -201,6 +211,8 @@ export default function JobBoardPage() {
   });
 
   const rawJobs = data?.items ?? [];
+  const sourceHealth = data?.source_health;
+  const isSearching = isFetching || isLoading;
 
   // ── Sources present in results
   const availableSources = useMemo(
@@ -214,11 +226,6 @@ export default function JobBoardPage() {
       job,
       score: user && primaryCv ? quickMatchScore(job, tokens) : null,
     }));
-
-    if (sourceMode === "axiom")
-      result = result.filter(({ job }) => job.source === "axiom");
-    if (sourceMode === "external")
-      result = result.filter(({ job }) => job.source !== "axiom");
 
     // Source filter
     if (sourceFilter)
@@ -243,16 +250,7 @@ export default function JobBoardPage() {
       );
 
     return result;
-  }, [
-    rawJobs,
-    sortBy,
-    sourceFilter,
-    sourceMode,
-    tokens,
-    user,
-    primaryCv,
-    useCvMatch,
-  ]);
+  }, [rawJobs, sortBy, sourceFilter, tokens, user, primaryCv, useCvMatch]);
 
   const totalPages = Math.ceil(processed.length / PAGE_SIZE);
   const paginated = processed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -260,12 +258,12 @@ export default function JobBoardPage() {
   const resetFilters = () => {
     setSortBy("default");
     setSourceFilter("");
-    setSourceMode("all");
     setPage(0);
   };
 
   return (
     <div className="min-h-screen bg-ash">
+      <Seo title="Job Search" noindex />
       {/* ── Sticky header ── */}
       <header
         className="border-b border-ash-border bg-white/80 backdrop-blur-sm sticky z-20"
@@ -293,9 +291,9 @@ export default function JobBoardPage() {
             {user && (
               <button
                 className="btn-primary"
-                onClick={() => navigate("/tracker")}
+                onClick={() => navigate("/saved-jobs")}
               >
-                Tracker
+                Saved Jobs
               </button>
             )}
           </div>
@@ -340,13 +338,33 @@ export default function JobBoardPage() {
               <select
                 className="input"
                 value={region}
-                onChange={(e) => setRegion(e.target.value)}
+                onChange={(e) => {
+                  setRegion(e.target.value);
+                  if (e.target.value !== "nigeria") setNigeriaState("");
+                }}
               >
                 <option value="">All</option>
                 <option value="nigeria">Nigeria</option>
                 <option value="africa">Africa</option>
               </select>
             </div>
+            {region === "nigeria" && (
+              <div>
+                <label className="label">State</label>
+                <select
+                  className="input"
+                  value={nigeriaState}
+                  onChange={(e) => setNigeriaState(e.target.value)}
+                >
+                  <option value="">All states</option>
+                  {NIGERIA_STATES.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="label">Remote</label>
               <select
@@ -389,9 +407,13 @@ export default function JobBoardPage() {
             <button
               className={useCvMatch ? "btn-secondary" : "btn-primary"}
               onClick={useCvMatch ? clearCvSearch : applyCvSearch}
-              disabled={!cvSearch}
+              disabled={!cvSearch || isSearching}
             >
-              {useCvMatch ? "Show all jobs" : "Use my CV"}
+              {isSearching
+                ? "Searching…"
+                : useCvMatch
+                  ? "Show all jobs"
+                  : "Use my CV"}
             </button>
           </section>
         )}
@@ -415,19 +437,6 @@ export default function JobBoardPage() {
 
           <select
             className="text-xs border border-ash-border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-ink"
-            value={sourceMode}
-            onChange={(e) => {
-              setSourceMode(e.target.value as "all" | "axiom" | "external");
-              setPage(0);
-            }}
-          >
-            <option value="all">All jobs</option>
-            <option value="axiom">AXIOM only</option>
-            <option value="external">External only</option>
-          </select>
-
-          <select
-            className="text-xs border border-ash-border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-ink"
             value={sourceFilter}
             onChange={(e) => {
               setSourceFilter(e.target.value);
@@ -442,7 +451,7 @@ export default function JobBoardPage() {
             ))}
           </select>
 
-          {(sortBy !== "default" || sourceFilter || sourceMode !== "all") && (
+          {(sortBy !== "default" || sourceFilter) && (
             <button
               className="text-xs text-ink-muted hover:text-ink underline"
               onClick={resetFilters}
@@ -450,14 +459,6 @@ export default function JobBoardPage() {
               Reset filters
             </button>
           )}
-
-          {sourceMode === "axiom" &&
-            !rawJobs.some((j) => j.source === "axiom") && (
-              <p className="text-xs text-amber-600">
-                No AXIOM jobs match this search. Try broader keywords or clear
-                the region filter.
-              </p>
-            )}
 
           <div className="ml-auto flex items-center gap-2 text-xs text-ink-muted">
             {isFetching && !isLoading && (
@@ -471,6 +472,17 @@ export default function JobBoardPage() {
             )}
           </div>
         </div>
+
+        {/* ── Source health warning ── */}
+        {sourceHealth?.warning && !isLoading && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <AlertTriangle
+              size={14}
+              className="mt-0.5 flex-shrink-0 text-amber-500"
+            />
+            <span>{sourceHealth.warning}</span>
+          </div>
+        )}
 
         {/* ── Results ── */}
         {isLoading ? (

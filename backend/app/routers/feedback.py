@@ -10,8 +10,8 @@ router = APIRouter()
 @router.post("")
 async def submit_feedback(body: FeedbackSubmit, db=Depends(get_db), user=Depends(get_optional_user)):
     doc = {
-        "type":    "other",
-        "rating":  None,
+        "type":    body.type,
+        "rating":  body.rating if body.type == "rate" else None,
         "message": body.message.strip(),
         "page":    body.page_url or "",
         "user_id": str(user["_id"]) if user else None,

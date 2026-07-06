@@ -48,6 +48,7 @@ async def setup_indexes():
     await db.cvs.create_index([("owner_id", ASCENDING)])
     await db.cvs.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
     await db.cvs.create_index([("slug", ASCENDING)], sparse=True)
+    await db.cvs.create_index([("title", "text"), ("data.summary", "text"), ("data.skills", "text")])
     # CV History
     await db.cv_history.create_index([("cv_id", ASCENDING)])
     await db.cv_history.create_index([("owner_id", ASCENDING)])
@@ -55,35 +56,61 @@ async def setup_indexes():
     await db.job_cache.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
     await db.job_cache.create_index([("cache_key", ASCENDING)], unique=True, sparse=True)
     await db.job_cache.create_index([("job_id", ASCENDING)], unique=True, sparse=True)
+    await db.job_cache.create_index([("title", "text"), ("company", "text"), ("description", "text")])
+    await db.job_cache.create_index([("posted_at", DESCENDING)])
     await db.saved_jobs.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
     await db.saved_jobs.create_index([("user_id", ASCENDING), ("saved_at", ASCENDING)])
-    await db.applications.create_index([("user_id", ASCENDING), ("job_id", ASCENDING)], unique=True)
-    await db.applications.create_index([("user_id", ASCENDING), ("status", ASCENDING)])
-    await db.applications.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
-    await db.axiom_jobs.create_index([("employer_id", ASCENDING)])
-    await db.axiom_jobs.create_index([("employer_id", ASCENDING), ("created_at", DESCENDING)])
-    await db.axiom_jobs.create_index([("title", "text"), ("description", "text")])
     # Revoked tokens: auto-expire after 24 hours (matches JWT expiry)
     await db.revoked_tokens.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
-    await db.axiom_jobs.create_index([("is_active", ASCENDING), ("is_approved", ASCENDING)])
-    await db.axiom_jobs.create_index([("share_token", ASCENDING)], unique=True, sparse=True)
-    await db.axiom_jobs.create_index([("created_at", DESCENDING)])
-    await db.axiom_jobs.create_index([("skills_required", ASCENDING)])
-    await db.axiom_applications.create_index([("job_id", ASCENDING), ("candidate_id", ASCENDING)], unique=True)
-    await db.axiom_applications.create_index([("employer_id", ASCENDING)])
-    await db.axiom_applications.create_index([("candidate_id", ASCENDING)])
-    await db.axiom_applications.create_index([("status", ASCENDING)])
-    await db.axiom_applications.create_index([("created_at", DESCENDING)])
-    await db.company_profiles.create_index([("user_id", ASCENDING)], unique=True)
-    await db.company_profiles.create_index([("company_slug", ASCENDING)], unique=True, sparse=True)
     await db.notifications.create_index([("user_id", ASCENDING), ("read", ASCENDING)])
     await db.notifications.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+    await db.notifications.create_index([("user_id", ASCENDING), ("kind", ASCENDING)])
     await db.notifications.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
     await db.interview_sessions.create_index([("user_id", ASCENDING)])
-    await db.interview_sessions.create_index([("axiom_application_id", ASCENDING)], sparse=True)
     await db.interview_sessions.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    # Interview recordings: index for cleanup & retrieval
+    await db.interview_recordings.create_index([("created_at", ASCENDING)], expireAfterSeconds=2592000)
+    await db.interview_recordings.create_index([("user_id", ASCENDING)])
+    await db.interview_recordings.create_index([("session_id", ASCENDING)])
+    # Review cards
+    await db.review_cards.create_index([("user_id", ASCENDING), ("next_review_at", ASCENDING)])
+    await db.review_cards.create_index([("user_id", ASCENDING), ("topic", ASCENDING)])
+    # CV Comments
+    await db.cv_comments.create_index([("cv_id", ASCENDING)])
+    await db.cv_comments.create_index([("cv_id", ASCENDING), ("section", ASCENDING)])
+    await db.cv_comments.create_index([("cv_id", ASCENDING), ("resolved", ASCENDING)])
+    await db.cv_comments.create_index([("parent_id", ASCENDING)], sparse=True)
+    # Feedback: admin listing by type and recency
+    await db.feedback.create_index([("type", ASCENDING), ("ts", DESCENDING)])
+    await db.feedback.create_index([("ts", DESCENDING)])
+
+    # Notification preferences & push subscriptions
+    await db.notification_preferences.create_index([("user_id", ASCENDING)], unique=True)
+    await db.push_subscriptions.create_index([("user_id", ASCENDING)], unique=True)
+
+    # PDF cache: auto-expire after 1 hour
+    await db.pdf_cache.create_index([("cache_key", ASCENDING)], unique=True)
+    await db.pdf_cache.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    await db.pdf_cache.create_index([("cv_id", ASCENDING)])
+
+    # PDF download analytics
+    await db.export_events.create_index([("cv_id", ASCENDING), ("ts", DESCENDING)])
+    await db.export_events.create_index([("type", ASCENDING), ("ts", DESCENDING)])
+
+    # Skill market cache: auto-expire after 1 hour
+    await db.skill_market_cache.create_index([("cache_key", ASCENDING)], unique=True)
+    await db.skill_market_cache.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+
+    # Skill endorsements: by user or by skill
+    await db.skill_endorsements.create_index([("user_id", ASCENDING)])
+    await db.skill_endorsements.create_index([("skill", ASCENDING)])
+    await db.skill_endorsements.create_index([("user_id", ASCENDING), ("skill", ASCENDING)])
+
+    # OAuth states: auto-expire after 5 minutes
+    await db.oauth_states.create_index([("state", ASCENDING)], unique=True)
+    await db.oauth_states.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+
     # Ratings: unique per user-CV to prevent manipulation
-    # First delete legacy ratings without rater_id (they can't be tied to users anyway)
     await db.ratings.delete_many({"rater_id": None})
     await db.ratings.create_index([("rater_id", ASCENDING), ("cv_id", ASCENDING)], unique=True)
     logger.info("Database indexes ensured")
