@@ -20,14 +20,14 @@ IS_PROD = settings.env.lower() == "production"
 async def track_event(body: AnalyticsEvent, request: Request, db=Depends(get_db), user=Depends(get_optional_user)):
     """
     Called by the frontend on every page navigation.
-    Body: { path: string, referrer?: string, session_id: string }
+    Body: { event_type: string, page_url: string, event_data: { referrer?: string, session_id: string } }
     """
     if not IS_PROD:
         return {"ok": True, "skipped": "non-production"}
 
     event = {
-        "path":       request.url.path if body.event_type == "pageview" else body.event_type,
-        "referrer":   body.page_url or "",
+        "path":       body.page_url or request.url.path,
+        "referrer":   body.event_data.get("referrer", "") if body.event_data else "",
         "session_id":  body.event_data.get("session_id", "") if body.event_data else "",
         "user_id":    str(user["_id"]) if user else None,
         "ts":         datetime.now(timezone.utc),

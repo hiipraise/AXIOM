@@ -32,9 +32,9 @@ export function usePageTracking() {
 
     // fire and forget — errors are silently swallowed
     api.post('/analytics/event', {
-      path,
-      referrer,
-      session_id: getSessionId(),
+      event_type: 'pageview',
+      page_url: path,
+      event_data: { referrer, session_id: getSessionId() },
     }).catch(() => {})
   }, [location.pathname])
 }
