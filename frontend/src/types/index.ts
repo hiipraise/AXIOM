@@ -14,6 +14,8 @@ export interface User {
   is_active: boolean;
   roadmap_progress?: RoadmapProgressItem[];
   oauth_provider?: string | null;
+  last_username_change?: string | null;
+  username_edit_session_expires_at?: string | null;
 }
 
 export interface PersonalInfo {

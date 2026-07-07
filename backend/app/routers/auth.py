@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field
 from typing import Any, Optional
 from starlette.responses import RedirectResponse
+from bson import ObjectId
 import os, re, json, io
 import logging
 
@@ -47,6 +48,19 @@ def clear_auth_cookie(response: Response) -> None:
 
 
 def serialize_user(u: dict) -> dict:
+    # Check if there's an active username edit session
+    session_expires_at = None
+    expires = u.get("username_edit_session_expires_at")
+    if expires:
+        # MongoDB may return datetimes without timezone info — make them comparable
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires > datetime.now(timezone.utc):
+            session_expires_at = expires
+        else:
+            # Expired — clean up stale field
+            pass  # cleaned on next init attempt
+
     return {
         "id":                   str(u["_id"]),
         "username":             u["username"],
@@ -60,6 +74,8 @@ def serialize_user(u: dict) -> dict:
         "is_first_login":       u.get("is_first_login", False),
         "oauth_provider":       u.get("oauth_provider"),
         "has_password":         u.get("password_hash") is not None,
+        "last_username_change": u.get("last_username_change"),
+        "username_edit_session_expires_at": session_expires_at,
     }
 
 
@@ -536,3 +552,159 @@ async def update_roadmap_progress(body: RoadmapStepComplete, current_user=Depend
         }
     )
     return {"message": "Step completed", "item": new_item}
+
+
+# ── Username change (14-day cooldown + 15-min edit window) ──────────────────
+
+
+class InitiateUsernameChangeResponse(BaseModel):
+    session_expires_at: datetime
+    message: str = ""
+
+
+class ConfirmUsernameChange(BaseModel):
+    new_username: str = Field(
+        ..., min_length=3, max_length=30,
+        pattern=r"^[a-zA-Z0-9_\-]+$",
+    )
+
+
+@router.post("/change-username/init")
+@limiter.limit("5/minute")
+async def initiate_username_change(
+    request: Request,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Start the username change process. Creates a 15-minute editing session.
+    Checks the 14-day cooldown before allowing a new session.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Check 14-day cooldown
+    last_change = current_user.get("last_username_change")
+    if last_change:
+        elapsed = now - last_change
+        if elapsed < timedelta(days=14):
+            remaining = timedelta(days=14) - elapsed
+            days = remaining.days
+            hours = remaining.seconds // 3600
+            minutes = (remaining.seconds % 3600) // 60
+            parts = []
+            if days > 0:
+                parts.append(f"{days}d")
+            if hours > 0:
+                parts.append(f"{hours}h")
+            if minutes > 0 or not parts:
+                parts.append(f"{minutes}m")
+            raise bad_request(
+                f"Username can only be changed once every 14 days. "
+                f"Please wait {' '.join(parts)} before trying again."
+            )
+
+    # Clean up any stale session + create new one
+    session_expires_at = now + timedelta(minutes=15)
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"username_edit_session_expires_at": session_expires_at}},
+    )
+
+    return InitiateUsernameChangeResponse(
+        session_expires_at=session_expires_at,
+        message="You have 15 minutes to enter and save your new username.",
+    )
+
+
+@router.post("/change-username/confirm")
+@limiter.limit("5/minute")
+async def confirm_username_change(
+    body: ConfirmUsernameChange,
+    request: Request,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Confirm a username change. Validates the 15-min session is still active,
+    checks uniqueness and rules, then updates the username across all related collections.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Check session is active
+    session_expires_at = current_user.get("username_edit_session_expires_at")
+    # MongoDB may return datetimes without timezone info — make them comparable
+    if session_expires_at and session_expires_at.tzinfo is None:
+        session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
+    if not session_expires_at or session_expires_at < now:
+        # Clean up expired session field
+        await db.users.update_one(
+            {"_id": current_user["_id"]},
+            {"$unset": {"username_edit_session_expires_at": ""}},
+        )
+        raise bad_request(
+            "Your username editing session has expired. "
+            "Please click 'Edit username' again to start a new 15-minute window."
+        )
+
+    new_username = body.new_username.strip()
+
+    # Validate username format
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", new_username):
+        raise bad_request("Username may only contain letters, numbers, underscores, and hyphens.")
+    if len(new_username) < 3 or len(new_username) > 30:
+        raise bad_request("Username must be between 3 and 30 characters.")
+
+    # Check uniqueness (case-insensitive)
+    existing = await db.users.find_one({
+        "username": {"$regex": f"^{re.escape(new_username)}$", "$options": "i"},
+        "_id": {"$ne": current_user["_id"]},
+    })
+    if existing:
+        raise bad_request("Username already taken.")
+
+    old_username = current_user["username"]
+    uid_str = str(current_user["_id"])
+
+    # Update user document
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {
+            "$set": {
+                "username": new_username,
+                "last_username_change": now,
+            },
+            "$unset": {"username_edit_session_expires_at": ""},
+        },
+    )
+
+    # Update owner_username on all user's CVs
+    await db.cvs.update_many(
+        {"owner_id": uid_str},
+        {"$set": {"owner_username": new_username}},
+    )
+
+    logger.info(
+        "Username changed",
+        extra={
+            "user_id": uid_str,
+            "old_username": old_username,
+            "new_username": new_username,
+        },
+    )
+
+    # Return updated user
+    updated = await db.users.find_one({"_id": current_user["_id"]})
+    return serialize_user(updated)
+
+
+@router.post("/change-username/cancel")
+@limiter.limit("10/minute")
+async def cancel_username_change(
+    request: Request,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Cancel an active username change session."""
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$unset": {"username_edit_session_expires_at": ""}},
+    )
+    return {"message": "Username change cancelled."}

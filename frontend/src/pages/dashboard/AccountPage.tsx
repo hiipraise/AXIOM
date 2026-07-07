@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi, getErrorDetail } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import toast from 'react-hot-toast'
-import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle, Download, Globe } from 'lucide-react'
+import { Bell, Briefcase, Mail, Key, Trash2, AlertTriangle, Download, Globe, User as UserIcon, Pencil, X, Check, Clock } from 'lucide-react'
 import ConfirmDialog from '../../components/UI/ConfirmDialog'
 import Seo from "../../components/Seo";
 
@@ -18,6 +18,14 @@ export default function AccountPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
   const [downloading, setDownloading] = useState(false)
+
+  // ── Username change state ──
+  const [usernameEditActive, setUsernameEditActive] = useState(false)
+  const [newUsername, setNewUsername] = useState('')
+  const [usernameSessionExpiresAt, setUsernameSessionExpiresAt] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState<string>('')
+  const [usernameUpdating, setUsernameUpdating] = useState(false)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const handleSetPw = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +65,123 @@ export default function AccountPage() {
       setLoading(false)
     }
   }
+
+  // ── Username change logic ────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!usernameSessionExpiresAt) return
+
+    const tick = () => {
+      const now = Date.now()
+      const expiresAt = new Date(usernameSessionExpiresAt).getTime()
+      const diff = expiresAt - now
+
+      if (diff <= 0) {
+        // Session expired
+        setUsernameEditActive(false)
+        setUsernameSessionExpiresAt(null)
+        setCountdown('')
+        toast.error('Your username editing session has expired. Please start again.')
+        return false
+      }
+
+      const minutes = Math.floor(diff / 60000)
+      const seconds = Math.floor((diff % 60000) / 1000)
+      setCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`)
+      return true
+    }
+
+    tick()
+    countdownRef.current = setInterval(() => {
+      const active = tick()
+      if (!active && countdownRef.current) {
+        clearInterval(countdownRef.current)
+        countdownRef.current = null
+      }
+    }, 1000)
+
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current)
+        countdownRef.current = null
+      }
+    }
+  }, [usernameSessionExpiresAt])
+
+  // Sync session from user object on mount / profile refresh
+  useEffect(() => {
+    if (user?.username_edit_session_expires_at) {
+      const expiresAt = new Date(user.username_edit_session_expires_at).getTime()
+      if (expiresAt > Date.now()) {
+        setUsernameSessionExpiresAt(user.username_edit_session_expires_at)
+        setUsernameEditActive(true)
+        setNewUsername(user.username)
+      }
+    }
+  }, [user?.username_edit_session_expires_at, user?.username])
+
+  const handleInitiateUsernameChange = async () => {
+    try {
+      const res = await authApi.initiateUsernameChange()
+      setUsernameSessionExpiresAt(res.session_expires_at)
+      setUsernameEditActive(true)
+      setNewUsername(user?.username || '')
+      toast.success(res.message)
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Failed to start username change')
+    }
+  }
+
+  const handleConfirmUsernameChange = async () => {
+    if (!newUsername.trim() || newUsername.trim() === user?.username) return
+    setUsernameUpdating(true)
+    try {
+      const updatedUser = await authApi.confirmUsernameChange(newUsername.trim())
+      setUser(updatedUser)
+      setUsernameEditActive(false)
+      setUsernameSessionExpiresAt(null)
+      toast.success('Username updated successfully!')
+    } catch (err) {
+      toast.error(getErrorDetail(err) || 'Failed to update username')
+    } finally {
+      setUsernameUpdating(false)
+    }
+  }
+
+  const handleCancelUsernameChange = async () => {
+    try {
+      await authApi.cancelUsernameChange()
+    } catch {
+      // Silently fail — session cleanup happens server-side anyway
+    }
+    setUsernameEditActive(false)
+    setUsernameSessionExpiresAt(null)
+  }
+
+  // Compute cooldown display
+  const cooldownInfo = (() => {
+    if (!user?.last_username_change) return null
+    const lastChange = new Date(user.last_username_change).getTime()
+    const cooldownMs = 14 * 24 * 60 * 60 * 1000 // 14 days
+    const nextEligible = lastChange + cooldownMs
+    const remaining = nextEligible - Date.now()
+    if (remaining <= 0) return null
+    const days = Math.floor(remaining / (24 * 60 * 60 * 1000))
+    const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+    const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000))
+    const parts: string[] = []
+    if (days > 0) parts.push(`${days}d`)
+    if (hours > 0) parts.push(`${hours}h`)
+    if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
+    const nextDate = new Date(nextEligible)
+    return {
+      remaining: parts.join(' '),
+      nextEligibleDate: nextDate.toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+      }),
+    }
+  })()
 
   /** Save recovery options: email + secret Q&A only. */
   const handleSaveRecovery = async (e: React.FormEvent) => {
@@ -126,6 +251,83 @@ export default function AccountPage() {
             </span>
           )}
         </p>
+      </div>
+
+      {/* Username section */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <UserIcon size={15} className="text-ink-muted" />
+          <h2 className="font-medium text-ink text-sm">Username</h2>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-ash-border p-3">
+          {usernameEditActive ? (
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  className="input flex-1"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Enter new username"
+                  minLength={3}
+                  maxLength={30}
+                  autoFocus
+                  pattern="^[a-zA-Z0-9_\-]+$"
+                />
+                <button
+                  className="btn-secondary text-sm shrink-0"
+                  onClick={handleConfirmUsernameChange}
+                  disabled={usernameUpdating || !newUsername.trim() || newUsername.trim() === user?.username}
+                >
+                  {usernameUpdating ? 'Saving…' : <><Check size={13} className="mr-1" />Save</>}
+                </button>
+                <button
+                  className="btn-secondary text-sm shrink-0"
+                  onClick={handleCancelUsernameChange}
+                  disabled={usernameUpdating}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Clock size={12} className="text-amber-500" />
+                <span className="text-amber-600 font-medium">{countdown}</span>
+                <span className="text-ink-muted">remaining to save</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-ink">@{user?.username}</p>
+                {user?.last_username_change && cooldownInfo ? (
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    Next change eligible on {cooldownInfo.nextEligibleDate}
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    Can be changed once every 14 days
+                  </p>
+                )}
+              </div>
+              <button
+                className="btn-secondary text-sm shrink-0"
+                onClick={handleInitiateUsernameChange}
+                disabled={!!cooldownInfo}
+                title={cooldownInfo ? `Wait ${cooldownInfo.remaining} before changing username` : 'Change username'}
+              >
+                <Pencil size={13} />
+                Edit
+              </button>
+            </>
+          )}
+        </div>
+
+        {cooldownInfo && !usernameEditActive && (
+          <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+            <Clock size={11} />
+            Cooldown active — {cooldownInfo.remaining} remaining
+          </p>
+        )}
       </div>
 
       {/* Password section: Set password (no password set) or Change password (has password) */}

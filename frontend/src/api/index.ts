@@ -110,6 +110,14 @@ export const authApi = {
   completeRoadmapStep: (stepId: string) =>
     api.post("/auth/roadmap-progress", { step_id: stepId }).then((r) => r.data),
 
+  // ── Username change ──
+  initiateUsernameChange: () =>
+    api.post("/auth/change-username/init").then((r) => r.data as { session_expires_at: string; message: string }),
+  confirmUsernameChange: (newUsername: string) =>
+    api.post("/auth/change-username/confirm", { new_username: newUsername }).then((r) => r.data as import("../types").User),
+  cancelUsernameChange: () =>
+    api.post("/auth/change-username/cancel").then((r) => r.data as { message: string }),
+
   // ── OAuth ──
   oauthLogin: (provider: string) =>
     api.get(`/auth/oauth/${provider}`).then((r) => r.data as { url: string }),

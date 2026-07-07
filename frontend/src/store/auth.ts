@@ -13,6 +13,8 @@ export interface User {
   oauth_provider?: string | null
   has_password?: boolean
   roadmap_progress?: { step_id: string; completed_at: string }[]
+  last_username_change?: string | null
+  username_edit_session_expires_at?: string | null
 }
 
 export interface AuthState {
