@@ -4,7 +4,7 @@ import { clearQueryCache } from '../lib/queryClient'
 export interface User {
   id: string
   username: string
-  email: string | null
+  email?: string
   email_notifications?: boolean
   role: string
   must_change_password: boolean
