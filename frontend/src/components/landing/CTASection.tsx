@@ -16,7 +16,7 @@ export default function CTASection() {
           <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-ash via-white to-ash opacity-80 blur-2xl" />
           <div className="relative rounded-[1.75rem] border border-ash-border bg-white p-2 shadow-2xl shadow-ink/10">
             <img
-              src="/assets/screenshots/hero_cv_editor.png"
+              src="/assets/screenshots/guest_cv_editor.png"
               alt="Guest CV editor preview in AXIOM"
               className="aspect-[16/11] w-full rounded-[1.25rem] object-cover object-left-top"
               loading="lazy"
