@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
@@ -59,6 +59,10 @@ export default function AIAssistPanel({
 
   const abortRef = useRef<AbortController | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setJobDesc(cvData.job_description || "");
+  }, [cvData.job_description]);
 
   // Auto-scroll chat
   const scrollChat = () => {
@@ -369,7 +373,7 @@ export default function AIAssistPanel({
 
         {/* ── Edit tab ── */}
         <div
-          className={`${tab === "edit" ? "flex" : "hidden"} p-4 space-y-4 flex-1 min-h-0 overflow-hidden flex-col`}
+          className={`${tab === "edit" ? "flex" : "hidden"} p-4 space-y-4 flex-1 min-h-0 overflow-y-auto flex-col`}
         >
           <p className="text-xs text-ink-muted">
             Write a plain-language optimisation instruction and the AI will
@@ -396,7 +400,7 @@ export default function AIAssistPanel({
             onChange={(e) => setEditInstruction(e.target.value)}
             rows={4}
             placeholder="Or write your own instruction…"
-            className="w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink resize-none"
+            className="min-h-28 w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink resize-y"
           />
           <button
             onClick={applyEdit}
@@ -432,7 +436,7 @@ export default function AIAssistPanel({
             onChange={(e) => setJobDesc(e.target.value)}
             rows={10}
             placeholder="Paste job description here…"
-            className="flex-1 w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink resize-none"
+            className="min-h-0 flex-1 w-full px-3 py-2 text-xs border border-ash-border rounded-lg focus:outline-none focus:border-ink resize-none overflow-y-auto"
           />
           <button
             onClick={matchJob}
