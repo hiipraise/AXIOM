@@ -6,7 +6,7 @@ export default function Logo() {
     <div className="flex items-center gap-2">
       {!imgError && (
         <img
-          src="/axiom(dark).ipng"
+          src="/axiom(dark).png"
           alt=""
           className="h-7 w-7 object-contain"
           onError={() => setImgError(true)}
