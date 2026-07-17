@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { cvApi } from "../../api";
 import { useAuthStore } from "../../store/auth";
 import { CVData } from "../../types";
-import { stripMarkdownCVData, stripMarkdown } from "../../lib/stripMarkdown";
+import { stripMarkdownCVData } from "../../lib/stripMarkdown";
 import {
   X,
   Sparkles,
@@ -207,11 +207,21 @@ export default function AIAssistPanel({
   };
 
   const matchJob = async () => {
-    if (!jobDesc.trim() || loading) return;
+    const trimmedJobDesc = jobDesc.trim();
+    if (!trimmedJobDesc || loading) return;
+
     setLoading(true);
     try {
-      const res = await cvApi.aiMatchJob(cvData, jobDesc);
-      onApply(stripMarkdownCVData(res.data));
+      const res = await cvApi.aiMatchJob(
+        { ...cvData, job_description: trimmedJobDesc },
+        trimmedJobDesc,
+      );
+
+      onApply({
+        ...stripMarkdownCVData(res.data),
+        job_description: trimmedJobDesc,
+      });
+      setJobDesc(trimmedJobDesc);
       toast.success("CV aligned to job description");
     } catch {
       toast.error("Job match failed");
@@ -220,10 +230,6 @@ export default function AIAssistPanel({
     }
   };
 
-  const runReview = () => {
-    if (loading) return;
-    setTab("review");
-  };
 
   const hasAssistantResponse = chatHistory.length > 1 && chatHistory[chatHistory.length - 1]?.role === "assistant";
 
